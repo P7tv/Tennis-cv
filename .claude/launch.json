@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "webui",
+      "runtimeExecutable": "streamlit",
+      "runtimeArgs": ["run", "webui/app.py", "--server.headless", "true"],
+      "port": 8501,
+      "autoPort": true
+    }
+  ]
+}

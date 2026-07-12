@@ -1,0 +1,5 @@
+session_path,segment_index,stroke_type,start_time_s,end_time_s,impact_time_s,annotator_id,notes
+sessions/match_01.mp4,1,FH,12.4,15.1,13.8,A1,
+sessions/match_01.mp4,2,BH,16.0,18.6,17.2,A1,
+sessions/match_01.mp4,3,SV,31.5,34.9,33.1,A1,second serve
+sessions/match_01.mp4,4,FH,35.8,38.2,,A1,impact_time optional — spot-check only

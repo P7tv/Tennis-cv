@@ -1,0 +1,6 @@
+clip_path,stroke_type,dominant_side,fps,label_tier,unit_turn_frame,backswing_peak_frame,impact_frame,follow_through_peak_frame,ready_restored,ready_frame,impact_ambiguous,usable,issues,annotator_id,notes
+FH/fh_001.mp4,FH,right,30,core,,34,41,,,,false,true,,A1,
+FH/fh_002.mp4,FH,right,30,full,18,35,42,55,true,78,true,true,,A1,impact between frames — chose later frame per guideline
+SV/sv_001.mp4,SV,right,60,core,,88,134,,,,false,true,motion_blur,A2,
+BH/bh_017.mp4,BH,left,30,full,12,29,36,49,false,,false,true,,A1,player walked off — B5 genuinely not restored
+VL/vl_003.mp4,VL,right,30,core,,20,27,,,,false,false,partial_swing;player_too_far,A2,clip cut mid swing — exclude from benchmark

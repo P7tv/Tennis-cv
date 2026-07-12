@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Loeuf CV — Keyframe Labeling Tool</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", sans-serif; margin: 0; background: #f5f5f5; color: #222; }
+  header { background: #1a4731; color: #fff; padding: 10px 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; }
+  main { display: flex; gap: 12px; padding: 12px; }
+  #left { flex: 3; min-width: 0; }
+  #right { flex: 1; min-width: 260px; max-width: 340px; }
+  video { width: 100%; background: #000; border-radius: 6px; }
+  .panel { background: #fff; border-radius: 6px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .frameinfo { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .kf { display: flex; justify-content: space-between; padding: 4px 8px; border-radius: 4px; margin: 2px 0; font-size: 14px; }
+  .kf.set { background: #e6f4ea; }
+  .kf .val { font-weight: 600; }
+  button { padding: 6px 12px; border: 1px solid #bbb; border-radius: 5px; background: #fff; cursor: pointer; font-size: 13px; }
+  button.primary { background: #1a4731; color: #fff; border-color: #1a4731; }
+  button:disabled { opacity: .4; cursor: default; }
+  kbd { background: #eee; border: 1px solid #ccc; border-radius: 3px; padding: 0 5px; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  td, th { padding: 3px 6px; border-bottom: 1px solid #eee; text-align: left; }
+  tr.done td { color: #1a7431; }
+  tr.current td { background: #fff8e0; }
+  .row { display: flex; gap: 8px; align-items: center; margin: 4px 0; flex-wrap: wrap; }
+  label { font-size: 13px; }
+  input[type=text], input[type=number], select { padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+  #cliplist { max-height: 300px; overflow-y: auto; }
+  .hint { font-size: 12px; color: #666; }
+  .warn { color: #b00; font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎾 Loeuf CV — Keyframe Labeling</h1>
+  <label style="color:#fff">ผู้ label: <input type="text" id="annotator" placeholder="เช่น coach_A" style="width:90px"></label>
+  <label style="color:#fff">fps: <input type="number" id="fps" value="30" style="width:60px"></label>
+  <label style="color:#fff">มือถนัด:
+    <select id="side"><option value="right">ขวา</option><option value="left">ซ้าย</option></select>
+  </label>
+  <input type="file" id="folder" webkitdirectory multiple>
+  <button class="primary" id="exportBtn">⬇️ Export CSV</button>
+</header>
+
+<main>
+  <div id="left">
+    <div class="panel">
+      <video id="video" muted playsinline></video>
+      <div class="row" style="justify-content:space-between">
+        <span class="frameinfo">เฟรม: <span id="frameNum">–</span></span>
+        <span class="hint" id="clipName">ยังไม่ได้เลือกคลิป</span>
+        <span>
+          <button onclick="step(-10)">⏪ -10</button>
+          <button onclick="step(-1)">◀︎ -1</button>
+          <button onclick="playPause()">⏯</button>
+          <button onclick="step(1)">+1 ▶︎</button>
+          <button onclick="step(10)">+10 ⏩</button>
+        </span>
+      </div>
+    </div>
+    <div class="panel">
+      <b>คีย์ลัด:</b>
+      <kbd>←</kbd>/<kbd>→</kbd> ทีละเฟรม · <kbd>Shift+←→</kbd> ทีละ 10 ·
+      <kbd>Space</kbd> เล่น/หยุด · <kbd>I</kbd> Impact · <kbd>B</kbd> Backswing ·
+      <kbd>U</kbd> Unit turn · <kbd>F</kbd> Follow-through · <kbd>R</kbd> Ready ·
+      <kbd>N</kbd> ไม่กลับ ready · <kbd>A</kbd> ก้ำกึ่ง · <kbd>X</kbd> คลิปใช้ไม่ได้ ·
+      <kbd>Enter</kbd> บันทึก + คลิปถัดไป
+      <div class="hint" style="margin-top:6px">
+        ⭐ ขั้นต่ำต่อคลิป: <b>Impact</b> + <b>Backswing</b> — ตัวอื่นข้ามได้<br>
+        ถ้าจังหวะ impact อยู่ระหว่าง 2 เฟรม → เลือก<b>เฟรมหลัง</b> แล้วกด <kbd>A</kbd>
+      </div>
+    </div>
+  </div>
+
+  <div id="right">
+    <div class="panel">
+      <div class="kf" id="kf-impact"><span>⭐ Impact <kbd>I</kbd></span><span class="val">–</span></div>
+      <div class="kf" id="kf-backswing_peak"><span>⭐ Backswing peak <kbd>B</kbd></span><span class="val">–</span></div>
+      <div class="kf" id="kf-unit_turn"><span>Unit turn <kbd>U</kbd></span><span class="val">–</span></div>
+      <div class="kf" id="kf-follow_through_peak"><span>Follow-through <kbd>F</kbd></span><span class="val">–</span></div>
+      <div class="kf" id="kf-ready"><span>Ready restored <kbd>R</kbd>/<kbd>N</kbd></span><span class="val">–</span></div>
+      <div class="row">
+        <label><input type="checkbox" id="ambiguous"> impact ก้ำกึ่ง <kbd>A</kbd></label>
+        <label><input type="checkbox" id="unusable"> ใช้ไม่ได้ <kbd>X</kbd></label>
+      </div>
+      <div class="row" id="issueRow" style="display:none">
+        <label><input type="checkbox" value="motion_blur">เบลอ</label>
+        <label><input type="checkbox" value="low_light">มืด</label>
+        <label><input type="checkbox" value="partial_occlusion">โดนบัง</label>
+        <label><input type="checkbox" value="player_too_far">ไกลไป</label>
+        <label><input type="checkbox" value="side_view">ผิดมุม</label>
+        <label><input type="checkbox" value="partial_swing">ตัดกลางสวิง</label>
+      </div>
+      <div class="row">
+        <input type="text" id="notes" placeholder="หมายเหตุ (ถ้ามี)" style="flex:1">
+      </div>
+      <div class="row">
+        <button class="primary" style="flex:1" onclick="saveAndNext()">✅ บันทึก + คลิปถัดไป (Enter)</button>
+        <button onclick="clearLabels()">ล้าง</button>
+      </div>
+      <div class="warn" id="warnMsg"></div>
+    </div>
+    <div class="panel">
+      <b>คลิป (<span id="doneCount">0</span>/<span id="totalCount">0</span>)</b>
+      <div id="cliplist"><table id="clipTable"></table></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const KEYS = ["unit_turn","backswing_peak","impact","follow_through_peak"];
+let files = [], current = -1, labels = {};
+const $ = id => document.getElementById(id);
+const video = $("video");
+const fps = () => parseFloat($("fps").value) || 30;
+
+// progress เก็บใน localStorage กันงานหาย
+const store = () => localStorage.setItem("loeuf_labels", JSON.stringify(labels));
+try { labels = JSON.parse(localStorage.getItem("loeuf_labels") || "{}"); } catch(e) {}
+
+$("folder").addEventListener("change", e => {
+  files = [...e.target.files].filter(f => /\.(mp4|mov|avi|mkv|webm)$/i.test(f.name))
+    .sort((a,b) => (a.webkitRelativePath||a.name).localeCompare(b.webkitRelativePath||b.name));
+  renderList(); if (files.length) load(0);
+});
+
+function relPath(f) { return f.webkitRelativePath || f.name; }
+function strokeOf(f) {
+  const m = relPath(f).match(/(^|\/)(FH|BH|SV|VL|SL|RS)(\/|_|-)/i);
+  return m ? m[2].toUpperCase() : "FH";
+}
+function cur() {
+  const p = relPath(files[current]);
+  if (!labels[p]) labels[p] = { stroke_type: strokeOf(files[current]) };
+  return labels[p];
+}
+function frame() { return Math.round(video.currentTime * fps() - 0.5); }
+
+function load(i) {
+  current = i;
+  const f = files[i];
+  video.src = URL.createObjectURL(f);
+  $("clipName").textContent = `${relPath(f)}  [${strokeOf(f)}]`;
+  video.addEventListener("loadeddata", () => seek(0), { once: true });
+  renderLabels(); renderList();
+}
+function seek(fr) { video.pause(); video.currentTime = (fr + 0.5) / fps(); }
+function step(n) { seek(Math.max(0, frame() + n)); }
+function playPause() { video.paused ? video.play() : video.pause(); }
+video.addEventListener("timeupdate", () => $("frameNum").textContent = frame());
+setInterval(() => { if (!video.paused) $("frameNum").textContent = frame(); }, 50);
+
+function mark(key) {
+  const L = cur();
+  if (key === "ready_true") { L.ready_restored = true; L.ready_frame = frame(); }
+  else if (key === "ready_false") { L.ready_restored = false; delete L.ready_frame; }
+  else L[key + "_frame"] = frame();
+  renderLabels(); store();
+}
+function renderLabels() {
+  if (current < 0) return;
+  const L = cur();
+  for (const k of KEYS) {
+    const el = $("kf-" + k), v = L[k + "_frame"];
+    el.classList.toggle("set", v !== undefined);
+    el.querySelector(".val").textContent = v !== undefined ? v : "–";
+  }
+  const rd = $("kf-ready");
+  rd.classList.toggle("set", L.ready_restored !== undefined);
+  rd.querySelector(".val").textContent =
+    L.ready_restored === true ? `เฟรม ${L.ready_frame}` :
+    L.ready_restored === false ? "ไม่กลับ (ปกติ)" : "–";
+  $("ambiguous").checked = !!L.impact_ambiguous;
+  $("unusable").checked = L.usable === false;
+  $("issueRow").style.display = L.usable === false ? "flex" : "none";
+  $("notes").value = L.notes || "";
+}
+function clearLabels() { labels[relPath(files[current])] = { stroke_type: strokeOf(files[current]) }; renderLabels(); store(); }
+
+$("ambiguous").onchange = e => { cur().impact_ambiguous = e.target.checked; store(); };
+$("unusable").onchange = e => { cur().usable = !e.target.checked; renderLabels(); store(); };
+$("notes").onchange = e => { cur().notes = e.target.value; store(); };
+
+function saveAndNext() {
+  const L = cur();
+  L.notes = $("notes").value;
+  L.issues = [...document.querySelectorAll("#issueRow input:checked")].map(c => c.value);
+  if (L.usable !== false && (L.impact_frame === undefined || L.backswing_peak_frame === undefined)) {
+    $("warnMsg").textContent = "⚠️ ต้องมี Impact + Backswing ก่อน (หรือติ๊ก 'ใช้ไม่ได้')"; return;
+  }
+  $("warnMsg").textContent = "";
+  L.done = true; store(); renderList();
+  const next = files.findIndex((f, i) => i > current && !labels[relPath(f)]?.done);
+  if (next >= 0) load(next);
+  else alert("ครบทุกคลิปแล้ว 🎉 กด Export CSV ได้เลย");
+}
+
+function renderList() {
+  $("totalCount").textContent = files.length;
+  $("doneCount").textContent = files.filter(f => labels[relPath(f)]?.done).length;
+  $("clipTable").innerHTML = files.map((f, i) => {
+    const L = labels[relPath(f)] || {};
+    return `<tr class="${L.done ? "done" : ""} ${i === current ? "current" : ""}"
+      onclick="load(${i})" style="cursor:pointer">
+      <td>${L.done ? "✓" : ""}</td><td>${relPath(f)}</td>
+      <td>${L.impact_frame ?? ""}</td></tr>`;
+  }).join("");
+}
+
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" && e.target.type === "text") return;
+  const k = e.key.toLowerCase();
+  if (k === "arrowright") { step(e.shiftKey ? 10 : 1); e.preventDefault(); }
+  else if (k === "arrowleft") { step(e.shiftKey ? -10 : -1); e.preventDefault(); }
+  else if (k === " ") { playPause(); e.preventDefault(); }
+  else if (k === "i") mark("impact");
+  else if (k === "b") mark("backswing_peak");
+  else if (k === "u") mark("unit_turn");
+  else if (k === "f") mark("follow_through_peak");
+  else if (k === "r") mark("ready_true");
+  else if (k === "n") mark("ready_false");
+  else if (k === "a") { $("ambiguous").checked = !$("ambiguous").checked; $("ambiguous").onchange({target:$("ambiguous")}); }
+  else if (k === "x") { $("unusable").checked = !$("unusable").checked; $("unusable").onchange({target:$("unusable")}); }
+  else if (k === "enter") saveAndNext();
+});
+
+$("exportBtn").onclick = () => {
+  const cols = ["clip_path","stroke_type","dominant_side","fps","label_tier",
+    "unit_turn_frame","backswing_peak_frame","impact_frame","follow_through_peak_frame",
+    "ready_restored","ready_frame","impact_ambiguous","usable","issues","annotator_id","notes"];
+  const rows = [cols.join(",")];
+  for (const f of files) {
+    const p = relPath(f), L = labels[p];
+    if (!L?.done) continue;
+    const full = L.unit_turn_frame !== undefined && L.follow_through_peak_frame !== undefined;
+    const esc = v => v === undefined || v === null ? "" :
+      /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
+    rows.push([p, L.stroke_type, $("side").value, fps(), full ? "full" : "core",
+      L.unit_turn_frame, L.backswing_peak_frame, L.impact_frame, L.follow_through_peak_frame,
+      L.ready_restored, L.ready_frame, !!L.impact_ambiguous, L.usable !== false,
+      (L.issues || []).join(";"), $("annotator").value, L.notes].map(esc).join(","));
+  }
+  const blob = new Blob(["﻿" + rows.join("\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `stroke_labels_${$("annotator").value || "anon"}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+};
+</script>
+</body>
+</html>

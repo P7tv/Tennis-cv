@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Loeuf CV — Court Point Click Tool</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", sans-serif; margin: 0; background: #f5f5f5; color: #222; }
+  header { background: #1a4731; color: #fff; padding: 10px 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; }
+  main { display: flex; gap: 12px; padding: 12px; }
+  #left { flex: 3; min-width: 0; }
+  #right { flex: 1; min-width: 280px; max-width: 360px; }
+  .panel { background: #fff; border-radius: 6px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  #canvasWrap { position: relative; background: #000; border-radius: 6px; overflow: hidden; }
+  canvas { display: block; max-width: 100%; height: auto; cursor: crosshair; }
+  video { display: none; }
+  button { padding: 6px 12px; border: 1px solid #bbb; border-radius: 5px; background: #fff; cursor: pointer; font-size: 13px; }
+  button.primary { background: #1a4731; color: #fff; border-color: #1a4731; }
+  button:disabled { opacity: .4; cursor: default; }
+  select, input[type=file], input[type=number] { padding: 5px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+  .row { display: flex; gap: 8px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+  label { font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  td, th { padding: 4px 6px; border-bottom: 1px solid #eee; text-align: left; }
+  tr.net td { color: #b45f06; font-weight: 600; }
+  .hint { font-size: 12px; color: #666; }
+  .warn { color: #b00; font-size: 13px; }
+  .rm { color: #b00; cursor: pointer; font-weight: 700; }
+  .badge { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 11px; background: #e6f4ea; color: #1a7431; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎾 Loeuf CV — Court Point Click Tool</h1>
+  <label style="color:#fff">รูปเฟรม: <input type="file" id="imgFile" accept="image/*"></label>
+  <label style="color:#fff">หรือวิดีโอ: <input type="file" id="vidFile" accept="video/*"></label>
+  <span id="frameControls" class="row" style="display:none">
+    <button onclick="stepFrame(-1)">◀︎</button>
+    <button onclick="captureFrame()">📸 จับเฟรมนี้</button>
+    <button onclick="stepFrame(1)">▶︎</button>
+  </span>
+  <button class="primary" id="exportBtn" disabled>⬇️ Export JSON</button>
+  <label style="color:#fff">โหลด JSON เดิม: <input type="file" id="loadJson" accept="application/json"></label>
+</header>
+
+<main>
+  <div id="left">
+    <div class="panel">
+      <div id="canvasWrap">
+        <canvas id="canvas" width="960" height="540"></canvas>
+      </div>
+      <video id="video" muted playsinline></video>
+      <div class="hint" style="margin-top:6px">
+        ขั้นตอน: (1) โหลดรูป/วิดีโอ (2) เลือกจุดจาก dropdown ขวามือ (3) คลิกตำแหน่งจริงในภาพ
+        (4) ทำซ้ำอย่างน้อย 4 จุด — ยิ่งกระจายทั่วสนามยิ่งแม่น (5) Export JSON
+        แล้วรันกับ <code>scripts/solve_camera_pose.py</code>
+      </div>
+    </div>
+  </div>
+
+  <div id="right">
+    <div class="panel">
+      <label>จุดถัดไปที่จะคลิก:</label>
+      <select id="featureSelect" style="width:100%"></select>
+      <div class="hint" style="margin-top:6px">
+        🟠 <b>แนะนำ:</b> คลิกจุดเสาเน็ต (net_post_*) ด้วยถ้าเห็นในเฟรม —
+        ช่วยลด noise ของผลลัพธ์ได้จริง ~40% (ดู CHANGELOG 0.2.6)
+      </div>
+      <div class="warn" style="margin-top:6px">
+        ⚠️ <b>ห้ามคลิกแค่จุดที่ระดับความลึกเดียวกันทั้งหมด</b> (เช่น คลิกแค่
+        4 มุมเสาเน็ตอย่างเดียว) — validated แล้วว่านี่คือ degenerate case จริง:
+        ระบบแยก focal length กับระยะกล้องไม่ออกแม้ไม่มี noise เลย ต้องมีจุด
+        อย่างน้อย 1-2 จุดจากระดับความลึกอื่น (เช่น baseline หรือ service line)
+        เสมอ
+      </div>
+    </div>
+    <div class="panel">
+      <b>จุดที่คลิกแล้ว (<span id="ptCount">0</span>)</b>
+      <table id="ptTable"><thead><tr><th>จุด</th><th>x,y</th><th></th></tr></thead><tbody></tbody></table>
+      <div class="warn" id="warnMsg"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ต้องตรงกับ loeuf_cv/court_model.py NAMED_POINTS ทุกตัว (ชื่อ + หน่วยเมตร)
+// ใช้แค่แสดงผล/dropdown ใน UI นี้ — ตัวจริงที่ solver ใช้อ่านจาก Python module
+// (scripts/solve_camera_pose.py) ตรง ๆ ไม่ได้พึ่งพิกัดที่ mirror ไว้ตรงนี้
+const NAMED_POINTS_TH = {
+  near_baseline_left_doubles: "near baseline ซ้าย (มุม doubles)",
+  near_baseline_right_doubles: "near baseline ขวา (มุม doubles)",
+  near_baseline_left_singles: "near baseline ซ้าย (มุม singles)",
+  near_baseline_right_singles: "near baseline ขวา (มุม singles)",
+  near_service_left_singles: "near service line ซ้าย",
+  near_service_right_singles: "near service line ขวา",
+  near_service_center_T: "near service line กึ่งกลาง (T)",
+  far_service_left_singles: "far service line ซ้าย",
+  far_service_right_singles: "far service line ขวา",
+  far_service_center_T: "far service line กึ่งกลาง (T)",
+  far_baseline_left_doubles: "far baseline ซ้าย (มุม doubles)",
+  far_baseline_right_doubles: "far baseline ขวา (มุม doubles)",
+  net_post_left_base: "🟠 เสาเน็ตซ้าย โคน",
+  net_post_left_top: "🟠 เสาเน็ตซ้าย ยอด",
+  net_post_right_base: "🟠 เสาเน็ตขวา โคน",
+  net_post_right_top: "🟠 เสาเน็ตขวา ยอด",
+  net_center_bottom: "🟠 เน็ตกึ่งกลาง โคน",
+  net_center_top: "🟠 เน็ตกึ่งกลาง ยอด (91.4cm)",
+};
+
+const $ = id => document.getElementById(id);
+const canvas = $("canvas"), ctx = canvas.getContext("2d");
+const video = $("video");
+let img = null, points = [], frameW = 960, frameH = 540;
+
+for (const [key, label] of Object.entries(NAMED_POINTS_TH)) {
+  const opt = document.createElement("option");
+  opt.value = key; opt.textContent = label;
+  $("featureSelect").appendChild(opt);
+}
+
+function setCanvasSize(w, h) {
+  frameW = w; frameH = h;
+  canvas.width = w; canvas.height = h;
+}
+
+$("imgFile").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  const url = URL.createObjectURL(f);
+  const im = new Image();
+  im.onload = () => {
+    img = im;
+    setCanvasSize(im.naturalWidth, im.naturalHeight);
+    redraw();
+    $("exportBtn").disabled = false;
+    $("frameControls").style.display = "none";
+  };
+  im.src = url;
+});
+
+$("vidFile").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  video.src = URL.createObjectURL(f);
+  video.addEventListener("loadeddata", () => {
+    setCanvasSize(video.videoWidth, video.videoHeight);
+    captureFrame();
+    $("frameControls").style.display = "flex";
+  }, { once: true });
+});
+
+function stepFrame(n) {
+  video.pause();
+  video.currentTime = Math.max(0, video.currentTime + n / 30);
+  video.addEventListener("seeked", captureFrame, { once: true });
+}
+function captureFrame() {
+  img = null;
+  ctx.drawImage(video, 0, 0, frameW, frameH);
+  $("exportBtn").disabled = false;
+  redraw(true);
+}
+
+function redraw(fromVideo) {
+  if (img) ctx.drawImage(img, 0, 0, frameW, frameH);
+  else if (!fromVideo) ctx.drawImage(video, 0, 0, frameW, frameH);
+  for (const p of points) {
+    const isNet = p.feature.startsWith("net_");
+    ctx.fillStyle = isNet ? "#ffa500" : "#00e0ff";
+    ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, 2 * Math.PI); ctx.fill();
+    ctx.strokeStyle = "#000"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = "#fff"; ctx.font = "12px sans-serif";
+    ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
+    ctx.strokeText(p.feature, p.x + 8, p.y - 8);
+    ctx.fillText(p.feature, p.x + 8, p.y - 8);
+  }
+}
+
+canvas.addEventListener("click", e => {
+  if (!img && video.readyState === 0) { $("warnMsg").textContent = "โหลดรูป/วิดีโอก่อน"; return; }
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+  const x = Math.round((e.clientX - rect.left) * scaleX);
+  const y = Math.round((e.clientY - rect.top) * scaleY);
+  const feature = $("featureSelect").value;
+  points = points.filter(p => p.feature !== feature); // แทนที่ถ้าคลิกจุดเดิมซ้ำ
+  points.push({ feature, x, y });
+  $("warnMsg").textContent = "";
+  redraw(); renderTable();
+});
+
+function renderTable() {
+  $("ptCount").textContent = points.length;
+  $("ptTable").querySelector("tbody").innerHTML = points.map((p, i) => `
+    <tr class="${p.feature.startsWith('net_') ? 'net' : ''}">
+      <td>${NAMED_POINTS_TH[p.feature] || p.feature}</td>
+      <td>${p.x}, ${p.y}</td>
+      <td class="rm" onclick="removePoint(${i})">✕</td>
+    </tr>`).join("");
+}
+function removePoint(i) { points.splice(i, 1); redraw(); renderTable(); }
+
+$("loadJson").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const data = JSON.parse(reader.result);
+    points = data.points || [];
+    if (data.frame_width) setCanvasSize(data.frame_width, data.frame_height);
+    redraw(); renderTable();
+  };
+  reader.readAsText(f);
+});
+
+$("exportBtn").onclick = () => {
+  if (points.length < 4) {
+    $("warnMsg").textContent = "⚠️ ต้องคลิกอย่างน้อย 4 จุดถึงจะ solve ท่ากล้องได้ (มี 5 ค่าที่ต้องหา)";
+    return;
+  }
+  const data = { frame_width: frameW, frame_height: frameH, points };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `court_points_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+};
+</script>
+</body>
+</html>
