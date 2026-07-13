@@ -1,2 +1,6 @@
 webui/.venv-sam2/
 webui/checkpoints/
+webui/.tmp/
+*.pt
+__pycache__/
+.venv/

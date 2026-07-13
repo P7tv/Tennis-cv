@@ -60,6 +60,26 @@ def _find_low_vis_runs(vis: np.ndarray, threshold: float) -> list[tuple[int, int
     return runs
 
 
+
+
+def extrapolate_trajectory(coords, known_mask, target_frames,
+                           lookback=15, poly_deg=2):
+    known_t = np.where(known_mask)[0]
+    if len(known_t) < poly_deg + 1:
+        last_val = coords[known_t[-1]] if len(known_t) > 0 else np.zeros(coords.shape[1:])
+        return np.tile(last_val, (len(target_frames), 1))
+    fit_t = known_t[-lookback:]
+    fit_vals = coords[fit_t]
+    n_dims = coords.shape[1] if coords.ndim > 1 else 1
+    predicted = np.zeros((len(target_frames), n_dims))
+    for d in range(n_dims):
+        deg = min(poly_deg, len(fit_t) - 1)
+        coeffs = np.polyfit(fit_t, fit_vals[:, d], deg=deg)
+        predicted[:, d] = np.polyval(coeffs, target_frames)
+    if np.nanmax(np.abs(coords[known_mask])) <= 2.0:
+        predicted = np.clip(predicted, -0.1, 1.1)
+    return predicted
+
 def kinematic_fill_joint(coords: np.ndarray, visibility: np.ndarray,
                          child_idx: int, parent_idx: int,
                          low_visibility_threshold: float = LOW_VISIBILITY_THRESHOLD,
@@ -94,8 +114,15 @@ def kinematic_fill_joint(coords: np.ndarray, visibility: np.ndarray,
         gap_len = end - start
         if gap_len > max_gap_frames:
             continue  # ยาวเกินจะเชื่อ — ปล่อยตามเดิม (ดู module docstring)
-        if start == 0 or end == T:
-            continue  # ไม่มีขอบสองข้าง (ต้น/ท้ายคลิป) — interpolate ไม่ได้
+        if start == 0:
+            continue  # ไม่มีข้อมูลก่อนหน้าเลย — ข้าม
+        if end == T:
+            # Extrapolate: ทำนายจากโมเมนตัมล่าสุด (polynomial degree 2)
+            if gap_len <= 30:
+                t_gap = np.arange(start, end)
+                pred = extrapolate_trajectory(coords[:, child_idx, :], good, t_gap)
+                out[start:end, child_idx, :] = pred
+            continue
         if np.any(parent_vis[start:end] < low_visibility_threshold):
             continue  # parent เองก็ไม่น่าเชื่อถือช่วงนี้ — ข้าม
 

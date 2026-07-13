@@ -136,7 +136,7 @@ def detect_court_lines(frame: np.ndarray) -> list[tuple]:
         minLineLength=int(frame.shape[1] * MIN_LINE_LENGTH_FRAC), maxLineGap=15)
     if lines is None:
         return []
-    return [tuple(int(v) for v in l[0]) for l in lines]
+    return [tuple(int(v) for v in l.flatten()) for l in lines]
 
 
 def _line_angle_deg(line: tuple) -> float:

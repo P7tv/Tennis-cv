@@ -1,8 +1,5 @@
-# Track 2 (SAM 2 click-to-track) — ติดตั้งแยก venv จาก requirements.txt หลัก
-# เพราะ SAM 2 ดึง torch เวอร์ชันเฉพาะมาด้วย ซึ่งอาจชนกับ environment ของ
-# MediaPipe/loeuf_cv ที่ใช้อยู่แล้ว — ดู webui/README.md สำหรับวิธีตั้งค่า
-
-sam2==1.1.0
-torch==2.13.0
-torchvision==0.28.0
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch
+torchvision
+git+https://github.com/facebookresearch/sam2.git
 opencv-python>=4.8

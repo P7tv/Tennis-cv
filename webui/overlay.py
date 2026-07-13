@@ -42,7 +42,9 @@ def _track_display(tracks: list, player_labels: dict | None) -> tuple[dict, dict
 
 def render_overlay_video(video_path: str, tracks: list,
                          player_labels: dict | None = None,
-                         out_path: str | None = None) -> str:
+                         out_path: str | None = None,
+                         ball_bboxes: dict | None = None,
+                         racket_bboxes: dict | None = None) -> str:
     """วาด skeleton ของทุก track ลงบนวิดีโอต้นฉบับ คืน path ไฟล์ output
     (H.264 mp4 — เล่นได้ใน browser ทุกตัว ต่างจาก mp4v ดิบของ OpenCV)
 
@@ -55,18 +57,40 @@ def render_overlay_video(video_path: str, tracks: list,
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
+    import os
+    from pathlib import Path
+    
+    _TMP_DIR = Path(__file__).parent / ".tmp"
+    _TMP_DIR.mkdir(exist_ok=True)
+
     if out_path is None:
-        out_path = tempfile.mktemp(suffix="_raw.mp4")
+        with tempfile.NamedTemporaryFile(suffix="_raw.mp4", delete=False, dir=str(_TMP_DIR)) as f:
+            out_path = f.name
+            
     writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (fw, fh))
 
     colors, names = _track_display(tracks, player_labels)
+    
+    wrist_history: dict[int, dict[str, list[tuple[int, int]]]] = {}
 
     for frame_idx in range(n_frames):
         ok, frame = cap.read()
         if not ok:
             break
         y_offset = 25
+        
+        # 1. Draw Ball Tracking
+        if ball_bboxes and frame_idx in ball_bboxes:
+            for bx, by, bw, bh in ball_bboxes[frame_idx]:
+                cv2.circle(frame, (bx + bw//2, by + bh//2), max(bw, bh)//2, (0, 255, 255), 2, cv2.LINE_AA)
+                cv2.putText(frame, "Ball", (bx, by - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+
+        wrists_this_frame = []
+        
         for t in tracks:
+            if t.track_id not in wrist_history:
+                wrist_history[t.track_id] = {"left": [], "right": []}
+                
             vis = t.pose.visibility
             lm = t.pose.landmarks
             if frame_idx >= len(vis) or vis[frame_idx].mean() <= 0:
@@ -74,6 +98,28 @@ def render_overlay_video(video_path: str, tracks: list,
             color = colors[t.track_id]
             pts = lm[frame_idx, :, :2]
             v = vis[frame_idx]
+            
+            # 2. Extract and Draw Wrist Path
+            lw, rw = None, None
+            if v[15] >= 0.3 and not np.isnan(pts[15]).any():
+                lw = (int(pts[15, 0] * fw), int(pts[15, 1] * fh))
+                wrist_history[t.track_id]["left"].append(lw)
+                wrists_this_frame.append(("left", t.track_id, lw, color))
+            if v[16] >= 0.3 and not np.isnan(pts[16]).any():
+                rw = (int(pts[16, 0] * fw), int(pts[16, 1] * fh))
+                wrist_history[t.track_id]["right"].append(rw)
+                wrists_this_frame.append(("right", t.track_id, rw, color))
+                
+            # Limit history to 15 frames
+            wrist_history[t.track_id]["left"] = wrist_history[t.track_id]["left"][-15:]
+            wrist_history[t.track_id]["right"] = wrist_history[t.track_id]["right"][-15:]
+            
+            # Draw trails
+            if len(wrist_history[t.track_id]["left"]) >= 2:
+                cv2.polylines(frame, [np.array(wrist_history[t.track_id]["left"])], False, color, 3, cv2.LINE_AA)
+            if len(wrist_history[t.track_id]["right"]) >= 2:
+                cv2.polylines(frame, [np.array(wrist_history[t.track_id]["right"])], False, color, 3, cv2.LINE_AA)
+                
             for a, b in CONNECTIONS:
                 if np.isnan(pts[a]).any() or np.isnan(pts[b]).any():
                     continue
@@ -90,6 +136,36 @@ def render_overlay_video(video_path: str, tracks: list,
             cv2.putText(frame, names[t.track_id], (10, y_offset),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2, cv2.LINE_AA)
             y_offset += 25
+            
+        # 3. Draw Racket Center & Tip
+        if racket_bboxes and frame_idx in racket_bboxes:
+            for rx, ry, rw_w, rh in racket_bboxes[frame_idx]:
+                rcx, rcy = rx + rw_w//2, ry + rh//2
+                best_w = None
+                best_dist = float('inf')
+                for w_side, w_tid, w_pt, w_color in wrists_this_frame:
+                    d = ((rcx - w_pt[0])**2 + (rcy - w_pt[1])**2)**0.5
+                    if d < best_dist:
+                        best_dist = d
+                        best_w = (w_pt, w_color)
+                        
+                cv2.circle(frame, (rcx, rcy), 4, (255, 0, 255), -1, cv2.LINE_AA)
+                
+                # Match wrist if within reasonable distance (e.g., 3x racket size)
+                if best_w and best_dist < max(rw_w, rh) * 3:
+                    w_pt, w_color = best_w
+                    vx, vy = rcx - w_pt[0], rcy - w_pt[1]
+                    v_len = (vx**2 + vy**2)**0.5
+                    if v_len > 0:
+                        r_len = (rw_w**2 + rh**2)**0.5
+                        tip_x = int(rcx + (vx/v_len) * r_len * 0.4)
+                        tip_y = int(rcy + (vy/v_len) * r_len * 0.4)
+                        
+                        cv2.line(frame, w_pt, (rcx, rcy), w_color, 2, cv2.LINE_AA)
+                        cv2.line(frame, (rcx, rcy), (tip_x, tip_y), (255, 0, 255), 3, cv2.LINE_AA)
+                        cv2.circle(frame, (tip_x, tip_y), 5, (0, 0, 255), -1, cv2.LINE_AA)
+                        cv2.putText(frame, "Tip", (tip_x + 5, tip_y + 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
+
         cv2.putText(frame, f"frame {frame_idx}", (fw - 160, 25),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, cv2.LINE_AA)
         writer.write(frame)
@@ -97,8 +173,29 @@ def render_overlay_video(video_path: str, tracks: list,
     cap.release()
 
     h264_path = out_path.replace("_raw.mp4", ".mp4")
-    subprocess.run(
-        ["ffmpeg", "-y", "-i", out_path, "-c:v", "libx264", "-pix_fmt", "yuv420p",
-         "-crf", "23", h264_path],
-        check=True, capture_output=True)
+    
+    def _get_ffmpeg_path() -> str:
+        import shutil
+        import glob
+        path = shutil.which("ffmpeg")
+        if path: return path
+        localappdata = os.environ.get("LOCALAPPDATA", "")
+        matches = glob.glob(os.path.join(localappdata, "Microsoft", "WinGet", "Packages", "Gyan.FFmpeg*", "*", "bin", "ffmpeg.exe"))
+        if matches: return matches[0]
+        return "ffmpeg"
+        
+    try:
+        result = subprocess.run(
+            [_get_ffmpeg_path(), "-y", "-i", out_path, "-c:v", "libx264", "-pix_fmt", "yuv420p",
+             "-crf", "23", h264_path],
+            capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"FFMPEG failed (exit {result.returncode}):\n{result.stderr or result.stdout}")
+    finally:
+        if os.path.exists(out_path):
+            try:
+                os.unlink(out_path)
+            except Exception:
+                pass
+                
     return h264_path

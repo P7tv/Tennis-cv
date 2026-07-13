@@ -56,26 +56,42 @@ def _pick_device() -> str:
     return "cpu"
 
 
-def _extract_jpeg_frames(video_path: str, out_dir: str) -> int:
-    """แตกวิดีโอเป็น JPEG ต่อเฟรม (0.jpg, 1.jpg, ...) ในโฟลเดอร์ — SAM 2
-    รับ video_path เป็น mp4 ตรง ๆ ได้ แต่ต้องพึ่ง `decord` ซึ่งไม่มี wheel
-    สำหรับ Apple Silicon (เจอจริงตอน validate 2026-07-10) ใช้ cv2 แตกเฟรม
-    เองแทน — พกพาได้แน่นอนกว่า ไม่ต้องพึ่ง decord เลยแม้บนเครื่องอื่น"""
+def _get_ffmpeg_path() -> str:
+    import shutil
     import os
+    import glob
+    path = shutil.which("ffmpeg")
+    if path: return path
+    
+    # Fallback for Windows if PATH hasn't updated after winget install
+    localappdata = os.environ.get("LOCALAPPDATA", "")
+    pattern = os.path.join(localappdata, "Microsoft", "WinGet", "Packages", "Gyan.FFmpeg*", "*", "bin", "ffmpeg.exe")
+    matches = glob.glob(pattern)
+    if matches: return matches[0]
+    return "ffmpeg"
 
-    import cv2
+def _extract_jpeg_frames(video_path: str, out_dir: str) -> int:
+    """แตกวิดีโอเป็น JPEG ต่อเฟรม (00000.jpg, 00001.jpg, ...) โดยใช้ ffmpeg (เร็วกว่า cv2 มาก)"""
+    import os
+    import subprocess
+    import glob
 
     os.makedirs(out_dir, exist_ok=True)
-    cap = cv2.VideoCapture(video_path)
-    i = 0
-    while True:
-        ok, frame = cap.read()
-        if not ok:
-            break
-        cv2.imwrite(os.path.join(out_dir, f"{i:05d}.jpg"), frame)
-        i += 1
-    cap.release()
-    return i
+    
+    # Run FFmpeg to extract frames using optimal qscale for JPEG
+    try:
+        subprocess.run([
+            _get_ffmpeg_path(), "-y", "-i", video_path, 
+            "-qscale:v", "2", 
+            "-start_number", "0",
+            os.path.join(out_dir, "%05d.jpg")
+        ], check=True, capture_output=True)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"FFMPEG frame extraction failed: {e.stderr.decode('utf-8', errors='replace')}")
+
+    # Count the number of extracted frames
+    frames = glob.glob(os.path.join(out_dir, "*.jpg"))
+    return len(frames)
 
 
 def track_player_with_sam2(video_path: str, prompts: list[ClickPrompt],
@@ -85,94 +101,138 @@ def track_player_with_sam2(video_path: str, prompts: list[ClickPrompt],
     """คลิกจุดบนผู้เล่นเป้าหมาย → คืน {frame_idx: (x,y,w,h)} ของทุกเฟรมที่
     SAM 2 propagate mask ได้ (ไม่ว่างเปล่า) — ทิศทางเดียว (forward จาก
     เฟรมแรกสุดที่มี prompt) ตาม use case "คลิกเฟรมแรก track ไปข้างหน้า"
-    ใช้ Chunking Processing (150-frame windows) เพื่อเลี่ยงปัญหา Memory Crash บน macOS/MPS
+    ใช้ Chunking Processing เพื่อเลี่ยงปัญหา Memory OOM:
+      chunk_size=100 → ~1.26 GB CPU RAM ต่อ chunk (default, ปลอดภัยกับ RAM ≥8 GB)
+      chunk_size=30  → ~377 MB ต่อ chunk (ช้ากว่าเพราะ init overhead เยอะขึ้น)
+    ระหว่าง chunk จะเรียก reset_state() + empty_cache() เพื่อคืน memory ก่อน init chunk ถัดไป
     """
     import os
+    import shutil
     import tempfile
+    import contextlib
+    import torch
 
     from sam2.build_sam import build_sam2_video_predictor
-
+    
     device = device or _pick_device()
-    predictor = build_sam2_video_predictor(config_name, checkpoint, device=device)
-
-    frames_dir = tempfile.mkdtemp(prefix="sam2_frames_")
-    total_frames = _extract_jpeg_frames(video_path, frames_dir)
-
-    by_frame: dict[int, list[ClickPrompt]] = {}
-    for p in prompts:
-        by_frame.setdefault(p.frame_idx, []).append(p)
     
-    if not by_frame:
-        return {}
-
-    bboxes: dict[int, tuple[int, int, int, int]] = {}
-    CHUNK_SIZE = chunk_size
+    if "cuda" in device:
+        torch.backends.cudnn.benchmark = True
     
-    start_frame = min(by_frame)
-    current_chunk_start = start_frame
-    last_mask = None
+    # Enable autocast (half precision) to double the speed and halve the VRAM usage
+    # We use float16 because GTX 1660 (Turing) supports FP16 Tensor Cores natively.
+    autocast_context = torch.autocast("cuda", dtype=torch.float16) if "cuda" in device else contextlib.nullcontext()
+    
+    with autocast_context:
+        predictor = build_sam2_video_predictor(config_name, checkpoint, device=device)
+    
+        # Use a temp directory inside the webui directory (on the D: drive) to avoid C: drive space limits
+        temp_base_dir = os.path.join(os.path.dirname(__file__), ".tmp")
+        os.makedirs(temp_base_dir, exist_ok=True)
 
-    while current_chunk_start < total_frames:
-        chunk_end = min(current_chunk_start + CHUNK_SIZE, total_frames)
-        chunk_length = chunk_end - current_chunk_start
-        
-        # Create chunk dir and symlink frames
-        chunk_dir = tempfile.mkdtemp(prefix=f"sam2_chunk_{current_chunk_start}_")
-        for local_idx, global_idx in enumerate(range(current_chunk_start, chunk_end)):
-            src = os.path.join(frames_dir, f"{global_idx:05d}.jpg")
-            dst = os.path.join(chunk_dir, f"{local_idx:05d}.jpg")
-            os.symlink(src, dst)
-            
-        state = predictor.init_state(video_path=chunk_dir)
-        
-        # Pass mask from previous chunk if it exists
-        if last_mask is not None:
-            # add_new_mask expects boolean mask [H, W] (2 dimensions)
-            predictor.add_new_mask(state, frame_idx=0, obj_id=obj_id, mask=(last_mask.squeeze() > 0.0))
-            
-        # Add manual prompts that fall in this chunk
-        chunk_prompts = {k: v for k, v in by_frame.items() if current_chunk_start <= k < chunk_end}
-        for global_frame_idx, pts in chunk_prompts.items():
-            local_frame_idx = global_frame_idx - current_chunk_start
-            points = np.array([[p.x, p.y] for p in pts], dtype=np.float32)
-            labels = np.array([1 if p.positive else 0 for p in pts], dtype=np.int32)
-            predictor.add_new_points_or_box(
-                inference_state=state, frame_idx=local_frame_idx, obj_id=obj_id,
-                points=points, labels=labels)
-                
-        # Determine where to start propagation for this chunk
-        if last_mask is not None:
-            prop_start = 0
-        else:
-            prop_start = min(chunk_prompts.keys()) - current_chunk_start
-            
-        chunk_last_mask = None
-        for local_frame_idx, obj_ids, mask_logits in predictor.propagate_in_video(
-                state, start_frame_idx=prop_start):
-            if obj_id not in obj_ids:
-                continue
-            i = obj_ids.index(obj_id)
-            mask_logit = mask_logits[i]
-            mask_binary = (mask_logit > 0.0).cpu().numpy().squeeze()
-            bbox = mask_to_bbox(mask_binary)
-            
-            global_frame_idx = current_chunk_start + local_frame_idx
-            if bbox is not None:
-                bboxes[global_frame_idx] = bbox
-                
-            if progress_callback:
-                progress_callback(global_frame_idx, total_frames)
-                
-            # Capture the mask at the end of the chunk to pass to the next one
-            if local_frame_idx == chunk_length - 1:
-                chunk_last_mask = mask_logit.clone()
+    frames_dir = tempfile.mkdtemp(prefix="sam2_frames_", dir=temp_base_dir)
+    try:
+        total_frames = _extract_jpeg_frames(video_path, frames_dir)
 
-        # Overlap by 1 frame so we can pass the mask at local frame 0 of the next chunk
-        if chunk_end == total_frames:
-            break
+        by_frame: dict[int, list[ClickPrompt]] = {}
+        for p in prompts:
+            by_frame.setdefault(p.frame_idx, []).append(p)
+        
+        if not by_frame:
+            return {}
+
+        bboxes: dict[int, tuple[int, int, int, int]] = {}
+        CHUNK_SIZE = chunk_size
+        
+        start_frame = min(by_frame)
+        current_chunk_start = start_frame
+        last_mask = None
+
+        while current_chunk_start < total_frames:
+            chunk_end = min(current_chunk_start + CHUNK_SIZE, total_frames)
+            chunk_length = chunk_end - current_chunk_start
             
-        last_mask = chunk_last_mask
-        current_chunk_start = chunk_end - 1 
+            # Create chunk dir and copy frames (symlinks fail on Windows without admin)
+            chunk_dir = tempfile.mkdtemp(prefix=f"sam2_chunk_{current_chunk_start}_", dir=temp_base_dir)
+            with autocast_context:
+                try:
+                    for local_idx, global_idx in enumerate(range(current_chunk_start, chunk_end)):
+                        src = os.path.join(frames_dir, f"{global_idx:05d}.jpg")
+                        dst = os.path.join(chunk_dir, f"{local_idx:05d}.jpg")
+                        try:
+                            os.link(src, dst)
+                        except OSError:
+                            shutil.copy(src, dst)
+                    
+                    state = predictor.init_state(video_path=chunk_dir)
+                    
+                    # Pass mask from previous chunk if it exists
+                    if last_mask is not None:
+                        # add_new_mask expects boolean mask [H, W] (2 dimensions)
+                        predictor.add_new_mask(state, frame_idx=0, obj_id=obj_id, mask=(last_mask.squeeze() > 0.0))
+                        
+                    # Add manual prompts that fall in this chunk
+                    chunk_prompts = {k: v for k, v in by_frame.items() if current_chunk_start <= k < chunk_end}
+                    for global_frame_idx, pts in chunk_prompts.items():
+                        local_frame_idx = global_frame_idx - current_chunk_start
+                        points = np.array([[p.x, p.y] for p in pts], dtype=np.float32)
+                        labels = np.array([1 if p.positive else 0 for p in pts], dtype=np.int32)
+                        predictor.add_new_points_or_box(
+                            inference_state=state, frame_idx=local_frame_idx, obj_id=obj_id,
+                            points=points, labels=labels)
+                            
+                    # Determine where to start propagation for this chunk
+                    if last_mask is not None:
+                        prop_start = 0
+                    else:
+                        prop_start = min(chunk_prompts.keys()) - current_chunk_start
+                        
+                    chunk_last_mask = None
+                    for local_frame_idx, obj_ids, mask_logits in predictor.propagate_in_video(
+                            state, start_frame_idx=prop_start):
+                        if obj_id not in obj_ids:
+                            continue
+                        i = obj_ids.index(obj_id)
+                        mask_logit = mask_logits[i]
+                        mask_binary = (mask_logit > 0.0).cpu().numpy().squeeze()
+                        bbox = mask_to_bbox(mask_binary)
+                        
+                        global_frame_idx = current_chunk_start + local_frame_idx
+                        if bbox is not None:
+                            bboxes[global_frame_idx] = bbox
+                            
+                        if progress_callback:
+                            progress_callback(global_frame_idx, total_frames)
+                            
+                        # Capture the mask at the end of the chunk to pass to the next one
+                        if local_frame_idx == chunk_length - 1:
+                            chunk_last_mask = mask_logit.clone()
+                finally:
+                    # Explicitly release SAM 2's per-chunk state before next init_state().
+                    # Without this, PyTorch holds the previous chunk's feature maps in
+                    # memory while trying to allocate the next chunk → OOM on chunk 2+
+                    # even when chunk 1 fit fine.
+                    try:
+                        predictor.reset_state(state)
+                    except Exception:
+                        pass
+                    try:
+                        import torch
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                    except Exception:
+                        pass
+                    shutil.rmtree(chunk_dir, ignore_errors=True)
+    
+                # Overlap by 1 frame so we can pass the mask at local frame 0 of the next chunk
+                if chunk_end == total_frames:
+                    break
+                    
+                last_mask = chunk_last_mask
+                current_chunk_start = chunk_end - 1 
+
+    finally:
+        shutil.rmtree(frames_dir, ignore_errors=True)
 
     return bboxes
 
