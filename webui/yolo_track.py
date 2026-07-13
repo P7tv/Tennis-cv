@@ -33,7 +33,7 @@ def track_players_with_yolo(
     max_players: int = 2,
     config: PipelineConfig | None = None,
     progress_callback=None,
-    model_path: str = "yolo11n.pt",
+    model_path: str = "yolo26s.pt",
 ) -> list[PlayerTrack]:
     """ใช้ YOLO11n + BoT-SORT ตามรอยคนและสกัดโครงกระดูกด้วย MediaPipe Pose
 
@@ -53,12 +53,12 @@ def track_players_with_yolo(
     # ─────────────────────────────────────────────────────────
     # Pass 1: YOLO11 + BoT-SORT → เก็บ bbox ต่อ track_id ต่อเฟรม
     # ─────────────────────────────────────────────────────────
-    model = YOLO("yolo11n.pt")
+    model = YOLO("yolo26s.pt")
     
     custom_model = None
     custom_ball_id, custom_racket_id = -1, -1
     has_person_class = False
-    if model_path and model_path != "yolo11n.pt" and os.path.exists(model_path):
+    if model_path and model_path != "yolo26s.pt" and os.path.exists(model_path):
         custom_model = YOLO(model_path)
         for k, v in custom_model.names.items():
             vl = v.lower()

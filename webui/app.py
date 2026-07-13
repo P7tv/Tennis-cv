@@ -57,14 +57,14 @@ with st.sidebar:
         import os
         
         # ค้นหาโมเดล .pt ทั้งหมดในโปรเจกต์
-        available_models = ["yolo11n.pt"]
-        custom_models = glob.glob("runs/detect/*/weights/*.pt") + glob.glob("*.pt")
+        available_models = ["yolo26s.pt"]
+        custom_models = glob.glob("runs/**/*.pt", recursive=True) + glob.glob("*.pt")
         for m in custom_models:
-            m_norm = os.path.normpath(m).replace("\\", "/")
-            if m_norm not in available_models and not m_norm.endswith("yolo11n.pt"):
+            m_norm = os.path.normpath(m)
+            if m_norm not in available_models and not m_norm.endswith("yolo26s.pt"):
                 available_models.append(m_norm)
                 
-        yolo_model_path = st.selectbox("YOLO Model", available_models, help="เลือก yolo11n.pt (โมเดลพื้นฐาน) หรือเลือกโมเดลที่คุณ Train เองจากในรายการ")
+        yolo_model_path = st.selectbox("YOLO Model", available_models, help="เลือก yolo26s.pt (โมเดลพื้นฐาน) หรือเลือกโมเดลที่คุณ Train เองจากในรายการ")
         run_btn = st.button("▶️ Run YOLO11 + BoT-SORT", type="primary", disabled=uploaded is None)
     else:
         run_btn = False
