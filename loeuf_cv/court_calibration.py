@@ -35,10 +35,20 @@ BASELINE_TO_NET_M = 11.885
 NET_HEIGHT_CENTER_M = 0.914
 
 WORLD_POINTS = {
+    # 4 มุมมาตรฐาน (สนามเดี่ยว)
     "near_baseline_left": (-SINGLES_HALF_WIDTH_M, 0.0),
     "near_baseline_right": (SINGLES_HALF_WIDTH_M, 0.0),
     "service_line_left": (-SINGLES_HALF_WIDTH_M, BASELINE_TO_SERVICE_M),
     "service_line_right": (SINGLES_HALF_WIDTH_M, BASELINE_TO_SERVICE_M),
+    
+    # จุดกึ่งกลาง (ทางเลือกเมื่อมุมซ้าย/ขวาหลุดจอ)
+    "center_baseline": (0.0, 0.0),
+    "center_service_line": (0.0, BASELINE_TO_SERVICE_M),
+    
+    # เส้นใต้เน็ต (ทางเลือกเมื่อเส้นหลังหลุดจอทั้งซ้ายขวา)
+    "net_left": (-SINGLES_HALF_WIDTH_M, BASELINE_TO_NET_M),
+    "net_right": (SINGLES_HALF_WIDTH_M, BASELINE_TO_NET_M),
+    "center_net": (0.0, BASELINE_TO_NET_M),
 }
 
 MIN_LINE_LENGTH_FRAC = 0.08
@@ -118,6 +128,18 @@ def estimate_height_cm(player_pixel_height: float, player_depth_m: float,
 
 # ---------- perception (classical CV — best-effort, ต้องจูนกับข้อมูลจริง) ----------
 
+def _apply_gamma(frame: np.ndarray, gamma: float = 1.5) -> np.ndarray:
+    """Gamma correction — ยกแสงภาพมืด ช่วยให้เส้นคอร์ทขาวชัดขึ้นในคลิปกลางคืน"""
+    inv_gamma = 1.0 / gamma
+    table = (np.arange(256) / 255.0) ** inv_gamma * 255
+    return cv2.LUT(frame, table.astype(np.uint8))
+
+
+def _auto_brightness_ok(gray: np.ndarray, thresh: int = 80) -> bool:
+    """True ถ้าภาพสว่างพอ (median brightness > thresh)"""
+    return float(np.median(gray)) > thresh
+
+
 def detect_court_lines(frame: np.ndarray) -> list[tuple]:
     """หาเส้นตรงสว่าง (เส้นคอร์ทขาว/ครีมตัดกับพื้นสนามเข้มกว่า)
     คืน list ของ (x1, y1, x2, y2)
@@ -125,11 +147,29 @@ def detect_court_lines(frame: np.ndarray) -> list[tuple]:
     ตัดโซนบนของเฟรม (รั้ว/หลังคา/เสาไฟ/ท้องฟ้า) ทิ้งก่อนเสมอ — validated
     บนคลิปจริงว่าโครงเสาไฟถูกจับเป็นเส้นทแยง (false positive sideline)
     ถ้าไม่ตัดโซนนี้ออก
+
+    รองรับทั้งคลิปกลางวัน (fixed threshold) และกลางคืน (adaptive + gamma)
     """
     frame = frame.copy()
     frame[:int(frame.shape[0] * COURT_SURFACE_TOP_FRAC), :] = 0
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    _, bright = cv2.threshold(gray, BRIGHT_LINE_THRESHOLD, 255, cv2.THRESH_BINARY)
+
+    # ─── Auto-detect lighting: ถ้ามืดเกินไป ใช้ Gamma + Adaptive Threshold ───
+    if not _auto_brightness_ok(gray):
+        # Gamma correction: ยกแสงโซนมืดขึ้นก่อน
+        frame_bright = _apply_gamma(frame, gamma=2.0)
+        gray = cv2.cvtColor(frame_bright, cv2.COLOR_BGR2GRAY)
+        # CLAHE: normalize local contrast (ทนต่อ spotlight ไม่สม่ำเสมอ)
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        gray = clahe.apply(gray)
+        # Adaptive threshold: ทำงานได้แม้ contrast รวมต่ำ
+        bright = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY, blockSize=31, C=-10
+        )
+    else:
+        _, bright = cv2.threshold(gray, BRIGHT_LINE_THRESHOLD, 255, cv2.THRESH_BINARY)
+
     edges = cv2.Canny(bright, 50, 150)
     lines = cv2.HoughLinesP(
         edges, 1, np.pi / 180, threshold=40,

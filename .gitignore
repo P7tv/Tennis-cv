@@ -4,3 +4,7 @@ webui/.tmp/
 *.pt
 __pycache__/
 .venv/
+runs/
+tennis-ball-detection*/
+tennis-racket*/
+hit_candidates.csv

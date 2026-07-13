@@ -12,6 +12,7 @@ webui/yolo_track.py
 
 from __future__ import annotations
 
+import os
 import cv2
 import numpy as np
 import torch
@@ -32,6 +33,7 @@ def track_players_with_yolo(
     max_players: int = 2,
     config: PipelineConfig | None = None,
     progress_callback=None,
+    model_path: str = "yolo11n.pt",
 ) -> list[PlayerTrack]:
     """ใช้ YOLO11n + BoT-SORT ตามรอยคนและสกัดโครงกระดูกด้วย MediaPipe Pose
 
@@ -49,9 +51,27 @@ def track_players_with_yolo(
     total_frames = meta.frame_count
 
     # ─────────────────────────────────────────────────────────
-    # Pass 1: YOLO11n + BoT-SORT → เก็บ bbox ต่อ track_id ต่อเฟรม
+    # Pass 1: YOLO11 + BoT-SORT → เก็บ bbox ต่อ track_id ต่อเฟรม
     # ─────────────────────────────────────────────────────────
     model = YOLO("yolo11n.pt")
+    
+    custom_model = None
+    custom_ball_id, custom_racket_id = -1, -1
+    has_person_class = False
+    if model_path and model_path != "yolo11n.pt" and os.path.exists(model_path):
+        custom_model = YOLO(model_path)
+        for k, v in custom_model.names.items():
+            vl = v.lower()
+            if "ball" in vl: custom_ball_id = k
+            elif "racket" in vl: custom_racket_id = k
+            elif "person" in vl: has_person_class = True
+            
+    single_model_mode = False
+    # ถ้า Custom Model สามารถจับคนได้ (มี class person) ให้ใช้ Custom Model ตัวเดียวเลย ประหยัด VRAM/RAM ไปครึ่งนึง!
+    if has_person_class and custom_model is not None:
+        model = custom_model
+        single_model_mode = True
+        print("💡 Memory Optimization: Custom model supports 'person' class. Using Single Model Mode.")
 
     # track_id -> {frame_idx: (x, y, w, h)}
     tracks_bboxes: dict[int, dict[int, tuple[int, int, int, int]]] = {}
@@ -62,10 +82,13 @@ def track_players_with_yolo(
     racket_bboxes_per_frame: dict[int, list[tuple[int, int, int, int]]] = {}
 
     frame_idx = 0
+    # ถ้าใช้ single_model_mode จะ track ทุกคลาส (คน, บอล, ไม้) ในรอบเดียว
+    track_classes = None if single_model_mode else ([0, 32, 38] if custom_model is None else [0])
+    
     for r in model.track(
         source=video_path,
         tracker="botsort.yaml",
-        classes=[0, 32, 38],      # person, sports ball, tennis racket
+        classes=track_classes,
         stream=True,
         device=device,
         verbose=False,
@@ -74,6 +97,7 @@ def track_players_with_yolo(
         ball_bboxes_per_frame[frame_idx] = []
         racket_bboxes_per_frame[frame_idx] = []
         
+        # --- Handle Person Tracking (from base model) ---
         if len(boxes) > 0:
             xyxy_arr = boxes.xyxy.cpu().numpy()
             cls_arr = boxes.cls.cpu().numpy()
@@ -94,16 +118,104 @@ def track_players_with_yolo(
                         tracks_bboxes[tid][frame_idx] = (x, y, w, h)
                         tracks_cx[tid].append(x + w / 2.0)
                         tracks_cy[tid].append(y + h / 2.0)
-                elif cls_id == 32: # sports ball
-                    ball_bboxes_per_frame[frame_idx].append((x, y, w, h))
-                elif cls_id == 38: # tennis racket
-                    racket_bboxes_per_frame[frame_idx].append((x, y, w, h))
+                elif single_model_mode:
+                    if cls_id == custom_ball_id: ball_bboxes_per_frame[frame_idx].append((x, y, w, h))
+                    elif cls_id == custom_racket_id: racket_bboxes_per_frame[frame_idx].append((x, y, w, h))
+                elif custom_model is None:
+                    # Fallback to base model for ball/racket if no custom model
+                    if cls_id == 32: ball_bboxes_per_frame[frame_idx].append((x, y, w, h))
+                    elif cls_id == 38: racket_bboxes_per_frame[frame_idx].append((x, y, w, h))
+
+        # --- Handle Ball & Racket Detection (from custom model) ---
+        if custom_model is not None and not single_model_mode:
+            # Run inference on the original frame image with lower confidence to catch fast/distant balls
+            # ขยาย imgsz ให้ใหญ่ขึ้น (1088 หรือ 1280) เพื่อให้มองเห็นลูกเทนนิสที่เล็กมากๆ ในคลิป 1080p 
+            c_results = custom_model(r.orig_img, conf=0.05, imgsz=1088, verbose=False, device=device)[0]
+            if len(c_results.boxes) > 0:
+                c_xyxy = c_results.boxes.xyxy.cpu().numpy()
+                c_cls = c_results.boxes.cls.cpu().numpy()
+                for xyxy, cls_id in zip(c_xyxy, c_cls):
+                    cls_id = int(cls_id)
+                    x1, y1, x2, y2 = xyxy
+                    x, y, w, h = int(x1), int(y1), int(x2 - x1), int(y2 - y1)
+                    if cls_id == custom_ball_id:
+                        ball_bboxes_per_frame[frame_idx].append((x, y, w, h))
+                    elif cls_id == custom_racket_id:
+                        racket_bboxes_per_frame[frame_idx].append((x, y, w, h))
 
         if progress_callback:
             progress_callback(frame_idx // 2, total_frames)
         frame_idx += 1
+        
+        # Free memory inside loop
+        del boxes, r
+        if custom_model is not None:
+            del c_results
 
     actual_frames = frame_idx
+    
+    import gc
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    # ─────────────────────────────────────────────────────────
+    # Filter: Stationary Ball Removal (กันหลอดไฟ / ลูกเทนนิสบนพื้น)
+    # ─────────────────────────────────────────────────────────
+    import math
+    
+    # 1. รวบรวมจุดกึ่งกลางของลูกเทนนิสทั้งหมด
+    ball_centers = []
+    for f_idx, bboxes in ball_bboxes_per_frame.items():
+        for b_idx, (bx, by, bw, bh) in enumerate(bboxes):
+            cx, cy = bx + bw / 2.0, by + bh / 2.0
+            ball_centers.append({"f": f_idx, "b": b_idx, "cx": cx, "cy": cy, "stationary": False})
+            
+    # 2. หา Cluster ของจุดที่อยู่ใกล้เคียงกันข้ามเฟรม (Spatial Clustering)
+    # ถ้าระยะห่างระหว่างจุด < 20 pixels ถือว่าเป็นจุดเดียวกัน
+    DIST_THRESH = 20.0
+    MIN_STATIONARY_FRAMES = 15
+    
+    clusters = []
+    for pt in ball_centers:
+        matched_cluster = None
+        for cluster in clusters:
+            # Check distance to cluster center
+            ccx, ccy = cluster["sum_x"] / cluster["count"], cluster["sum_y"] / cluster["count"]
+            if math.hypot(pt["cx"] - ccx, pt["cy"] - ccy) < DIST_THRESH:
+                matched_cluster = cluster
+                break
+                
+        if matched_cluster:
+            matched_cluster["pts"].append(pt)
+            matched_cluster["sum_x"] += pt["cx"]
+            matched_cluster["sum_y"] += pt["cy"]
+            matched_cluster["count"] += 1
+            matched_cluster["min_f"] = min(matched_cluster["min_f"], pt["f"])
+            matched_cluster["max_f"] = max(matched_cluster["max_f"], pt["f"])
+        else:
+            clusters.append({
+                "pts": [pt],
+                "sum_x": pt["cx"], "sum_y": pt["cy"],
+                "count": 1,
+                "min_f": pt["f"], "max_f": pt["f"]
+            })
+            
+    # 3. Mark points in stationary clusters (อยู่นิ่งๆ ข้ามหลายเฟรม)
+    for cluster in clusters:
+        frame_span = cluster["max_f"] - cluster["min_f"] + 1
+        if frame_span >= MIN_STATIONARY_FRAMES and cluster["count"] >= (MIN_STATIONARY_FRAMES * 0.5):
+            for pt in cluster["pts"]:
+                pt["stationary"] = True
+                
+    # 4. สร้าง dict ใหม่เฉพาะจุดที่กำลังเคลื่อนที่
+    filtered_ball_bboxes = {i: [] for i in range(total_frames)}
+    for pt in ball_centers:
+        if not pt["stationary"]:
+            filtered_ball_bboxes[pt["f"]].append(ball_bboxes_per_frame[pt["f"]][pt["b"]])
+            
+    # อัปเดตทับข้อมูลเดิม
+    ball_bboxes_per_frame = filtered_ball_bboxes
 
     # ─────────────────────────────────────────────────────────
     # Filter: ต้องขยับพอ (กันผู้ชม/เก็บบอลที่ยืนนิ่ง) + เลือกยาวสุด

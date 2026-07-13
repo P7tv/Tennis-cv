@@ -44,7 +44,9 @@ def render_overlay_video(video_path: str, tracks: list,
                          player_labels: dict | None = None,
                          out_path: str | None = None,
                          ball_bboxes: dict | None = None,
-                         racket_bboxes: dict | None = None) -> str:
+                         racket_bboxes: dict | None = None,
+                         court_homography: np.ndarray | None = None,
+                         hit_events: list[dict] | None = None) -> str:
     """วาด skeleton ของทุก track ลงบนวิดีโอต้นฉบับ คืน path ไฟล์ output
     (H.264 mp4 — เล่นได้ใน browser ทุกตัว ต่างจาก mp4v ดิบของ OpenCV)
 
@@ -84,6 +86,47 @@ def render_overlay_video(video_path: str, tracks: list,
             for bx, by, bw, bh in ball_bboxes[frame_idx]:
                 cv2.circle(frame, (bx + bw//2, by + bh//2), max(bw, bh)//2, (0, 255, 255), 2, cv2.LINE_AA)
                 cv2.putText(frame, "Ball", (bx, by - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+
+        # 1.5 Draw Court Grid
+        if court_homography is not None:
+            from loeuf_cv.court_calibration import image_point_from_world, WORLD_POINTS
+            try:
+                # Get image coordinates for the 4 corners
+                nbl = image_point_from_world(court_homography, WORLD_POINTS["near_baseline_left"])
+                nbr = image_point_from_world(court_homography, WORLD_POINTS["near_baseline_right"])
+                sll = image_point_from_world(court_homography, WORLD_POINTS["service_line_left"])
+                slr = image_point_from_world(court_homography, WORLD_POINTS["service_line_right"])
+                
+                # Convert to integer pixel coordinates
+                pts_bl = np.array([nbl, nbr], np.int32)
+                pts_sl = np.array([sll, slr], np.int32)
+                pts_left = np.array([nbl, sll], np.int32)
+                pts_right = np.array([nbr, slr], np.int32)
+                
+                court_color = (0, 255, 0) # Green for court grid
+                cv2.polylines(frame, [pts_bl], False, court_color, 2, cv2.LINE_AA)
+                cv2.polylines(frame, [pts_sl], False, court_color, 2, cv2.LINE_AA)
+                cv2.polylines(frame, [pts_left], False, court_color, 2, cv2.LINE_AA)
+                cv2.polylines(frame, [pts_right], False, court_color, 2, cv2.LINE_AA)
+            except Exception:
+                pass # Fail silently if homography mapping errors out
+
+        # 1.6 Draw Hit Events
+        if hit_events:
+            for hit in hit_events:
+                hf = hit["frame"]
+                if hf <= frame_idx <= hf + 10:
+                    # Draw HIT effect
+                    # Find ball position in this frame or use hit frame's ball position (approximate)
+                    bx, by = int(fw/2), int(fh/2)
+                    if ball_bboxes and frame_idx in ball_bboxes and ball_bboxes[frame_idx]:
+                        b = ball_bboxes[frame_idx][0]
+                        bx, by = b[0] + b[2]//2, b[1] + b[3]//2
+                    
+                    # Create ripple effect
+                    radius = (frame_idx - hf + 1) * 10
+                    cv2.circle(frame, (bx, by), radius, (0, 0, 255), 3, cv2.LINE_AA)
+                    cv2.putText(frame, "HIT!", (bx + 20, by - 20), cv2.FONT_HERSHEY_DUPLEX, 1.0, (0, 0, 255), 2, cv2.LINE_AA)
 
         wrists_this_frame = []
         
@@ -184,10 +227,13 @@ def render_overlay_video(video_path: str, tracks: list,
         if matches: return matches[0]
         return "ffmpeg"
         
+    import gc
+    gc.collect()
+    
     try:
         result = subprocess.run(
             [_get_ffmpeg_path(), "-y", "-i", out_path, "-c:v", "libx264", "-pix_fmt", "yuv420p",
-             "-crf", "23", h264_path],
+             "-crf", "23", "-preset", "ultrafast", "-threads", "2", h264_path],
             capture_output=True, text=True)
         if result.returncode != 0:
             raise RuntimeError(f"FFMPEG failed (exit {result.returncode}):\n{result.stderr or result.stdout}")

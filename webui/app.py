@@ -53,6 +53,18 @@ with st.sidebar:
     if tracking_method == "Classical CV (MOG2)":
         run_btn = st.button("▶️ รัน inference (MOG2)", type="primary", disabled=uploaded is None)
     elif tracking_method == "YOLO11 + BoT-SORT 🆕":
+        import glob
+        import os
+        
+        # ค้นหาโมเดล .pt ทั้งหมดในโปรเจกต์
+        available_models = ["yolo11n.pt"]
+        custom_models = glob.glob("runs/detect/*/weights/*.pt") + glob.glob("*.pt")
+        for m in custom_models:
+            m_norm = os.path.normpath(m).replace("\\", "/")
+            if m_norm not in available_models and not m_norm.endswith("yolo11n.pt"):
+                available_models.append(m_norm)
+                
+        yolo_model_path = st.selectbox("YOLO Model", available_models, help="เลือก yolo11n.pt (โมเดลพื้นฐาน) หรือเลือกโมเดลที่คุณ Train เองจากในรายการ")
         run_btn = st.button("▶️ Run YOLO11 + BoT-SORT", type="primary", disabled=uploaded is None)
     else:
         run_btn = False
@@ -99,13 +111,17 @@ if uploaded is not None:
 
     if tracking_method == "YOLO11 + BoT-SORT 🆕":
         if run_btn:
+            import importlib
+            import webui.yolo_track
+            importlib.reload(webui.yolo_track)
             from webui.yolo_track import track_players_with_yolo
+            
             prog = st.progress(0, text="YOLO Tracking...")
             def _yolo_cb(cur, tot):
                 prog.progress(min(cur / max(tot, 1), 1.0), text=f"Processing frame {cur}/{tot}")
             with st.spinner("Running YOLO11 + BoT-SORT..."):
                 try:
-                    tracks, ball_bboxes, racket_bboxes = track_players_with_yolo(video_path, max_players=max_players, config=config, progress_callback=_yolo_cb)
+                    tracks, ball_bboxes, racket_bboxes = track_players_with_yolo(video_path, max_players=max_players, config=config, progress_callback=_yolo_cb, model_path=yolo_model_path)
                     st.session_state.tracks = tracks
                     st.session_state.ball_bboxes = ball_bboxes
                     st.session_state.racket_bboxes = racket_bboxes
@@ -234,8 +250,250 @@ if tracks:
                 label_options, index=min(default_idx, len(label_options) - 1),
                 key=f"label_{t.track_id}")
 
+    # ─────────────────────────────────────────────────────────
+    # Section 2.3: Court Calibration
+    # ─────────────────────────────────────────────────────────
+    st.header("2.3 Court Calibration")
+    st.caption("ใช้หา homography สนาม (image → เมตรจริง) เพื่อแสดงตำแหน่งเด้งลูกจริงบนสนาม")
+    
+    if "court_homography" not in st.session_state:
+        st.session_state.court_homography = None
+    if "court_cal_status" not in st.session_state:
+        st.session_state.court_cal_status = None
+    
+    cal_col1, cal_col2 = st.columns([2, 1])
+    with cal_col1:
+        if st.button("🎾 Auto-Calibrate Court"):
+            with st.spinner("สแกนหาเส้นสนามอัตโนมัติ..."):
+                from loeuf_cv.court_calibration import auto_detect_height_cm
+                _, court_cal = auto_detect_height_cm(
+                    video_path, tracks[0].pose, config, sample_frames=25
+                )
+                if court_cal.valid:
+                    st.session_state.court_homography = court_cal.homography
+                    st.session_state.court_cal_status = ("✅", f"Auto-calibrate สำเร็จ")
+                else:
+                    st.session_state.court_cal_status = ("⚠️", f"Auto-calibrate ไม่สำเร็จ: {court_cal.reason}")
+    
+    if st.session_state.court_cal_status:
+        icon, msg = st.session_state.court_cal_status
+        if icon == "✅":
+            st.success(msg)
+        else:
+            st.warning(msg)
+    
+    # Manual 4-point picker (fallback ถ้า auto fail)
+    with st.expander("✏️ Manual Court Calibration (คลิกกำหนด 4 มุมสนามเอง)", expanded=(st.session_state.court_homography is None)):
+        st.info("ใช้กรณีที่ Auto-Calibrate ไม่สำเร็จ หรือเส้นคอร์ทหลุดกรอบวิดีโอ")
+        
+        cal_mode = st.radio(
+            "เลือกจุดอ้างอิงที่จะคลิก:",
+            [
+                "4 มุมมาตรฐาน (ซ้าย-ขวา)",
+                "กึ่งกลาง และ ฝั่งขวา (ใช้เมื่อฝั่งซ้ายหลุดกรอบ)",
+                "กึ่งกลาง และ ฝั่งซ้าย (ใช้เมื่อฝั่งขวาหลุดกรอบ)",
+                "เส้นเสิร์ฟ และ เส้นเน็ต (ใช้เมื่อมุมหลังหลุดกรอบทั้งซ้ายขวา)"
+            ]
+        )
+        
+        if cal_mode == "4 มุมมาตรฐาน (ซ้าย-ขวา)":
+            _pt_names = ["near_baseline_left", "near_baseline_right", "service_line_left", "service_line_right"]
+            st.caption("คลิกตามลำดับ: 1.มุม baseline ซ้าย, 2.มุม baseline ขวา, 3.มุม service line ซ้าย, 4.มุม service line ขวา")
+        elif cal_mode == "กึ่งกลาง และ ฝั่งขวา (ใช้เมื่อฝั่งซ้ายหลุดกรอบ)":
+            _pt_names = ["center_baseline", "near_baseline_right", "center_service_line", "service_line_right"]
+            st.caption("คลิกตามลำดับ: 1.จุดกึ่งกลาง baseline, 2.มุม baseline ขวา, 3.จุดกึ่งกลาง service line, 4.มุม service line ขวา")
+        elif cal_mode == "กึ่งกลาง และ ฝั่งซ้าย (ใช้เมื่อฝั่งขวาหลุดกรอบ)":
+            _pt_names = ["near_baseline_left", "center_baseline", "service_line_left", "center_service_line"]
+            st.caption("คลิกตามลำดับ: 1.มุม baseline ซ้าย, 2.จุดกึ่งกลาง baseline, 3.มุม service line ซ้าย, 4.จุดกึ่งกลาง service line")
+        else:
+            _pt_names = ["service_line_left", "service_line_right", "net_left", "net_right"]
+            st.caption("คลิกตามลำดับ: 1.มุม service line ซ้าย, 2.มุม service line ขวา, 3.จุดตัดขอบสนามเดี่ยวซ้ายกับเส้นใต้เน็ต, 4.จุดตัดขอบสนามเดี่ยวขวากับเส้นใต้เน็ต")
+            
+        import cv2 as _cv2
+        _cap = _cv2.VideoCapture(video_path)
+        _ok, _frame = _cap.read()
+        _cap.release()
+        if _ok:
+            try:
+                from streamlit_image_coordinates import streamlit_image_coordinates
+                _frame_rgb = _cv2.cvtColor(_frame, _cv2.COLOR_BGR2RGB)
+                
+                # เปลี่ยน key เมื่อ mode เปลี่ยน จะได้ reset จุดเก่าทิ้ง
+                mode_key = cal_mode.split()[0]
+                _clicked = streamlit_image_coordinates(_frame_rgb, key=f"court_picker_{mode_key}")
+                
+                if f"court_manual_pts_{mode_key}" not in st.session_state:
+                    st.session_state[f"court_manual_pts_{mode_key}"] = []
+                
+                pts_list = st.session_state[f"court_manual_pts_{mode_key}"]
+                
+                if _clicked is not None:
+                    pt = (_clicked["x"], _clicked["y"])
+                    # เพิ่มจุดใหม่ถ้ายังไม่ครบ 4 จุด และไม่ซ้ำกับจุดล่าสุด
+                    if len(pts_list) < 4:
+                        if not pts_list or pt != pts_list[-1]:
+                            pts_list.append(pt)
+                
+                for idx, name in enumerate(_pt_names):
+                    if idx < len(pts_list):
+                        st.write(f"  {idx+1}. {name}: {pts_list[idx]}")
+                    else:
+                        st.write(f"  {idx+1}. {name}: (ยังไม่ได้คลิก)")
+                
+                col_m1, col_m2 = st.columns(2)
+                with col_m1:
+                    if st.button("✅ Apply Manual Calibration", key=f"apply_{mode_key}") and len(pts_list) >= 4:
+                        from loeuf_cv.court_calibration import solve_ground_homography
+                        img_pts = dict(zip(_pt_names, pts_list[:4]))
+                        H = solve_ground_homography(img_pts)
+                        if H is not None:
+                            st.session_state.court_homography = H
+                            st.session_state.court_cal_status = ("✅", "Manual calibration สำเร็จ")
+                            st.rerun()
+                        else:
+                            st.error("แก้ homography ไม่ได้ ลองคลิกใหม่")
+                with col_m2:
+                    if st.button("🗑️ Reset Points", key=f"reset_{mode_key}"):
+                        st.session_state[f"court_manual_pts_{mode_key}"] = []
+                        st.rerun()
+            except ImportError:
+                st.warning("ต้องติดตั้ง streamlit-image-coordinates ก่อน: pip install streamlit-image-coordinates")
+    
+    st.header("2.5 Hit Event Log")
+    st.write("วิเคราะห์การเคลื่อนที่ของลูกเทนนิสและพิกัดผู้เล่นเพื่อหาจังหวะการตี (Hit Events)")
+    
+    # Store hit events in session state
+    if "hit_events" not in st.session_state:
+        st.session_state.hit_events = None
+        
+    if st.button("📊 วิเคราะห์ Hit Events"):
+        ball_bboxes = st.session_state.get("ball_bboxes")
+        if ball_bboxes:
+            with st.spinner("กำลังคำนวณ Kinematics และค้นหา Hit Events..."):
+                import sys, importlib
+                import loeuf_cv.hit_detection
+                importlib.reload(loeuf_cv.hit_detection)
+                from loeuf_cv.hit_detection import extract_ball_trajectory_kalman, detect_hit_events
+                import cv2
+                # force reload 
+                # Get video metadata
+                cap = cv2.VideoCapture(video_path)
+                fw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                fh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+                n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                cap.release()
+                
+                # Extract and process
+                traj = extract_ball_trajectory_kalman(ball_bboxes, n_frames)
+                racket_bboxes = st.session_state.get("racket_bboxes")
+                hits = detect_hit_events(traj, tracks, fps, fw, fh, racket_bboxes=racket_bboxes)
+                # Enrich with bounce detection
+                from loeuf_cv.bounce_detection import add_bounce_to_hits
+                court_H = st.session_state.get("court_homography")
+                hits = add_bounce_to_hits(hits, traj, court_H, fps)
+                
+                st.session_state.hit_events = hits
+                st.session_state.ball_traj = traj
+                st.success(f"วิเคราะห์เสร็จสิ้น: พบการตีทั้งหมด {len(hits)} ครั้ง")
+        else:
+            st.warning("ไม่มีข้อมูลลูกเทนนิส (โปรดใช้ YOLO11 + BoT-SORT ที่มี Custom Model ในการตรวจจับลูกเทนนิส)")
+            
+    if st.session_state.hit_events is not None:
+        if len(st.session_state.hit_events) > 0:
+            import pandas as pd
+            df_hits = pd.DataFrame(st.session_state.hit_events)
+            st.dataframe(df_hits, use_container_width=True)
+            
+            # Mini Court Map
+            has_bounce_data = "bounce_court_x_m" in df_hits.columns and df_hits["bounce_court_x_m"].notna().any()
+            if has_bounce_data:
+                st.subheader("🎾 Bounce Position Map")
+                import matplotlib
+                matplotlib.use("Agg")
+                import matplotlib.pyplot as plt
+                import matplotlib.patches as patches
+                
+                fig, ax = plt.subplots(figsize=(5, 8), facecolor="#1a472a")
+                ax.set_facecolor("#1a6b35")
+                
+                # Draw court outline (half court: 0 – 11.885m depth, ±4.115m width)
+                court_w, court_h = 8.23, 23.77
+                half_w = court_w / 2
+                ax.add_patch(patches.Rectangle((-half_w, 0), court_w, court_h,
+                    linewidth=2, edgecolor="white", facecolor="none"))
+                # Service line
+                ax.axhline(5.485, color="white", linewidth=1)
+                ax.axhline(court_h - 5.485, color="white", linewidth=1)
+                # Net
+                ax.axhline(court_h / 2, color="white", linewidth=3)
+                # Centre line
+                ax.axvline(0, ymin=5.485/court_h, ymax=(court_h-5.485)/court_h,
+                           color="white", linewidth=1)
+                
+                # Plot bounces
+                valid_bounces = df_hits.dropna(subset=["bounce_court_x_m", "bounce_court_z_m"])
+                for _, row in valid_bounces.iterrows():
+                    color = "#FFD700" if row.get("bounce_in_court") else "red"
+                    ax.scatter(row["bounce_court_x_m"], row["bounce_court_z_m"],
+                               c=color, s=60, zorder=5, alpha=0.85)
+                    ax.annotate(str(int(row["frame"])),
+                                (row["bounce_court_x_m"], row["bounce_court_z_m"]),
+                                textcoords="offset points", xytext=(4, 4),
+                                fontsize=6, color="white")
+                
+                ax.set_xlim(-half_w - 1, half_w + 1)
+                ax.set_ylim(-1, court_h + 1)
+                ax.set_aspect("equal")
+                ax.set_xlabel("Width (m)", color="white")
+                ax.set_ylabel("Depth (m)", color="white")
+                ax.tick_params(colors="white")
+                ax.set_title(f"🎾 Bounce Positions ({len(valid_bounces)} bounces)", color="white")
+                plt.tight_layout()
+                st.pyplot(fig)
+                plt.close(fig)
+                
+                if not st.session_state.get("court_homography") is not None:
+                    st.caption("⚠️ ไม่มี Court Homography — แสดงพิกัด pixel แทน meter ได้ทำ Calibration ก่อนจะได้พิกัดจริง")
+            
+            csv = df_hits.to_csv(index=False).encode('utf-8')
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.download_button("💾 ดาวน์โหลดเป็น CSV", data=csv, file_name="hit_events.csv", mime="text/csv")
+            with col2:
+                import json
+                from loeuf_cv.schema_builder.builder import build_loeuf_schema
+                from loeuf_cv.config import PipelineConfig
+                import cv2
+                
+                cap = cv2.VideoCapture(video_path)
+                fw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                fh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+                n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                cap.release()
+                
+                video_meta = {"width": fw, "height": fh, "total_frames": n_frames}
+                cfg = PipelineConfig()
+                
+                try:
+                    loeuf_json_data = build_loeuf_schema(tracks, st.session_state.hit_events, fps, video_meta, cfg)
+                    json_str = json.dumps(loeuf_json_data, indent=2, ensure_ascii=False).encode('utf-8')
+                    st.download_button("📦 Export Loeuf Schema (JSON)", data=json_str, file_name=f"{loeuf_json_data['session_metadata']['session_id']}.json", mime="application/json")
+                except Exception as e:
+                    st.error(f"Failed to build JSON: {e}")
+                    
+        else:
+            st.info("ไม่พบจังหวะการตีที่เข้าข่ายในคลิปนี้")
+
     st.header("3. Overlay Video")
     apply_fill = st.checkbox("ใช้ kinematic gap-fill (occlusion_fill — เติมข้อมือ/ข้อเท้าที่หายช่วงสั้น)", value=True)
+    draw_court = st.checkbox("วาดเส้นสนามจำลอง (Auto-detected Court)", value=False)
+    
+    # checkbox to draw hit events
+    draw_hits = st.checkbox("แสดงเอฟเฟกต์ 💥 HIT! บนวิดีโอ (ถ้ามี Hit Events)", value=True)
+    
     if st.button("🎬 Render overlay"):
         with st.spinner("กำลัง render วิดีโอ..."):
             display_tracks = tracks
@@ -244,6 +502,19 @@ if tracks:
                     PlayerTrack(t.track_id, t.role, kinematic_fill(t.pose), t.n_frames_tracked)
                     for t in tracks
                 ]
+            
+            # Auto-detect court if requested
+            court_homography = None
+            if draw_court and tracks:
+                from loeuf_cv.court_calibration import auto_detect_height_cm
+                st.toast("กำลังสแกนหาเส้นสนามจำลอง...")
+                # We just need the court_cal output
+                _, court_cal = auto_detect_height_cm(video_path, tracks[0].pose, None, sample_frames=15)
+                if court_cal.valid:
+                    court_homography = court_cal.homography
+                    st.toast("สแกนเส้นสนามสำเร็จ!")
+                else:
+                    st.toast(f"สแกนเส้นสนามไม่สำเร็จ: {court_cal.reason}")
             
             # GC old overlay before rendering a new one
             old_overlay = st.session_state.get("overlay_path")
@@ -256,9 +527,13 @@ if tracks:
             try:
                 ball_bboxes = st.session_state.get("ball_bboxes")
                 racket_bboxes = st.session_state.get("racket_bboxes")
+                hit_events = st.session_state.get("hit_events") if draw_hits else None
+                
                 st.session_state.overlay_path = render_overlay_video(
                     video_path, display_tracks, player_labels,
-                    ball_bboxes=ball_bboxes, racket_bboxes=racket_bboxes
+                    ball_bboxes=ball_bboxes, racket_bboxes=racket_bboxes,
+                    court_homography=court_homography,
+                    hit_events=hit_events
                 )
             except Exception as e:
                 st.error("เกิดข้อผิดพลาดในการ render วิดีโอ (FFMPEG error)")
