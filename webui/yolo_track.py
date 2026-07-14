@@ -33,7 +33,8 @@ def track_players_with_yolo(
     max_players: int = 2,
     config: PipelineConfig | None = None,
     progress_callback=None,
-    model_path: str = "yolo26s.pt",
+    model_path: str = "yolo11n.pt",
+    base_model: str = "yolo11n.pt",
 ) -> list[PlayerTrack]:
     """ใช้ YOLO11n + BoT-SORT ตามรอยคนและสกัดโครงกระดูกด้วย MediaPipe Pose
 
@@ -53,12 +54,12 @@ def track_players_with_yolo(
     # ─────────────────────────────────────────────────────────
     # Pass 1: YOLO11 + BoT-SORT → เก็บ bbox ต่อ track_id ต่อเฟรม
     # ─────────────────────────────────────────────────────────
-    model = YOLO("yolo26s.pt")
+    model = YOLO(base_model)
     
     custom_model = None
     custom_ball_id, custom_racket_id = -1, -1
     has_person_class = False
-    if model_path and model_path != "yolo26s.pt" and os.path.exists(model_path):
+    if model_path and model_path != "yolo11n.pt" and os.path.exists(model_path):
         custom_model = YOLO(model_path)
         for k, v in custom_model.names.items():
             vl = v.lower()
@@ -92,6 +93,8 @@ def track_players_with_yolo(
         stream=True,
         device=device,
         verbose=False,
+        conf=0.15,
+        imgsz=1024,
     ):
         boxes = r.boxes
         ball_bboxes_per_frame[frame_idx] = []
@@ -220,15 +223,22 @@ def track_players_with_yolo(
     # ─────────────────────────────────────────────────────────
     # Filter: ต้องขยับพอ (กันผู้ชม/เก็บบอลที่ยืนนิ่ง) + เลือกยาวสุด
     # ─────────────────────────────────────────────────────────
-    MIN_MOVEMENT_STD_PX = 0.03 * meta.height  # ~3% ของความสูงเฟรม
-    MIN_FRAMES = 10
+    MIN_MOVEMENT_STD_PX = 0.02 * meta.height  # ~2% ของความสูงเฟรม
+    MIN_FRAMES = 5
 
-    candidates = {
-        tid: bboxes
-        for tid, bboxes in tracks_bboxes.items()
-        if len(bboxes) >= MIN_FRAMES
-        and float(np.std(tracks_cy[tid])) >= MIN_MOVEMENT_STD_PX
-    }
+    candidates = {}
+    for tid, bboxes in tracks_bboxes.items():
+        if len(bboxes) < MIN_FRAMES:
+            continue
+            
+        mean_h = np.mean([b[3] for b in bboxes.values()])
+        is_large_player = mean_h > (meta.height * 0.15) # ถ้าตัวใหญ่เกิน 15% ของจอ น่าจะเป็นผู้เล่นฝั่งใกล้
+        
+        has_movement = (float(np.std(tracks_cy[tid])) >= MIN_MOVEMENT_STD_PX or 
+                        float(np.std(tracks_cx[tid])) >= MIN_MOVEMENT_STD_PX)
+                        
+        if is_large_player or has_movement:
+            candidates[tid] = bboxes
 
     # ถ้า strict filter ตัดคนออกหมด ให้ fall back เอาคนที่ยาวสุด
     if not candidates:

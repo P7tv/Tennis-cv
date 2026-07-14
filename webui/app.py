@@ -57,14 +57,17 @@ with st.sidebar:
         import os
         
         # ค้นหาโมเดล .pt ทั้งหมดในโปรเจกต์
-        available_models = ["yolo26s.pt"]
+        available_models = ["yolo11n.pt", "yolo11s.pt", "yolo11m.pt"]
         custom_models = glob.glob("runs/**/*.pt", recursive=True) + glob.glob("*.pt")
         for m in custom_models:
             m_norm = os.path.normpath(m)
-            if m_norm not in available_models and not m_norm.endswith("yolo26s.pt"):
+            if m_norm not in available_models and not any(m_norm.endswith(x) for x in ["yolo11n.pt", "yolo11s.pt", "yolo11m.pt"]):
                 available_models.append(m_norm)
                 
-        yolo_model_path = st.selectbox("YOLO Model", available_models, help="เลือก yolo26s.pt (โมเดลพื้นฐาน) หรือเลือกโมเดลที่คุณ Train เองจากในรายการ")
+        base_models = ["yolo11n.pt", "yolo11s.pt", "yolo11m.pt"]
+        base_model_path = st.selectbox("Base Model (สำหรับหาคน)", base_models, index=2, help="เลือกโมเดลหาคน (n = เร็วสุด, m = แม่นสุด)")
+        
+        yolo_model_path = st.selectbox("Custom Ball Model", available_models, help="เลือกโมเดลลูกเทนนิสที่คุณ Train เองจากในรายการ")
         run_btn = st.button("▶️ Run YOLO11 + BoT-SORT", type="primary", disabled=uploaded is None)
     else:
         run_btn = False
@@ -121,7 +124,14 @@ if uploaded is not None:
                 prog.progress(min(cur / max(tot, 1), 1.0), text=f"Processing frame {cur}/{tot}")
             with st.spinner("Running YOLO11 + BoT-SORT..."):
                 try:
-                    tracks, ball_bboxes, racket_bboxes = track_players_with_yolo(video_path, max_players=max_players, config=config, progress_callback=_yolo_cb, model_path=yolo_model_path)
+                    tracks, ball_bboxes, racket_bboxes = track_players_with_yolo(
+                        video_path, 
+                        max_players=max_players, 
+                        config=config, 
+                        progress_callback=_yolo_cb, 
+                        model_path=yolo_model_path,
+                        base_model=base_model_path
+                    )
                     st.session_state.tracks = tracks
                     st.session_state.ball_bboxes = ball_bboxes
                     st.session_state.racket_bboxes = racket_bboxes
@@ -311,38 +321,56 @@ if tracks:
             
         import cv2 as _cv2
         _cap = _cv2.VideoCapture(video_path)
+        total_frames = int(_cap.get(_cv2.CAP_PROP_FRAME_COUNT))
+        cal_frame_idx = st.slider("🎞️ เลื่อนหาเฟรมที่เห็นเส้นสนามชัดเจน (ไม่มีคนบัง)", 0, max(0, total_frames-1), 0, key=f"cal_frame_slider")
+        _cap.set(_cv2.CAP_PROP_POS_FRAMES, cal_frame_idx)
         _ok, _frame = _cap.read()
         _cap.release()
+        
         if _ok:
             try:
                 from streamlit_image_coordinates import streamlit_image_coordinates
-                _frame_rgb = _cv2.cvtColor(_frame, _cv2.COLOR_BGR2RGB)
                 
-                # เปลี่ยน key เมื่อ mode เปลี่ยน จะได้ reset จุดเก่าทิ้ง
                 mode_key = cal_mode.split()[0]
-                _clicked = streamlit_image_coordinates(_frame_rgb, key=f"court_picker_{mode_key}")
-                
                 if f"court_manual_pts_{mode_key}" not in st.session_state:
                     st.session_state[f"court_manual_pts_{mode_key}"] = []
                 
                 pts_list = st.session_state[f"court_manual_pts_{mode_key}"]
                 
+                # วาดจุดที่คลิกไปแล้วลงบนภาพ
+                _disp_frame = _frame.copy()
+                for i, p in enumerate(pts_list):
+                    _cv2.circle(_disp_frame, p, 8, (0, 0, 255), -1) # จุดสีแดง
+                    _cv2.circle(_disp_frame, p, 10, (255, 255, 255), 2) # ขอบขาว
+                    _cv2.putText(_disp_frame, str(i+1), (p[0]+15, p[1]-15), _cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
+                
+                # ถัาครบ 4 จุด วาดเส้นเชื่อม
+                if len(pts_list) == 4:
+                    import numpy as np
+                    pts_arr = np.array(pts_list, np.int32).reshape((-1, 1, 2))
+                    _cv2.polylines(_disp_frame, [pts_arr], isClosed=True, color=(0, 255, 0), thickness=3)
+
+                _frame_rgb = _cv2.cvtColor(_disp_frame, _cv2.COLOR_BGR2RGB)
+                
+                _clicked = streamlit_image_coordinates(_frame_rgb, key=f"court_picker_{mode_key}")
+                
                 if _clicked is not None:
                     pt = (_clicked["x"], _clicked["y"])
-                    # เพิ่มจุดใหม่ถ้ายังไม่ครบ 4 จุด และไม่ซ้ำกับจุดล่าสุด
                     if len(pts_list) < 4:
                         if not pts_list or pt != pts_list[-1]:
                             pts_list.append(pt)
+                            st.rerun()
                 
+                st.markdown("### จุดที่เลือก:")
                 for idx, name in enumerate(_pt_names):
                     if idx < len(pts_list):
-                        st.write(f"  {idx+1}. {name}: {pts_list[idx]}")
+                        st.write(f"✅ **{idx+1}. {name}:** {pts_list[idx]}")
                     else:
-                        st.write(f"  {idx+1}. {name}: (ยังไม่ได้คลิก)")
+                        st.write(f"⏳ **{idx+1}. {name}:** (รอคลิก...)")
                 
-                col_m1, col_m2 = st.columns(2)
+                col_m1, col_m2, col_m3 = st.columns(3)
                 with col_m1:
-                    if st.button("✅ Apply Manual Calibration", key=f"apply_{mode_key}") and len(pts_list) >= 4:
+                    if st.button("✅ ยืนยันพิกัด (Apply)", key=f"apply_{mode_key}", type="primary", disabled=len(pts_list) < 4):
                         from loeuf_cv.court_calibration import solve_ground_homography
                         img_pts = dict(zip(_pt_names, pts_list[:4]))
                         H = solve_ground_homography(img_pts)
@@ -353,7 +381,11 @@ if tracks:
                         else:
                             st.error("แก้ homography ไม่ได้ ลองคลิกใหม่")
                 with col_m2:
-                    if st.button("🗑️ Reset Points", key=f"reset_{mode_key}"):
+                    if st.button("↩️ ย้อนกลับ 1 จุด (Undo)", key=f"undo_{mode_key}", disabled=len(pts_list) == 0):
+                        pts_list.pop()
+                        st.rerun()
+                with col_m3:
+                    if st.button("🗑️ ล้างทั้งหมด (Reset)", key=f"reset_{mode_key}", disabled=len(pts_list) == 0):
                         st.session_state[f"court_manual_pts_{mode_key}"] = []
                         st.rerun()
             except ImportError:

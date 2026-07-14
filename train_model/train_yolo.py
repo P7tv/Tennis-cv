@@ -18,9 +18,9 @@ def main():
     
     # 2. Load model
     try:
-        # ใช้ YOLO26s (Small) ตัวใหม่ล่าสุด! NMS-Free, เร็วและแม่นยำกว่า YOLO11
-        # (กิน VRAM เพิ่มขึ้นนิดหน่อย แต่ 1660 6GB รับไหวสบายๆ ครับ)
-        model = YOLO("yolo26s.pt")
+        # อัปเกรดมาใช้ YOLO11m (Medium) ตามที่คุณปันแนะนำ เพื่อความแม่นยำขั้นสุดในการหาลูกเทนนิส!
+        # (โมเดลใหญ่ขึ้น จะกิน VRAM มากขึ้น เลยต้องลด batch size ลง)
+        model = YOLO("yolo11m.pt")
     except Exception as e:
         print(f"❌ Error loading model: {e}")
         sys.exit(1)
@@ -34,14 +34,22 @@ def main():
             data=data_yaml,
             epochs=50,
             imgsz=640,
-            batch=8,           # Fit in 6GB VRAM
+            batch=4,           # ลด Batch ลงเหลือ 4 เพื่อให้ 6GB VRAM รันรุ่น M ไหว
             workers=0,         # Fix Windows PyTorch multiprocessing DLL error (WinError 1114)
             device=0,          # GPU 0
             project="runs/detect",
             name="tennis_ball_custom",
             exist_ok=True,
             patience=10,       # Early stopping
-            save=True
+            save=True,
+            # --- 🎾 Aggressive Augmentations สำหรับลูกเทนนิส (วัตถุขนาดเล็ก) ---
+            mosaic=1.0,        # เอา 4 รูปมาต่อกัน (ช่วยให้เห็นบอลในหลายมุมมอง)
+            mixup=0.1,         # ซ้อนภาพบางส่วน (ช่วยลด Overfit)
+            degrees=10.0,      # หมุนภาพนิดหน่อยเผื่อมุมกล้องเอียง
+            hsv_s=0.5,         # ปรับความสดของสี (เผื่อถ่ายในที่ร่ม/แดดจัด)
+            hsv_v=0.4,         # ปรับความสว่าง
+            # --- ⚠️ Hardware Fix สำหรับ GTX 1660 ---
+            amp=False          # ปิด Mixed Precision เพราะ GTX 1660 มักจะบั๊ก loss=NaN หรือ mAP=0
         )
         
         print("\n✅ Training Complete!")

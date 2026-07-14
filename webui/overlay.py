@@ -59,6 +59,11 @@ def render_overlay_video(video_path: str, tracks: list,
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
+    print(f"[Overlay Debug] Starting render. Video: {n_frames} frames.")
+    print(f"[Overlay Debug] Received {len(tracks)} player tracks.")
+    for pt in tracks:
+        print(f"[Overlay Debug] Track {pt.track_id} ({pt.role}) - Tracked for {pt.n_frames_tracked} frames.")
+
     import os
     from pathlib import Path
     
@@ -136,11 +141,16 @@ def render_overlay_video(video_path: str, tracks: list,
                 
             vis = t.pose.visibility
             lm = t.pose.landmarks
+            color = colors[t.track_id]
             if frame_idx >= len(vis) or vis[frame_idx].mean() <= 0:
+                if frame_idx == 0: print(f"[Overlay Debug] Track {t.track_id} skipped frame 0 (no vis)")
                 continue
             color = colors[t.track_id]
             pts = lm[frame_idx, :, :2]
             v = vis[frame_idx]
+            
+            if frame_idx == 0:
+                print(f"[Overlay Debug] Track {t.track_id} DRAWING frame 0! Vis mean: {v.mean():.3f}")
             
             # 2. Extract and Draw Wrist Path
             lw, rw = None, None
