@@ -35,7 +35,7 @@ def track_players_with_yolo(
     progress_callback=None,
     model_path: str = "yolo11n.pt",
     base_model: str = "yolo11n.pt",
-) -> list[PlayerTrack]:
+) -> tuple[list[PlayerTrack], dict, dict, dict]:
     """ใช้ YOLO11n + BoT-SORT ตามรอยคนและสกัดโครงกระดูกด้วย MediaPipe Pose
 
     คืน list[PlayerTrack] เหมือน extract_multi_person เป๊ะๆ เพื่อให้
@@ -81,6 +81,9 @@ def track_players_with_yolo(
 
     ball_bboxes_per_frame: dict[int, list[tuple[int, int, int, int]]] = {}
     racket_bboxes_per_frame: dict[int, list[tuple[int, int, int, int]]] = {}
+    # เฉพาะเมื่อ custom model เป็น pose model (เทรนด้วย kpt_shape) — ไม่งั้นเป็น {} ว่างเปล่าเสมอ
+    # dict[frame_idx -> list ต่อ racket detection -> list[(x, y, confidence)] ต่อ keypoint]
+    racket_keypoints_per_frame: dict[int, list[list[tuple[float, float, float]]]] = {}
 
     frame_idx = 0
     # ถ้าใช้ single_model_mode จะ track ทุกคลาส (คน, บอล, ไม้) ในรอบเดียว
@@ -99,18 +102,24 @@ def track_players_with_yolo(
         boxes = r.boxes
         ball_bboxes_per_frame[frame_idx] = []
         racket_bboxes_per_frame[frame_idx] = []
-        
+        racket_keypoints_per_frame[frame_idx] = []
+
         # --- Handle Person Tracking (from base model) ---
         if len(boxes) > 0:
             xyxy_arr = boxes.xyxy.cpu().numpy()
             cls_arr = boxes.cls.cpu().numpy()
             id_arr = boxes.id.cpu().numpy() if boxes.id is not None else [None] * len(boxes)
-            
-            for xyxy, cls_id, tid_t in zip(xyxy_arr, cls_arr, id_arr):
+            # เฉพาะ model ที่เทรนแบบ pose (มี kpt_shape) ถึงจะมี r.keypoints — โมเดล
+            # detect ธรรมดา (เช่น yolo26s.pt เดิม) ไม่มี attribute นี้เลย ปลอดภัยเช็คด้วย getattr
+            kp_xy = r.keypoints.xy.cpu().numpy() if getattr(r, "keypoints", None) is not None else None
+            kp_conf = (r.keypoints.conf.cpu().numpy()
+                       if kp_xy is not None and r.keypoints.conf is not None else None)
+
+            for det_idx, (xyxy, cls_id, tid_t) in enumerate(zip(xyxy_arr, cls_arr, id_arr)):
                 cls_id = int(cls_id)
                 x1, y1, x2, y2 = xyxy
                 x, y, w, h = int(x1), int(y1), int(x2 - x1), int(y2 - y1)
-                
+
                 if cls_id == 0: # person
                     if tid_t is not None:
                         tid = int(tid_t)
@@ -123,7 +132,13 @@ def track_players_with_yolo(
                         tracks_cy[tid].append(y + h / 2.0)
                 elif single_model_mode:
                     if cls_id == custom_ball_id: ball_bboxes_per_frame[frame_idx].append((x, y, w, h))
-                    elif cls_id == custom_racket_id: racket_bboxes_per_frame[frame_idx].append((x, y, w, h))
+                    elif cls_id == custom_racket_id:
+                        racket_bboxes_per_frame[frame_idx].append((x, y, w, h))
+                        if kp_xy is not None:
+                            pts = kp_xy[det_idx]
+                            confs = kp_conf[det_idx] if kp_conf is not None else np.ones(len(pts))
+                            racket_keypoints_per_frame[frame_idx].append(
+                                [(float(px), float(py), float(pc)) for (px, py), pc in zip(pts, confs)])
                 elif custom_model is None:
                     # Fallback to base model for ball/racket if no custom model
                     if cls_id == 32: ball_bboxes_per_frame[frame_idx].append((x, y, w, h))
@@ -132,12 +147,16 @@ def track_players_with_yolo(
         # --- Handle Ball & Racket Detection (from custom model) ---
         if custom_model is not None and not single_model_mode:
             # Run inference on the original frame image with lower confidence to catch fast/distant balls
-            # ขยาย imgsz ให้ใหญ่ขึ้น (1088 หรือ 1280) เพื่อให้มองเห็นลูกเทนนิสที่เล็กมากๆ ในคลิป 1080p 
+            # ขยาย imgsz ให้ใหญ่ขึ้น (1088 หรือ 1280) เพื่อให้มองเห็นลูกเทนนิสที่เล็กมากๆ ในคลิป 1080p
             c_results = custom_model(r.orig_img, conf=0.05, imgsz=1088, verbose=False, device=device)[0]
             if len(c_results.boxes) > 0:
                 c_xyxy = c_results.boxes.xyxy.cpu().numpy()
                 c_cls = c_results.boxes.cls.cpu().numpy()
-                for xyxy, cls_id in zip(c_xyxy, c_cls):
+                c_kp_xy = (c_results.keypoints.xy.cpu().numpy()
+                           if getattr(c_results, "keypoints", None) is not None else None)
+                c_kp_conf = (c_results.keypoints.conf.cpu().numpy()
+                             if c_kp_xy is not None and c_results.keypoints.conf is not None else None)
+                for det_idx, (xyxy, cls_id) in enumerate(zip(c_xyxy, c_cls)):
                     cls_id = int(cls_id)
                     x1, y1, x2, y2 = xyxy
                     x, y, w, h = int(x1), int(y1), int(x2 - x1), int(y2 - y1)
@@ -145,6 +164,11 @@ def track_players_with_yolo(
                         ball_bboxes_per_frame[frame_idx].append((x, y, w, h))
                     elif cls_id == custom_racket_id:
                         racket_bboxes_per_frame[frame_idx].append((x, y, w, h))
+                        if c_kp_xy is not None:
+                            pts = c_kp_xy[det_idx]
+                            confs = c_kp_conf[det_idx] if c_kp_conf is not None else np.ones(len(pts))
+                            racket_keypoints_per_frame[frame_idx].append(
+                                [(float(px), float(py), float(pc)) for (px, py), pc in zip(pts, confs)])
 
         if progress_callback:
             progress_callback(frame_idx // 2, total_frames)
@@ -152,7 +176,7 @@ def track_players_with_yolo(
         
         # Free memory inside loop
         del boxes, r
-        if custom_model is not None:
+        if custom_model is not None and not single_model_mode:
             del c_results
 
     actual_frames = frame_idx
@@ -312,7 +336,7 @@ def track_players_with_yolo(
         tracks_bboxes[tid] = s["bboxes"]
 
     if not kept_tids:
-        return [], {}, {}
+        return [], {}, {}, {}
 
     # ─────────────────────────────────────────────────────────
     # Pass 1.5: Interpolate & Smooth Bounding Boxes
@@ -457,4 +481,4 @@ def track_players_with_yolo(
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
-    return result_tracks, ball_bboxes_per_frame, racket_bboxes_per_frame
+    return result_tracks, ball_bboxes_per_frame, racket_bboxes_per_frame, racket_keypoints_per_frame

@@ -7,4 +7,12 @@ __pycache__/
 runs/
 tennis-ball-detection*/
 tennis-racket*/
+racket-4/
+racket-4-yolo/
+Tennis-Ball-detection*/
+tennis-ball-racket-yolo/
+tennis-ball-racket-pose/
+*.tar.gz
 hit_candidates.csv
+dataset/
+*.pkl

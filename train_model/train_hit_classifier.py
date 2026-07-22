@@ -1,3 +1,5 @@
+import argparse
+import sys
 import pandas as pd
 import numpy as np
 import pickle
@@ -6,10 +8,22 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 
+# Windows console บาง terminal default เป็น cp1252 ไม่รองรับ emoji/ตัวอักษรไทยบางตัว
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 def main():
-    csv_file = "hit_candidates.csv"
-    model_file = "hit_classifier.pkl"
-    
+    parser = argparse.ArgumentParser(description="เทรน hit classifier จาก hit_candidates.csv ที่ label แล้ว")
+    parser.add_argument("--csv", default="hit_candidates.csv", help="path ของ CSV ที่มีคอลัมน์ is_hit label แล้ว")
+    parser.add_argument("--model-out", default="hit_classifier.pkl", help="path ที่จะบันทึกโมเดล")
+    args = parser.parse_args()
+
+    csv_file = args.csv
+    model_file = args.model_out
+
     if not os.path.exists(csv_file):
         print(f"❌ ไม่พบไฟล์ {csv_file}")
         print("กรุณารันโปรแกรมและกด 'วิเคราะห์ Hit Events' เพื่อสร้างไฟล์เก็บข้อมูลก่อนครับ")
@@ -40,7 +54,7 @@ def main():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
     print("\nกำลังเทรนโมเดล Random Forest...")
-    clf = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
+    clf = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42, class_weight="balanced")
     clf.fit(X_train, y_train)
     
     # Evaluate

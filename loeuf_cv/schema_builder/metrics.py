@@ -116,3 +116,108 @@ def get_body_metrics(pose_series, kf, actual_height_cm=170.0, dominant_side="rig
         metrics["contact"]["contact_distance_from_body_cm"] = dist_px * cm_per_px
 
     return metrics
+
+
+def _pick_racket_detection(dets, wrist_px):
+    """เลือก racket detection ที่ centroid ใกล้ข้อมือ dominant สุด — กันเลือก
+    ไม้ผิดตัวถ้ามีมากกว่า 1 ไม้ในเฟรม (คนป้อนบอล ฯลฯ) — fallback ตัวแรกถ้าไม่มี wrist"""
+    if not dets:
+        return None
+    if wrist_px is None:
+        return dets[0]
+
+    best_det, best_d = dets[0], float("inf")
+    for det in dets:
+        valid = [(x, y) for x, y, v in det if v > 0.3]
+        if not valid:
+            continue
+        cx = sum(x for x, y in valid) / len(valid)
+        cy = sum(y for x, y in valid) / len(valid)
+        d = (cx - wrist_px[0]) ** 2 + (cy - wrist_px[1]) ** 2
+        if d < best_d:
+            best_d = d
+            best_det = det
+    return best_det
+
+
+def _racket_tip_center_px(det):
+    """centroid ของ keypoint ที่มั่นใจ (v>0.3) = center, จุดที่ไกล centroid สุด = tip
+    (สมมติฐานเบื้องต้น — 4 จุดจาก label เดิมไม่มี index ความหมายตายตัว)"""
+    valid = [(x, y) for x, y, v in det if v > 0.3]
+    if len(valid) < 2:
+        return None
+    cx = sum(x for x, y in valid) / len(valid)
+    cy = sum(y for x, y in valid) / len(valid)
+    tip = max(valid, key=lambda p: (p[0] - cx) ** 2 + (p[1] - cy) ** 2)
+    return {"center_px": (cx, cy), "tip_px": tip}
+
+
+def get_racket_metrics(racket_keypoints, kf, wrist_path, fps, frame_width, frame_height, cm_per_px=None):
+    """
+    KN5 (racket_tip_position) / KN6 (racket_center_position) / KN7
+    (racket_head_speed_mps) — คำนวณจาก keypoint จริงของ racket pose model
+    (train_model/build_pose_dataset.py + yolo11m-pose.pt) ถ้ามี
+
+    racket_keypoints: dict[frame_idx -> list ต่อ detection -> list[(x_px, y_px, conf)] ต่อ keypoint]
+    (พิกัด pixel จาก webui/yolo_track.py) — normalize เป็น 0-1 ก่อนเก็บ position
+    ให้ตรงฟอร์แมตเดียวกับ pose landmark อื่นในระบบ
+
+    ถ้าไม่มี racket_keypoints (โมเดลเก่าไม่มี keypoint / ตรวจไม่เจอ) คืน dict
+    ว่างเปล่า ไม่ error — caller ใช้แทนที่ "kinematics": {} เดิมได้ตรงๆ
+    """
+    result = {}
+    if not racket_keypoints or not frame_width or not frame_height:
+        return result
+
+    def pts_at(frame_idx):
+        dets = racket_keypoints.get(frame_idx)
+        if not dets:
+            return None
+        wrist_px = None
+        if wrist_path is not None and frame_idx < len(wrist_path):
+            wx, wy = wrist_path[frame_idx]
+            if not (np.isnan(wx) or np.isnan(wy)):
+                wrist_px = (wx * frame_width, wy * frame_height)
+        det = _pick_racket_detection(dets, wrist_px)
+        return _racket_tip_center_px(det) if det else None
+
+    tip_positions, center_positions = {}, {}
+    for name in ("unit_turn", "backswing_peak", "impact", "follow_through_peak"):
+        f = kf.get(name)
+        if f is None:
+            continue
+        pts = pts_at(f)
+        if pts is None:
+            continue
+        tip_positions[name] = {"x": round(pts["tip_px"][0] / frame_width, 4),
+                                "y": round(pts["tip_px"][1] / frame_height, 4)}
+        center_positions[name] = {"x": round(pts["center_px"][0] / frame_width, 4),
+                                   "y": round(pts["center_px"][1] / frame_height, 4)}
+
+    if tip_positions:
+        result["racket_tip_position"] = tip_positions
+    if center_positions:
+        result["racket_center_position"] = center_positions
+
+    # KN7: peak racket head speed รอบๆ impact (±5 เฟรม) จาก tip trajectory จริง
+    impact_f = kf.get("impact")
+    if impact_f is not None and cm_per_px:
+        traj = []
+        for f in range(max(0, impact_f - 5), impact_f + 6):
+            pts = pts_at(f)
+            if pts is not None:
+                traj.append((f, pts["tip_px"]))
+
+        speeds_mps = []
+        for (f1, p1), (f2, p2) in zip(traj, traj[1:]):
+            dt = (f2 - f1) / fps
+            if dt <= 0:
+                continue
+            dist_norm = (((p2[0] - p1[0]) / frame_width) ** 2 + ((p2[1] - p1[1]) / frame_height) ** 2) ** 0.5
+            dist_cm = dist_norm * cm_per_px
+            speeds_mps.append((dist_cm / 100.0) / dt)
+
+        if speeds_mps:
+            result["racket_head_speed_mps"] = round(max(speeds_mps), 2)
+
+    return result

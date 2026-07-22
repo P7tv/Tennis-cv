@@ -124,17 +124,18 @@ if uploaded is not None:
                 prog.progress(min(cur / max(tot, 1), 1.0), text=f"Processing frame {cur}/{tot}")
             with st.spinner("Running YOLO11 + BoT-SORT..."):
                 try:
-                    tracks, ball_bboxes, racket_bboxes = track_players_with_yolo(
-                        video_path, 
-                        max_players=max_players, 
-                        config=config, 
-                        progress_callback=_yolo_cb, 
+                    tracks, ball_bboxes, racket_bboxes, racket_keypoints = track_players_with_yolo(
+                        video_path,
+                        max_players=max_players,
+                        config=config,
+                        progress_callback=_yolo_cb,
                         model_path=yolo_model_path,
                         base_model=base_model_path
                     )
                     st.session_state.tracks = tracks
                     st.session_state.ball_bboxes = ball_bboxes
                     st.session_state.racket_bboxes = racket_bboxes
+                    st.session_state.racket_keypoints = racket_keypoints
                     prog.progress(1.0, text="Done!")
                 except Exception as e:
                     st.error(f"YOLO error: {e}")
@@ -510,7 +511,9 @@ if tracks:
                 cfg = PipelineConfig()
                 
                 try:
-                    loeuf_json_data = build_loeuf_schema(tracks, st.session_state.hit_events, fps, video_meta, cfg)
+                    racket_keypoints = st.session_state.get("racket_keypoints")
+                    loeuf_json_data = build_loeuf_schema(tracks, st.session_state.hit_events, fps, video_meta, cfg,
+                                                          racket_keypoints=racket_keypoints)
                     json_str = json.dumps(loeuf_json_data, indent=2, ensure_ascii=False).encode('utf-8')
                     st.download_button("📦 Export Loeuf Schema (JSON)", data=json_str, file_name=f"{loeuf_json_data['session_metadata']['session_id']}.json", mime="application/json")
                 except Exception as e:
@@ -559,11 +562,13 @@ if tracks:
             try:
                 ball_bboxes = st.session_state.get("ball_bboxes")
                 racket_bboxes = st.session_state.get("racket_bboxes")
+                racket_keypoints = st.session_state.get("racket_keypoints")
                 hit_events = st.session_state.get("hit_events") if draw_hits else None
-                
+
                 st.session_state.overlay_path = render_overlay_video(
                     video_path, display_tracks, player_labels,
                     ball_bboxes=ball_bboxes, racket_bboxes=racket_bboxes,
+                    racket_keypoints=racket_keypoints,
                     court_homography=court_homography,
                     hit_events=hit_events
                 )

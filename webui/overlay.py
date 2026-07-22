@@ -45,6 +45,7 @@ def render_overlay_video(video_path: str, tracks: list,
                          out_path: str | None = None,
                          ball_bboxes: dict | None = None,
                          racket_bboxes: dict | None = None,
+                         racket_keypoints: dict | None = None,
                          court_homography: np.ndarray | None = None,
                          hit_events: list[dict] | None = None) -> str:
     """วาด skeleton ของทุก track ลงบนวิดีโอต้นฉบับ คืน path ไฟล์ output
@@ -192,8 +193,27 @@ def render_overlay_video(video_path: str, tracks: list,
             
         # 3. Draw Racket Center & Tip
         if racket_bboxes and frame_idx in racket_bboxes:
-            for rx, ry, rw_w, rh in racket_bboxes[frame_idx]:
+            frame_racket_kps = (racket_keypoints or {}).get(frame_idx, [])
+            for det_i, (rx, ry, rw_w, rh) in enumerate(racket_bboxes[frame_idx]):
                 rcx, rcy = rx + rw_w//2, ry + rh//2
+
+                # ถ้ามี keypoint จริงจากโมเดล pose (train_model/build_pose_dataset.py)
+                # ใช้จุดจริงแทน heuristic เดาด้านล่าง — จุดที่ไกล centroid สุด = tip
+                # (สมมติฐานเบื้องต้น เพราะ 4 จุดไม่มี index ความหมายตายตัวจาก label เดิม)
+                kps = frame_racket_kps[det_i] if det_i < len(frame_racket_kps) else None
+                valid_kps = [(x, y) for x, y, v in kps if v > 0.3] if kps else []
+                if len(valid_kps) >= 2:
+                    cx = sum(x for x, y in valid_kps) / len(valid_kps)
+                    cy = sum(y for x, y in valid_kps) / len(valid_kps)
+                    cv2.circle(frame, (int(cx), int(cy)), 4, (255, 0, 255), -1, cv2.LINE_AA)
+                    for x, y in valid_kps:
+                        cv2.circle(frame, (int(x), int(y)), 4, (0, 0, 255), -1, cv2.LINE_AA)
+                    tip_x, tip_y = max(valid_kps, key=lambda p: (p[0] - cx) ** 2 + (p[1] - cy) ** 2)
+                    cv2.putText(frame, "Tip", (int(tip_x) + 5, int(tip_y) + 5),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
+                    continue
+
+                # --- fallback: ไม่มี keypoint จริง (โมเดลเก่า/ตรวจไม่เจอ) ใช้ heuristic เดิม ---
                 best_w = None
                 best_dist = float('inf')
                 for w_side, w_tid, w_pt, w_color in wrists_this_frame:
@@ -201,9 +221,9 @@ def render_overlay_video(video_path: str, tracks: list,
                     if d < best_dist:
                         best_dist = d
                         best_w = (w_pt, w_color)
-                        
+
                 cv2.circle(frame, (rcx, rcy), 4, (255, 0, 255), -1, cv2.LINE_AA)
-                
+
                 # Match wrist if within reasonable distance (e.g., 3x racket size)
                 if best_w and best_dist < max(rw_w, rh) * 3:
                     w_pt, w_color = best_w
@@ -213,7 +233,7 @@ def render_overlay_video(video_path: str, tracks: list,
                         r_len = (rw_w**2 + rh**2)**0.5
                         tip_x = int(rcx + (vx/v_len) * r_len * 0.4)
                         tip_y = int(rcy + (vy/v_len) * r_len * 0.4)
-                        
+
                         cv2.line(frame, w_pt, (rcx, rcy), w_color, 2, cv2.LINE_AA)
                         cv2.line(frame, (rcx, rcy), (tip_x, tip_y), (255, 0, 255), 3, cv2.LINE_AA)
                         cv2.circle(frame, (tip_x, tip_y), 5, (0, 0, 255), -1, cv2.LINE_AA)

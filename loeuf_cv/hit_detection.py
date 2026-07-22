@@ -277,7 +277,11 @@ def _extract_hit_features(f: int, ball_traj: np.ndarray, speed: np.ndarray, d_px
                 features["ball_angle_change"] = float(cos_sim)
 
     # Racket Distance
-    if racket_bboxes and f in racket_bboxes and not np.isnan(ball_traj[min(f, total_frames - 1)]).any():
+    # racket_bboxes[f] มักเป็น [] (list ว่าง) ไม่ใช่ key หาย — yolo_track.py
+    # init ทุกเฟรมไว้เป็น [] เสมอ ต้องเช็ค truthy ของ list ด้วย ไม่ใช่แค่ f in racket_bboxes
+    # ไม่งั้น best_r_dist ค้างที่ float('inf') แล้วหลุดเข้า features → ML predict_proba
+    # พังด้วย ValueError (inf ไม่ผ่าน sklearn input validation)
+    if racket_bboxes and racket_bboxes.get(f) and not np.isnan(ball_traj[min(f, total_frames - 1)]).any():
         ball_pos = ball_traj[min(f, total_frames - 1)]
         best_r_dist = float('inf')
         for rx, ry, rw, rh in racket_bboxes[f]:
@@ -469,20 +473,25 @@ def detect_hit_events(
             # Create DataFrame for single row
             X_dict = {col: feats.get(col, 0) for col in feature_cols}
             X_df = pd.DataFrame([X_dict])
-            
-            # Get probability of being a hit (class 1)
-            prob = ml_model.predict_proba(X_df)[0][1]
-            
-            # If ML model is very confident it's NOT a hit, drop it
-            if prob < 0.4:
-                continue
-            
-            # If ML model is confident it IS a hit, boost confidence
-            if prob > 0.8:
-                c["confidence"] = "HIGH"
-                c["ml_prob"] = round(float(prob), 2)
-            else:
-                c["ml_prob"] = round(float(prob), 2)
+
+            try:
+                # Get probability of being a hit (class 1)
+                prob = ml_model.predict_proba(X_df)[0][1]
+
+                # If ML model is very confident it's NOT a hit, drop it
+                if prob < 0.4:
+                    continue
+
+                # If ML model is confident it IS a hit, boost confidence
+                if prob > 0.8:
+                    c["confidence"] = "HIGH"
+                    c["ml_prob"] = round(float(prob), 2)
+                else:
+                    c["ml_prob"] = round(float(prob), 2)
+            except Exception as e:
+                # อย่าให้ candidate เดียวพัง detection ทั้งคลิป — ตกไปใช้
+                # rule-based confidence เดิมของ candidate นี้แทน (ไม่ drop, ไม่ boost)
+                print(f"ML predict failed for frame {c['frame']}, falling back to rule-based: {e}")
 
         # 2. Minimum Gap De-duplication
         if not final or c["frame"] - final[-1]["frame"] >= MIN_GAP:

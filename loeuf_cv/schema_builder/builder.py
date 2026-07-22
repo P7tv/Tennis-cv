@@ -1,13 +1,17 @@
 import datetime
 from .keyframes import extract_keyframes
-from .metrics import get_body_metrics
+from .metrics import calculate_cm_per_px, get_body_metrics, get_racket_metrics
 from .classifier import classify_stroke
 from .aggregator import build_phase2_aggregations
 
-def build_loeuf_schema(tracks, hit_events, fps, video_meta, config):
+def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypoints=None):
     """
     สร้าง Loeuf Full JSON Schema (17 Layers)
     Phase 1 & Phase 2 Intelligence
+
+    racket_keypoints: dict[frame_idx -> ...] จาก webui/yolo_track.py (ถ้าใช้
+    custom model แบบ pose ที่มี keypoint จริง) — None = kinematics racket
+    fields (KN5-7) จะว่างเปล่าเหมือนเดิม ไม่ error
     """
     import uuid
     session_id = f"sess-{datetime.datetime.now().strftime('%Y%m%d-%H%M')}"
@@ -39,22 +43,31 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config):
         track = next((t for t in tracks if t.track_id == player_id), None)
         if not track: continue
         
-        from ..config import R_WRIST, L_WRIST
+        from ..config import R_WRIST, L_WRIST, L_ANKLE, R_ANKLE, NOSE
         dominant_side = config.dominant_side if hasattr(config, 'dominant_side') else "right"
         wrist_idx = R_WRIST if dominant_side == "right" else L_WRIST
         wrist_path = track.pose.landmarks[:, wrist_idx, :2]
-        
+
         # Extract Keyframes (B)
         kf = extract_keyframes(impact_frame, wrist_path, fps, video_meta.get("total_frames", 0))
-        
-        # Stroke Type (A)
-        stype = classify_stroke(track.pose, impact_frame, dominant_side)
-        if stype in stroke_counts:
-            stroke_counts[stype] += 1
-            
-        # Metrics (C)
+
+        # Metrics (C) — คำนวณก่อน classify_stroke เพื่อส่งเป็น feature เสริมให้ ML-assist (ถ้ามี stroke_classifier.pkl)
         actual_height = config.subject_height_cm if hasattr(config, 'subject_height_cm') and config.subject_height_cm else 170.0
         c_metric = get_body_metrics(track.pose, kf, actual_height, dominant_side)
+
+        # Stroke Type (A)
+        stype = classify_stroke(track.pose, impact_frame, dominant_side, keyframe_metrics=c_metric)
+        if stype in stroke_counts:
+            stroke_counts[stype] += 1
+
+        # Kinematics (KN) — racket_tip/center_position + racket_head_speed_mps
+        # จาก keypoint จริง (ถ้า custom model เป็น pose model) — ไม่มีก็ได้ dict ว่างเปล่า
+        cm_per_px = calculate_cm_per_px(
+            track.pose.landmarks[impact_frame], track.pose.visibility[impact_frame],
+            L_ANKLE, R_ANKLE, NOSE, actual_height)
+        kn_metric = get_racket_metrics(
+            racket_keypoints, kf, wrist_path, fps,
+            video_meta.get("width", 0), video_meta.get("height", 0), cm_per_px)
         
         # 021-M: stroke_metadata
         m = {
@@ -101,7 +114,7 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config):
             "keyframe": b_keyframe,
             "stroke_root": a_root,
             "metric": c_metric,
-            "kinematics": {}, # TBC
+            "kinematics": kn_metric,
             "stroke_specific": {}, # TBC
             "ball": {"available": True}, # TBC real values from ball tracking
             "derived": {},
