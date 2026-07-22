@@ -409,7 +409,7 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
     mt["stroke_type_distribution"] = {k: v for k, v in stroke_counts.items() if v > 0}
     
     # Phase 2 Analytics
-    agg, trend, pattern, summary = build_phase2_aggregations(strokes)
+    agg, trend, pattern, summary = build_phase2_aggregations(strokes, config)
     
     # Remove _index used internally
     for s in strokes:

@@ -169,12 +169,22 @@ def build_pattern(strokes: list[dict]) -> dict:
     if total >= MIN_STROKES_FOR_AVOIDANCE:
         avoidance = (counts.get("BH", 0) / total * 100.0) < 20.0
 
+    # PAT4: ต้องการ BL10 (ball landing_call) — มีแล้วเมื่อ build_ball_block()
+    # ถูกเรียกพร้อม court_homography (ดู loeuf_cv/ball.py, schema_builder/
+    # aggregator.py) ไม่งั้น landing_call เป็น None ทุก stroke → serve_fault
+    # เป็น None เหมือนเดิม (ไม่เดา fault จากข้อมูลที่ไม่มี)
+    serves = [s for s in strokes if s["stroke_root"]["stroke_type"] == "SV"]
+    serve_calls = [c for s in serves
+                  if (c := _metric(s, "ball", "landing_call")) is not None]
+    serve_fault_rate = (
+        round(100.0 * sum(c == "out" for c in serve_calls) / len(serve_calls), 2)
+        if serve_calls else None)
+
     return {
         "dominant_stroke_type": max(counts, key=counts.get) if counts else None,
         "stroke_sequence": seq,
         "groundstroke_sequence_detected": ground_detected,
-        # PAT4 ต้องการ BL10 (ball detection) → null จนกว่าจะมี
-        "serve_fault_rate_pct": None,
+        "serve_fault_rate_pct": serve_fault_rate,
         "backhand_avoidance_flag": avoidance,
     }
 
