@@ -1354,3 +1354,46 @@ def test_build_loeuf_schema_ball_block_uses_real_tracked_fraction():
 
     # ไม่ส่ง ball_traj มา -> fallback ตาม BL1 gate เดิม (ไม่มี detector = available False)
     assert without_ball["strokes"][0]["ball"] == {"available": False}
+
+
+def test_landing_zone_geometry():
+    from loeuf_cv.schema_builder.builder import _landing_zone
+
+    assert _landing_zone(1.0, 3.0) == "near_right_service_box"
+    assert _landing_zone(-1.0, 3.0) == "near_left_service_box"
+    assert _landing_zone(1.0, 8.0) == "near_right_backcourt"
+    assert _landing_zone(1.0, 15.0) == "far_right_service_box"
+    assert _landing_zone(1.0, 20.0) == "far_right_backcourt"
+    assert _landing_zone(6.0, 3.0) == "out_of_bounds"
+    assert _landing_zone(0.0, 30.0) == "out_of_bounds"
+
+
+def test_build_loeuf_schema_wires_landing_from_bounce_data():
+    """BL2-4 (landing_position/landing_zone/landing_call) ควรมาจาก
+    bounce_court_x_m/z_m/bounce_in_court ที่ add_bounce_to_hits() เติมใน
+    hit_events ไว้แล้ว (ต้องมี court_homography ตอน detect bounce) — ไม่ใช่
+    หน้าที่ของ build_loeuf_schema เองที่จะคำนวณ homography ใหม่"""
+    from loeuf_cv.config import PipelineConfig
+    from loeuf_cv.schema_builder.builder import build_loeuf_schema
+
+    n = 100
+    track = _fake_player_track(n_frames=n)
+    hit_events = [{
+        "frame": 50, "player_id": 1, "confidence": 0.9,
+        "bounce_court_x_m": 1.5, "bounce_court_z_m": 3.0, "bounce_in_court": True,
+    }]
+    video_meta = {"width": 1920, "height": 1080, "total_frames": n}
+    cfg = PipelineConfig()
+
+    ball_traj = np.full((n, 2), np.nan)
+    ball_traj[20:60, 0] = np.linspace(500, 1400, 40)
+    ball_traj[20:60, 1] = np.linspace(300, 700, 40)
+
+    out = build_loeuf_schema([track], hit_events, 30.0, video_meta, cfg, ball_traj=ball_traj)
+    ball_block = out["strokes"][0]["ball"]
+    assert ball_block["landing_position"] == {"x_m": 1.5, "z_m": 3.0}
+    assert ball_block["landing_zone"] == "near_right_service_box"
+    assert ball_block["landing_call"] == "in"
+    # BL อื่นที่ต้องการ depth/height เหนือพื้น ยังคง None เสมอ (ดู docstring)
+    assert ball_block["ball_speed_kmh"] is None
+    assert ball_block["trajectory_clearance_cm"] is None

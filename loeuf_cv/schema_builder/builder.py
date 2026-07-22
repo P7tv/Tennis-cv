@@ -102,6 +102,51 @@ def _recommended_action(detection_status: str, cf1: float, is_clean: bool, confi
     return "auto_accept"
 
 
+# ITF ground-plane geometry เดียวกับ loeuf_cv/court_calibration.py — ใช้ zoning
+# ตำแหน่ง bounce ตาม homography (BL2-4). "left"/"right" อ้างอิงเครื่องหมาย x_m
+# ดิบ (ไม่ใช่ deuce/ad — deuce/ad ขึ้นกับว่ากล้องอยู่ฝั่งไหนของ server ซึ่งไม่รู้
+# แน่ชัดจาก camera_angle="behind_baseline" อย่างเดียว ใช้ deuce/ad ไปตรงๆ
+# เสี่ยงป้าย label ผิดฝั่งได้)
+_HALF_W_M = 4.115
+_SERVICE_DEPTH_M = 5.485
+_NET_DEPTH_M = 11.885
+_COURT_LENGTH_M = 23.77
+_ZONE_MARGIN_M = 0.5
+
+
+def _landing_zone(x_m: float, z_m: float) -> str:
+    if abs(x_m) > _HALF_W_M + _ZONE_MARGIN_M or not (-_ZONE_MARGIN_M <= z_m <= _COURT_LENGTH_M + _ZONE_MARGIN_M):
+        return "out_of_bounds"
+    side = "right" if x_m >= 0 else "left"
+    if z_m <= _SERVICE_DEPTH_M:
+        return f"near_{side}_service_box"
+    if z_m <= _NET_DEPTH_M:
+        return f"near_{side}_backcourt"
+    if z_m <= _NET_DEPTH_M + _SERVICE_DEPTH_M:
+        return f"far_{side}_service_box"
+    return f"far_{side}_backcourt"
+
+
+def _ball_landing_from_hit(hit: dict) -> tuple[dict | None, str | None, str | None]:
+    """BL2-4 (landing_position/landing_zone/landing_call) จาก bounce data ที่
+    loeuf_cv/bounce_detection.py::add_bounce_to_hits() คำนวณไว้แล้วต่อ hit
+    (ต้องมี court_homography ตอนเรียก — ไม่งั้น bounce_court_x_m/z_m เป็น None
+    และฟังก์ชันนี้คืน (None, None, None) เหมือนเดิม)
+
+    ball_speed_kmh/trajectory_clearance_cm (BL อื่น) ยังคง None เสมอ — ground
+    homography ให้แค่พิกัดบนพื้นสนาม (Z=0 plane) ไม่มีแกนความสูง จะเอาไป
+    ประมาณตำแหน่ง/ความเร็วลูกตอนลอยกลางอากาศ (เหนือพื้น) ตรงๆ จะเพี้ยน
+    ต้องมี depth/height model เพิ่ม (scope แยก)"""
+    x_m, z_m = hit.get("bounce_court_x_m"), hit.get("bounce_court_z_m")
+    if x_m is None or z_m is None:
+        return None, None, None
+    landing_position = {"x_m": x_m, "z_m": z_m}
+    landing_zone = _landing_zone(x_m, z_m)
+    bounce_in = hit.get("bounce_in_court")
+    landing_call = ("in" if bounce_in else "out") if bounce_in is not None else None
+    return landing_position, landing_zone, landing_call
+
+
 def _path_vz(values_per_frame, start_frame: int, end_frame: int) -> list[dict] | None:
     """VZ format ทั่วไป: [{frame, x, y}] ทุกเฟรมระหว่าง backswing_peak → follow_through_peak
     values_per_frame: callable(frame_idx) -> (x, y) normalized 0-1, หรือ None ถ้าไม่มีค่า"""
@@ -127,8 +172,13 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
     ball_traj: np.ndarray (total_frames, 2) พิกัด pixel จาก
     extract_ball_trajectory_kalman() (NaN = ไม่เจอลูกเฟรมนั้น) — ใช้คำนวณ BL
     block จริง (available + _tracked_fraction) แทน placeholder เดิม —
-    ball_speed_kmh/landing_* ยังเป็น None เพราะต้องมี court calibration ก่อน
-    (ดู loeuf_cv/ball.py, scope แยก) — None = "ball": {"available": False} เหมือนเดิม
+    landing_position/landing_zone/landing_call (BL2-4) มาจาก hit_events[i]
+    ที่ loeuf_cv/bounce_detection.py::add_bounce_to_hits() เติม bounce_court_*
+    ไว้แล้ว (ต้องรัน add_bounce_to_hits ด้วย court_homography ก่อนส่งเข้ามา
+    ไม่งั้นเป็น None ทั้ง 3 field เหมือนเดิม) — ball_speed_kmh/
+    trajectory_clearance_cm ยังคง None เสมอ เพราะ ground homography ไม่มี
+    แกนความสูง คำนวณความเร็ว/ความสูงเหนือพื้นของลูกลอยกลางอากาศตรงๆ ไม่ได้
+    (scope แยก, ดู _ball_landing_from_hit)
     """
     import uuid
     session_id = f"sess-{datetime.datetime.now().strftime('%Y%m%d-%H%M')}"
@@ -260,6 +310,10 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
                 norm_seg = seg / [video_meta["width"], video_meta["height"]]
                 conf = (~np.isnan(norm_seg[:, 0])).astype(float)
                 ball_metric = build_ball_block(BallObservations(norm_seg, conf, fps))
+                landing_position, landing_zone, landing_call = _ball_landing_from_hit(hit)
+                ball_metric["landing_position"] = landing_position
+                ball_metric["landing_zone"] = landing_zone
+                ball_metric["landing_call"] = landing_call
 
         # A7 detection_status: valid = ครบ B1-B5, partial = บางส่วน, failed = ไม่มีเลย
         b_detected = [b_keyframe[n]["detected"] for n in
