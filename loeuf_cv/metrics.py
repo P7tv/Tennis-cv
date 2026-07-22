@@ -35,6 +35,22 @@ CONTACT_IDEAL_CM = {
 }
 
 
+def _safe_nanmax(arr: np.ndarray, default: float = np.nan) -> float:
+    """np.nanmax แต่คืน default แทน ValueError เมื่อทั้ง slice เป็น NaN
+    (occlusion ยาวเกิน gap-fill limit หลุดมาถึงตรงนี้ได้จริงบนคลิปลูกค้า)"""
+    arr = np.asarray(arr)
+    if arr.size == 0 or np.all(np.isnan(arr)):
+        return default
+    return float(np.nanmax(arr))
+
+
+def _safe_nanargmax(arr: np.ndarray) -> int | None:
+    arr = np.asarray(arr)
+    if arr.size == 0 or np.all(np.isnan(arr)):
+        return None
+    return int(np.nanargmax(arr))
+
+
 def _r2(v):
     if v is None:
         return None
@@ -200,10 +216,13 @@ class MetricsEngine:
         if b3 is not None:
             lo, hi = max(0, b3 - 5), min(self.ts.n_frames, b3 + 6)
             nose = self.ts.landmarks[lo:hi, NOSE, :2]
-            disp = np.nanmax(np.linalg.norm(nose - nose[b3 - lo], axis=1))
-            still = bool(self.cm(disp, b3) < 0.03 * self.config.body_height_cm)
-            self._put(b, "head_still_at_contact", still,
-                      self._vis_at(b3, (NOSE,)))
+            disp = _safe_nanmax(np.linalg.norm(nose - nose[b3 - lo], axis=1))
+            if np.isnan(disp):
+                self._put(b, "head_still_at_contact", None, "not_detectable")
+            else:
+                still = bool(self.cm(disp, b3) < 0.03 * self.config.body_height_cm)
+                self._put(b, "head_still_at_contact", still,
+                          self._vis_at(b3, (NOSE,)))
         else:
             self._put(b, "head_still_at_contact", None, "not_detectable")
         return b
@@ -456,9 +475,13 @@ class MetricsEngine:
             self._put(d, "peak_racket_drop_cm", None, "not_detectable")
         else:
             ys = self.ts.landmarks[b2:b3 + 1, s["wrist"], 1]
-            drop = max(0.0, float(np.nanmax(ys) - ys[0]))
-            self._put(d, "peak_racket_drop_cm", self.cm(drop, b3),
-                      self._vis_at(b3, (s["wrist"],), cap_low=True))
+            peak_y = _safe_nanmax(ys)
+            if np.isnan(peak_y) or np.isnan(ys[0]):
+                self._put(d, "peak_racket_drop_cm", None, "not_detectable")
+            else:
+                drop = max(0.0, float(peak_y - ys[0]))
+                self._put(d, "peak_racket_drop_cm", self.cm(drop, b3),
+                          self._vis_at(b3, (s["wrist"],), cap_low=True))
         return d
 
     def kinematics_block(self) -> dict:
@@ -473,7 +496,9 @@ class MetricsEngine:
             seg = rot[b2:b3 + 1]
             dt = np.gradient(t_ms[b2:b3 + 1]) / 1000.0
             vel = np.abs(np.gradient(seg) / dt)
-            i = int(np.nanargmax(vel))
+            i = _safe_nanargmax(vel)
+            if i is None:
+                return None, None
             return float(vel[i]), float(t_ms[b2 + i])
 
         kn1, t_hip = peak_rot_velocity(self.hip_rot)

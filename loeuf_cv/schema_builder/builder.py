@@ -1,10 +1,119 @@
+import dataclasses
 import datetime
 import numpy as np
 from .keyframes import extract_keyframes
-from .metrics import calculate_cm_per_px, get_body_metrics, get_racket_metrics
+from .metrics import calculate_cm_per_px, get_racket_metrics, _pick_racket_detection, _racket_tip_center_px
 from .classifier import classify_stroke
 from .aggregator import build_phase2_aggregations
 from ..ball import BallObservations, build_ball_block
+from ..config import CORE_LANDMARKS
+from ..keyframes import Keyframe
+from ..metrics import MetricsEngine
+from ..occlusion_fill import kinematic_fill
+from ..smoothing import smooth_timeseries
+
+# schema_builder เดิมตั้งชื่อ B5 "recovery_position" (ตรงกับ schema doc field name
+# ในบล็อก 023-B) แต่ loeuf_cv/config.py (KEYFRAME_NAMES, ใช้โดย MetricsEngine)
+# ตั้งชื่อ "ready_position_restored" — คนละชื่อ ความหมายเดียวกัน
+_KF_NAME_TO_ENGINE = {"recovery_position": "ready_position_restored"}
+
+
+def _build_engine_keyframes(kf: dict, fps: float, stroke_start_frame: int) -> dict[str, Keyframe]:
+    """schema_builder.keyframes.extract_keyframes() คืน dict ชื่อ -> frame_index (int|None)
+    ธรรมดา — MetricsEngine (loeuf_cv/metrics.py, ของเดิมที่ทดสอบแล้ว 63 tests) ต้องการ
+    dict ชื่อ -> Keyframe(frame_index, timestamp_ms, detected) โดย frame_index ต้อง
+    relative กับ PoseTimeseries ที่ตัดมาเฉพาะ stroke นี้ (ดู _slice_pose_for_stroke)"""
+    out = {}
+    for name, frame_idx in kf.items():
+        engine_name = _KF_NAME_TO_ENGINE.get(name, name)
+        detected = frame_idx is not None
+        rel_idx = (frame_idx - stroke_start_frame) if detected else None
+        ts_ms = (rel_idx / fps * 1000.0) if detected else None
+        out[engine_name] = Keyframe(engine_name, rel_idx, ts_ms, detected)
+    return out
+
+
+def _slice_pose_for_stroke(pose, start_frame: int, end_frame: int, config):
+    """MetricsEngine ออกแบบมาสำหรับ PoseTimeseries ของ stroke เดียว (บาง field เช่น
+    split_step/footwork_distance ใช้ 'เฟรม 0 ของ ts' เป็นจุดอ้างอิงก่อน stroke) —
+    track.pose ในระบบนี้ครอบคลุมทั้งคลิป (หลาย stroke) ต้องตัดมาเฉพาะช่วงของ stroke
+    นี้ก่อนส่งเข้า MetricsEngine ไม่งั้นค่าที่คำนวณจะอ้างอิงผิดช่วง
+
+    track.pose มาจาก YOLO+MediaPipe ดิบ (ไม่ผ่าน resample/gap-fill/smoothing
+    แบบที่ StrokePipeline เดิมทำก่อนส่งเข้า MetricsEngine — ดู stroke_pipeline.py)
+    ช่วงที่ track หลุด/occluded ทำให้ landmark เป็น NaN ต่อเนื่องยาว ๆ ได้ ซึ่งทำให้
+    MetricsEngine (เช่น kinematics_block ที่ทำ nanargmax) crash ได้ตรง ๆ — จึงต้อง
+    kinematic_fill (เติม wrist/ankle เฉพาะจุด) + smooth_timeseries (gap-fill ทุก
+    landmark สั้น ๆ + savgol) ก่อนเสมอ เหมือน pipeline เดิมทำ"""
+    n = len(pose.landmarks)
+    s = max(0, min(start_frame, n - 1))
+    e = max(s + 1, min(end_frame + 1, n))
+    sliced = dataclasses.replace(
+        pose,
+        landmarks=pose.landmarks[s:e],
+        world_landmarks=pose.world_landmarks[s:e],
+        visibility=pose.visibility[s:e],
+        timestamps_ms=pose.timestamps_ms[s:e],
+    )
+    filled = kinematic_fill(sliced)
+    return smooth_timeseries(filled, config)
+
+
+def _pose_confidence(pose, frame_idx: int) -> float:
+    """CF1 pose_estimation_confidence — ค่าเฉลี่ย visibility ของ core landmark
+    ณ impact frame (ประมาณการรวมผล lighting/occlusion/motion blur/pose quality
+    ที่ landmark visibility ของ MediaPipe สะท้อนอยู่แล้วในตัวมันเอง)"""
+    if frame_idx is None or frame_idx >= len(pose.visibility):
+        return 0.0
+    return float(np.mean(pose.visibility[frame_idx, list(CORE_LANDMARKS)]))
+
+
+def _inference_clean(pose, start_frame: int, end_frame: int, config) -> bool:
+    """CF2 — เช็ค landmark jump ต่อเฟรมของ core landmark ตลอดช่วง stroke นี้ ถ้ากระโดด
+    เกิน inference_jump_ratio ของ body height (ในเฟรมเดียว) ถือว่าน่าจะเป็น artifact
+    (skeleton jump / landmark หายกลางคัน) ไม่ใช่ track จริง"""
+    n = len(pose.landmarks)
+    s, e = max(0, start_frame), min(n, end_frame + 1)
+    if e - s < 2:
+        return True
+    seg = pose.landmarks[s:e, list(CORE_LANDMARKS), :2]
+    ankle_y = np.nanmean(pose.landmarks[s:e, [27, 28], 1])
+    head_y = np.nanmean(pose.landmarks[s:e, 0, 1])
+    height_norm = abs(ankle_y - head_y)
+    if not np.isfinite(height_norm) or height_norm < 1e-6:
+        return True
+    jumps = np.linalg.norm(np.diff(seg, axis=0), axis=2)
+    max_jump = np.nanmax(jumps) if jumps.size and not np.all(np.isnan(jumps)) else 0.0
+    return bool(max_jump < config.inference_jump_ratio * height_norm)
+
+
+def _recommended_action(detection_status: str, cf1: float, is_clean: bool, config) -> str:
+    """A9 — priority logic ตรงตาม schema doc (031-043 field definition, A9 row)"""
+    if detection_status == "failed":
+        return "discard"
+    if cf1 < config.coach_review_threshold:
+        return "discard"
+    if detection_status == "partial":
+        return "coach_review"
+    if not is_clean:
+        return "coach_review"
+    if cf1 < config.auto_accept_threshold:
+        return "coach_review"
+    return "auto_accept"
+
+
+def _path_vz(values_per_frame, start_frame: int, end_frame: int) -> list[dict] | None:
+    """VZ format ทั่วไป: [{frame, x, y}] ทุกเฟรมระหว่าง backswing_peak → follow_through_peak
+    values_per_frame: callable(frame_idx) -> (x, y) normalized 0-1, หรือ None ถ้าไม่มีค่า"""
+    if start_frame is None or end_frame is None or end_frame < start_frame:
+        return None
+    out = []
+    for f in range(start_frame, end_frame + 1):
+        pt = values_per_frame(f)
+        if pt is None:
+            continue
+        out.append({"frame": int(f), "x": round(float(pt[0]), 4), "y": round(float(pt[1]), 4)})
+    return out or None
 
 def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypoints=None, ball_traj=None):
     """
@@ -59,41 +168,79 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
         # Extract Keyframes (B)
         kf = extract_keyframes(impact_frame, wrist_path, fps, video_meta.get("total_frames", 0))
 
-        # Metrics (C) — คำนวณก่อน classify_stroke เพื่อส่งเป็น feature เสริมให้ ML-assist (ถ้ามี stroke_classifier.pkl)
+        # ต้องครอบคลุมทุก keyframe ที่ตรวจเจอจริง ไม่ใช่แค่ unit_turn/recovery_position —
+        # backswing_peak ค้นหาได้ไกลถึง impact-1.5s ซึ่งอาจไกลกว่า fallback impact-30 เฟรม
+        # ถ้า stroke_start_frame ตัดมาสั้นกว่านั้น พอเอาไป slice+reindex ให้ MetricsEngine
+        # จะได้ relative frame_index ติดลบ (ตัดหัวคิวทิ้งไปทั้งที่ยังต้องใช้) → crash/ผิดพลาด
+        detected_frames = [f for f in kf.values() if f is not None]
+        stroke_start_frame = max(0, min(detected_frames + [impact_frame - 30]))
+        stroke_end_frame = min(video_meta.get("total_frames", 0) - 1,
+                                max(detected_frames + [impact_frame + 30]))
+
         actual_height = config.subject_height_cm if hasattr(config, 'subject_height_cm') and config.subject_height_cm else 170.0
-        c_metric = get_body_metrics(track.pose, kf, actual_height, dominant_side)
+
+        # Metrics (C/D/VF/KN1-4/SS) — ใช้ MetricsEngine เดิม (loeuf_cv/metrics.py, ทดสอบ
+        # แล้วผ่าน 63 tests) แทนสูตรมือใน schema_builder เอง — engine นี้ implement ครบ
+        # ตาม schema doc อยู่แล้ว (D block, VF ทุก field, KN1-4, SS ต่อ stroke type) ไม่ต้อง
+        # เขียนใหม่ ต้องตัด track.pose (ครอบคลุมทั้งคลิปหลาย stroke) ให้เหลือแค่ช่วง stroke
+        # นี้ก่อน เพราะ engine สมมติว่า ts ที่ส่งเข้าไปเป็น stroke เดียว (ดู _slice_pose_for_stroke)
+        engine_config = dataclasses.replace(config, dominant_side=dominant_side, subject_height_cm=actual_height)
+        sliced_pose = _slice_pose_for_stroke(track.pose, stroke_start_frame, stroke_end_frame, engine_config)
+        engine_kf = _build_engine_keyframes(kf, fps, stroke_start_frame)
+        blocks, derived, vf = MetricsEngine(sliced_pose, engine_kf, engine_config, "FH").compute()
+        # stroke_type ยังไม่รู้ตอนนี้ (classify_stroke ต้องใช้ c_metric ก่อน) — เรียกซ้ำรอบสอง
+        # ด้วย stroke_type จริงหลังจำแนกได้ ค่า C/D/VF ส่วนใหญ่ไม่ขึ้นกับ stroke_type แต่
+        # SS (stroke_specific)/บาง field ใน arm/movement/derived ที่กัน SV/VL ออก ขึ้นกับมันจริง
+        c_metric = blocks
 
         # Stroke Type (A)
         stype = classify_stroke(track.pose, impact_frame, dominant_side, keyframe_metrics=c_metric)
         if stype in stroke_counts:
             stroke_counts[stype] += 1
 
-        # Kinematics (KN) — racket_tip/center_position + racket_head_speed_mps
-        # จาก keypoint จริง (ถ้า custom model เป็น pose model) — ไม่มีก็ได้ dict ว่างเปล่า
+        if stype != "FH":
+            blocks, derived, vf = MetricsEngine(sliced_pose, engine_kf, engine_config, stype).compute()
+            c_metric = blocks
+
+        # Kinematics (KN) — racket_tip/center_position + racket_head_speed_mps จาก keypoint
+        # จริง (custom pose model) — แม่นกว่า MetricsEngine เดิมที่ไม่มี racket detector
+        # (ตั้ง null/wrist-fallback เสมอ) เลย override เฉพาะ 3 field นี้ทับของเดิมถ้ามีค่าจริง
         cm_per_px = calculate_cm_per_px(
             track.pose.landmarks[impact_frame], track.pose.visibility[impact_frame],
             L_ANKLE, R_ANKLE, NOSE, actual_height)
-        kn_metric = get_racket_metrics(
+        racket_kn = get_racket_metrics(
             racket_keypoints, kf, wrist_path, fps,
             video_meta.get("width", 0), video_meta.get("height", 0), cm_per_px)
-        
+        for key in ("racket_tip_position", "racket_center_position", "racket_head_speed_mps"):
+            if key in racket_kn:
+                c_metric["kinematics"][key] = racket_kn[key]
+                vf[key] = "visible"
+
+        # metric (031-C) ตาม schema เก็บแค่ body/arm/timing/contact/movement/depth_estimated —
+        # kinematics/stroke_specific/ball เป็น block แยก (032-KN/033-SS/034-BL) ต้องแยกออกมา
+        kn_metric = c_metric.pop("kinematics")
+        ss_metric = c_metric.pop("stroke_specific")
+        c_metric.pop("ball", None)
+
         # 021-M: stroke_metadata
+        cf1 = _pose_confidence(track.pose, impact_frame)
         m = {
-            "debug_pose_confidence": 0.95,
+            "debug_pose_confidence": round(cf1, 2),
             "processed_at": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
             "resolution": f"{video_meta.get('width', 1920)}x{video_meta.get('height', 1080)}",
             "camera_angle": "behind_baseline",
-            "velocity_normalized": True,
-            "normalization_method": "resampled_to_60fps"
+            "velocity_normalized": fps >= 60,
+            "normalization_method": "resampled_to_60fps" if fps >= 60 else "native_fps_no_resample"
         }
-        
-        # 022-VQ: video_quality
+
+        # 022-VQ: video_quality — ยังไม่มี motion_blur/low_light/occlusion check จริง
+        # (ต้องวิเคราะห์ภาพเพิ่ม, scope แยก) usable=True เสมอไปก่อน
         vq = {
             "usable": True,
             "issues": [],
             "partial_swing_detail": None
         }
-        
+
         # 023-B: keyframe
         b_keyframe = {
             "unit_turn": {"frame_index": kf["unit_turn"], "detected": kf["unit_turn"] is not None},
@@ -102,9 +249,6 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
             "follow_through_peak": {"frame_index": kf["follow_through_peak"], "detected": kf["follow_through_peak"] is not None},
             "recovery_position": {"frame_index": kf["recovery_position"], "detected": kf["recovery_position"] is not None}
         }
-        
-        stroke_start_frame = kf["unit_turn"] if kf["unit_turn"] else max(0, impact_frame - 30)
-        stroke_end_frame = kf["recovery_position"] if kf["recovery_position"] else min(video_meta.get("total_frames", 0), impact_frame + 30)
 
         # Ball (BL) — available/_tracked_fraction จริงจาก ball trajectory (Kalman-filtered)
         # ในช่วงเฟรมของ stroke นี้ — ball_speed_kmh/landing_* ยังเป็น None เสมอ
@@ -117,6 +261,20 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
                 conf = (~np.isnan(norm_seg[:, 0])).astype(float)
                 ball_metric = build_ball_block(BallObservations(norm_seg, conf, fps))
 
+        # A7 detection_status: valid = ครบ B1-B5, partial = บางส่วน, failed = ไม่มีเลย
+        b_detected = [b_keyframe[n]["detected"] for n in
+                      ("unit_turn", "backswing_peak", "impact", "follow_through_peak", "recovery_position")]
+        n_detected = sum(b_detected)
+        detection_status = "valid" if n_detected == 5 else ("failed" if n_detected == 0 else "partial")
+
+        # A8 is_clean_stroke: B1-B4 ตรวจเจอครบ + ไม่มี issue จาก VQ2 (ตอนนี้ issues ว่างเสมอ
+        # เพราะ VQ ยังไม่ implement จริง — ค่าจะแม่นขึ้นอัตโนมัติเมื่อ VQ พร้อม)
+        is_clean = all(b_keyframe[n]["detected"] for n in
+                       ("unit_turn", "backswing_peak", "impact", "follow_through_peak")) and not vq["issues"]
+
+        cf2 = _inference_clean(track.pose, stroke_start_frame, stroke_end_frame, config)
+        recommended_action = _recommended_action(detection_status, cf1, is_clean, config)
+
         # 024-A: stroke_root
         a_root = {
             "stroke_id": f"{session_id}_stroke-{i+1}",
@@ -125,10 +283,57 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
             "stroke_start_frame": stroke_start_frame,
             "stroke_end_frame": stroke_end_frame,
             "dominant_side": dominant_side,
-            "detection_status": "valid",
-            "is_clean_stroke": True,
-            "stroke_recommended_action": "auto_accept"
+            "detection_status": detection_status,
+            "is_clean_stroke": is_clean,
+            "stroke_recommended_action": recommended_action
         }
+
+        # 043-VZ: visualization — wrist_path (VZ1, required), + ball/racket path (VZ2-4)
+        # ถ้ามีข้อมูล ทุกจุดระหว่าง backswing_peak -> follow_through_peak ตาม spec
+        vz_start = kf.get("backswing_peak")
+        vz_end = kf.get("follow_through_peak")
+
+        def _wrist_pt(f):
+            if f >= len(track.pose.landmarks):
+                return None
+            x, y = track.pose.landmarks[f, wrist_idx, :2]
+            return None if (np.isnan(x) or np.isnan(y)) else (x, y)
+
+        visualization = {"wrist_path": _path_vz(_wrist_pt, vz_start, vz_end) or []}
+
+        if ball_traj is not None and video_meta.get("width") and video_meta.get("height"):
+            fw, fh = video_meta["width"], video_meta["height"]
+
+            def _ball_pt(f):
+                if f >= len(ball_traj):
+                    return None
+                x, y = ball_traj[f]
+                return None if (np.isnan(x) or np.isnan(y)) else (x / fw, y / fh)
+
+            visualization["ball_path"] = _path_vz(_ball_pt, vz_start, vz_end)
+
+        if racket_keypoints and video_meta.get("width") and video_meta.get("height"):
+            fw, fh = video_meta["width"], video_meta["height"]
+            wrist_path_full = track.pose.landmarks[:, wrist_idx, :2]
+
+            def _racket_pts(f):
+                dets = racket_keypoints.get(f)
+                if not dets:
+                    return None, None
+                wrist_px = None
+                if f < len(wrist_path_full):
+                    wx, wy = wrist_path_full[f]
+                    if not (np.isnan(wx) or np.isnan(wy)):
+                        wrist_px = (wx * fw, wy * fh)
+                det = _pick_racket_detection(dets, wrist_px)
+                pts = _racket_tip_center_px(det) if det else None
+                if pts is None:
+                    return None, None
+                return ((pts["tip_px"][0] / fw, pts["tip_px"][1] / fh),
+                        (pts["center_px"][0] / fw, pts["center_px"][1] / fh))
+
+            visualization["racket_tip_path"] = _path_vz(lambda f: _racket_pts(f)[0], vz_start, vz_end)
+            visualization["racket_center_path"] = _path_vz(lambda f: _racket_pts(f)[1], vz_start, vz_end)
 
         stroke = {
             "stroke_metadata": m,
@@ -137,14 +342,14 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
             "stroke_root": a_root,
             "metric": c_metric,
             "kinematics": kn_metric,
-            "stroke_specific": {}, # TBC
+            "stroke_specific": ss_metric,
             "ball": ball_metric,
-            "derived": {},
-            "visibility_flag": {},
-            "confidence_flag": {"pose_estimation_confidence": 0.9, "inference_clean": True},
-            "visualization": {"wrist_path": []}
+            "derived": derived,
+            "visibility_flag": vf,
+            "confidence_flag": {"pose_estimation_confidence": round(cf1, 2), "inference_clean": cf2, "issues_detected": []},
+            "visualization": visualization
         }
-        
+
         strokes.append(stroke)
         
     mt["stroke_type_distribution"] = {k: v for k, v in stroke_counts.items() if v > 0}

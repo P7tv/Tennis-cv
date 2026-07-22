@@ -154,14 +154,22 @@ def render_overlay_video(video_path: str, tracks: list,
                 print(f"[Overlay Debug] Track {t.track_id} DRAWING frame 0! Vis mean: {v.mean():.3f}")
             
             # 2. Extract and Draw Wrist Path
+            # เกณฑ์ต่อ trail (0.5) เข้มกว่าเกณฑ์วาดจุด/จับคู่ไม้ปัจจุบัน (0.3) — ตรวจสอบ
+            # ราย frame แล้วพบว่าช่วงปลายสวิงเร็ว (แขนเบลอ/บังกันเอง) confidence ร่วงลง
+            # ต่ำแค่เฉียด 0.3 (เช่น 0.35) ตำแหน่งยังไม่ผิดชัดเจน แต่ไม่นิ่งพอจะต่อเป็นเส้น
+            # trail ที่ดูน่าเชื่อถือ — จุดปัจจุบัน/จับคู่ไม้ยังใช้ 0.3 เหมือนเดิม เพราะจุดเดียว
+            # ไม่ต่อเนื่องผิดสังเกตเท่าเส้น
+            TRAIL_MIN_CONF = 0.5
             lw, rw = None, None
             if v[15] >= 0.3 and not np.isnan(pts[15]).any():
                 lw = (int(pts[15, 0] * fw), int(pts[15, 1] * fh))
-                wrist_history[t.track_id]["left"].append(lw)
+                if v[15] >= TRAIL_MIN_CONF:
+                    wrist_history[t.track_id]["left"].append(lw)
                 wrists_this_frame.append(("left", t.track_id, lw, color))
             if v[16] >= 0.3 and not np.isnan(pts[16]).any():
                 rw = (int(pts[16, 0] * fw), int(pts[16, 1] * fh))
-                wrist_history[t.track_id]["right"].append(rw)
+                if v[16] >= TRAIL_MIN_CONF:
+                    wrist_history[t.track_id]["right"].append(rw)
                 wrists_this_frame.append(("right", t.track_id, rw, color))
                 
             # Limit history to 15 frames
@@ -192,36 +200,40 @@ def render_overlay_video(video_path: str, tracks: list,
             y_offset += 25
             
         # 3. Draw Racket Center & Tip
-        if racket_bboxes and frame_idx in racket_bboxes:
+        # เฟรมเดียวอาจมี racket detection มากกว่า 1 box ซ้อนกัน (YOLO NMS ไม่กรองสนิท) —
+        # เลือกวาดแค่ตัวที่ centroid ใกล้ข้อมือสุด (เหมือน _pick_racket_detection ใน
+        # schema_builder/metrics.py) กันจุด "Tip" ซ้อนกันหลายจุดในเฟรมเดียวบนภาพ debug
+        if racket_bboxes and frame_idx in racket_bboxes and racket_bboxes[frame_idx]:
             frame_racket_kps = (racket_keypoints or {}).get(frame_idx, [])
-            for det_i, (rx, ry, rw_w, rh) in enumerate(racket_bboxes[frame_idx]):
-                rcx, rcy = rx + rw_w//2, ry + rh//2
+            dets = racket_bboxes[frame_idx]
 
-                # ถ้ามี keypoint จริงจากโมเดล pose (train_model/build_pose_dataset.py)
-                # ใช้จุดจริงแทน heuristic เดาด้านล่าง — จุดที่ไกล centroid สุด = tip
-                # (สมมติฐานเบื้องต้น เพราะ 4 จุดไม่มี index ความหมายตายตัวจาก label เดิม)
-                kps = frame_racket_kps[det_i] if det_i < len(frame_racket_kps) else None
-                valid_kps = [(x, y) for x, y, v in kps if v > 0.3] if kps else []
-                if len(valid_kps) >= 2:
-                    cx = sum(x for x, y in valid_kps) / len(valid_kps)
-                    cy = sum(y for x, y in valid_kps) / len(valid_kps)
-                    cv2.circle(frame, (int(cx), int(cy)), 4, (255, 0, 255), -1, cv2.LINE_AA)
-                    for x, y in valid_kps:
-                        cv2.circle(frame, (int(x), int(y)), 4, (0, 0, 255), -1, cv2.LINE_AA)
-                    tip_x, tip_y = max(valid_kps, key=lambda p: (p[0] - cx) ** 2 + (p[1] - cy) ** 2)
-                    cv2.putText(frame, "Tip", (int(tip_x) + 5, int(tip_y) + 5),
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
-                    continue
-
-                # --- fallback: ไม่มี keypoint จริง (โมเดลเก่า/ตรวจไม่เจอ) ใช้ heuristic เดิม ---
-                best_w = None
-                best_dist = float('inf')
+            best_i, best_w, best_dist = 0, None, float('inf')
+            for det_i, (rx, ry, rw_w, rh) in enumerate(dets):
+                rcx, rcy = rx + rw_w // 2, ry + rh // 2
                 for w_side, w_tid, w_pt, w_color in wrists_this_frame:
-                    d = ((rcx - w_pt[0])**2 + (rcy - w_pt[1])**2)**0.5
+                    d = ((rcx - w_pt[0]) ** 2 + (rcy - w_pt[1]) ** 2) ** 0.5
                     if d < best_dist:
-                        best_dist = d
-                        best_w = (w_pt, w_color)
+                        best_dist, best_i, best_w = d, det_i, (w_pt, w_color)
 
+            rx, ry, rw_w, rh = dets[best_i]
+            rcx, rcy = rx + rw_w//2, ry + rh//2
+
+            # ถ้ามี keypoint จริงจากโมเดล pose (train_model/build_pose_dataset.py)
+            # ใช้จุดจริงแทน heuristic เดาด้านล่าง — จุดที่ไกล centroid สุด = tip
+            # (สมมติฐานเบื้องต้น เพราะ 4 จุดไม่มี index ความหมายตายตัวจาก label เดิม)
+            kps = frame_racket_kps[best_i] if best_i < len(frame_racket_kps) else None
+            valid_kps = [(x, y) for x, y, v in kps if v > 0.3] if kps else []
+            if len(valid_kps) >= 2:
+                cx = sum(x for x, y in valid_kps) / len(valid_kps)
+                cy = sum(y for x, y in valid_kps) / len(valid_kps)
+                cv2.circle(frame, (int(cx), int(cy)), 4, (255, 0, 255), -1, cv2.LINE_AA)
+                for x, y in valid_kps:
+                    cv2.circle(frame, (int(x), int(y)), 4, (0, 0, 255), -1, cv2.LINE_AA)
+                tip_x, tip_y = max(valid_kps, key=lambda p: (p[0] - cx) ** 2 + (p[1] - cy) ** 2)
+                cv2.putText(frame, "Tip", (int(tip_x) + 5, int(tip_y) + 5),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
+            else:
+                # --- fallback: ไม่มี keypoint จริง (โมเดลเก่า/ตรวจไม่เจอ) ใช้ heuristic เดิม ---
                 cv2.circle(frame, (rcx, rcy), 4, (255, 0, 255), -1, cv2.LINE_AA)
 
                 # Match wrist if within reasonable distance (e.g., 3x racket size)
