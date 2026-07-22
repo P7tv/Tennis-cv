@@ -1310,3 +1310,47 @@ def test_apply_one_euro_filter_opt_in_does_not_change_default_pipeline():
 
     config = PipelineConfig()
     assert config.smoothing_method == "savgol"
+
+
+def _fake_player_track(n_frames=100, fps=30.0, width=1920, height=1080):
+    from loeuf_cv.multi_person import PlayerTrack
+    from loeuf_cv.pose_extractor import PoseTimeseries, VideoMeta
+
+    meta = VideoMeta(path="fake.mp4", fps=fps, frame_count=n_frames, width=width, height=height)
+    landmarks = np.zeros((n_frames, 33, 3)) + 0.5
+    ts = PoseTimeseries(
+        landmarks=landmarks, world_landmarks=np.zeros((n_frames, 33, 3)),
+        visibility=np.ones((n_frames, 33)) * 0.9,
+        timestamps_ms=np.arange(n_frames) * (1000.0 / fps), meta=meta)
+    return PlayerTrack(track_id=1, role="near", pose=ts, n_frames_tracked=n_frames)
+
+
+def test_build_loeuf_schema_ball_block_uses_real_tracked_fraction():
+    """schema_builder.builder.build_loeuf_schema เดิมส่ง "ball": {"available": True}
+    แบบ hardcode เสมอไม่ว่าจะเจอลูกจริงหรือไม่ — ตอนนี้ควรคำนวณจาก ball_traj
+    จริง (Kalman trajectory) สโคปตามช่วงเฟรมของแต่ละ stroke"""
+    from loeuf_cv.config import PipelineConfig
+    from loeuf_cv.schema_builder.builder import build_loeuf_schema
+
+    n = 100
+    track = _fake_player_track(n_frames=n)
+    hit_events = [{"frame": 50, "player_id": 1, "confidence": 0.9}]
+    video_meta = {"width": 1920, "height": 1080, "total_frames": n}
+    cfg = PipelineConfig()
+
+    ball_traj = np.full((n, 2), np.nan)
+    ball_traj[20:60, 0] = np.linspace(500, 1400, 40)
+    ball_traj[20:60, 1] = np.linspace(300, 700, 40)
+
+    with_ball = build_loeuf_schema([track], hit_events, 30.0, video_meta, cfg, ball_traj=ball_traj)
+    without_ball = build_loeuf_schema([track], hit_events, 30.0, video_meta, cfg, ball_traj=None)
+
+    ball_block = with_ball["strokes"][0]["ball"]
+    assert ball_block["available"] is True
+    assert 0.0 < ball_block["_tracked_fraction"] <= 1.0
+    # ยังไม่มี court calibration — field พวกนี้ต้องเป็น None เสมอ ไม่เดาค่า
+    assert ball_block["ball_speed_kmh"] is None
+    assert ball_block["landing_position"] is None
+
+    # ไม่ส่ง ball_traj มา -> fallback ตาม BL1 gate เดิม (ไม่มี detector = available False)
+    assert without_ball["strokes"][0]["ball"] == {"available": False}

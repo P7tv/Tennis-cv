@@ -512,8 +512,9 @@ if tracks:
                 
                 try:
                     racket_keypoints = st.session_state.get("racket_keypoints")
+                    ball_traj = st.session_state.get("ball_traj")
                     loeuf_json_data = build_loeuf_schema(tracks, st.session_state.hit_events, fps, video_meta, cfg,
-                                                          racket_keypoints=racket_keypoints)
+                                                          racket_keypoints=racket_keypoints, ball_traj=ball_traj)
                     json_str = json.dumps(loeuf_json_data, indent=2, ensure_ascii=False).encode('utf-8')
                     st.download_button("📦 Export Loeuf Schema (JSON)", data=json_str, file_name=f"{loeuf_json_data['session_metadata']['session_id']}.json", mime="application/json")
                 except Exception as e:

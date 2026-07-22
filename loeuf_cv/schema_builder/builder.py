@@ -1,10 +1,12 @@
 import datetime
+import numpy as np
 from .keyframes import extract_keyframes
 from .metrics import calculate_cm_per_px, get_body_metrics, get_racket_metrics
 from .classifier import classify_stroke
 from .aggregator import build_phase2_aggregations
+from ..ball import BallObservations, build_ball_block
 
-def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypoints=None):
+def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypoints=None, ball_traj=None):
     """
     สร้าง Loeuf Full JSON Schema (17 Layers)
     Phase 1 & Phase 2 Intelligence
@@ -12,6 +14,12 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
     racket_keypoints: dict[frame_idx -> ...] จาก webui/yolo_track.py (ถ้าใช้
     custom model แบบ pose ที่มี keypoint จริง) — None = kinematics racket
     fields (KN5-7) จะว่างเปล่าเหมือนเดิม ไม่ error
+
+    ball_traj: np.ndarray (total_frames, 2) พิกัด pixel จาก
+    extract_ball_trajectory_kalman() (NaN = ไม่เจอลูกเฟรมนั้น) — ใช้คำนวณ BL
+    block จริง (available + _tracked_fraction) แทน placeholder เดิม —
+    ball_speed_kmh/landing_* ยังเป็น None เพราะต้องมี court calibration ก่อน
+    (ดู loeuf_cv/ball.py, scope แยก) — None = "ball": {"available": False} เหมือนเดิม
     """
     import uuid
     session_id = f"sess-{datetime.datetime.now().strftime('%Y%m%d-%H%M')}"
@@ -95,19 +103,33 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
             "recovery_position": {"frame_index": kf["recovery_position"], "detected": kf["recovery_position"] is not None}
         }
         
+        stroke_start_frame = kf["unit_turn"] if kf["unit_turn"] else max(0, impact_frame - 30)
+        stroke_end_frame = kf["recovery_position"] if kf["recovery_position"] else min(video_meta.get("total_frames", 0), impact_frame + 30)
+
+        # Ball (BL) — available/_tracked_fraction จริงจาก ball trajectory (Kalman-filtered)
+        # ในช่วงเฟรมของ stroke นี้ — ball_speed_kmh/landing_* ยังเป็น None เสมอ
+        # เพราะต้องมี court calibration ก่อน (ดู docstring ด้านบน)
+        ball_metric = {"available": False}
+        if ball_traj is not None and video_meta.get("width") and video_meta.get("height"):
+            seg = np.asarray(ball_traj[stroke_start_frame:stroke_end_frame], dtype=float)
+            if len(seg):
+                norm_seg = seg / [video_meta["width"], video_meta["height"]]
+                conf = (~np.isnan(norm_seg[:, 0])).astype(float)
+                ball_metric = build_ball_block(BallObservations(norm_seg, conf, fps))
+
         # 024-A: stroke_root
         a_root = {
             "stroke_id": f"{session_id}_stroke-{i+1}",
             "stroke_index": i + 1,
             "stroke_type": stype,
-            "stroke_start_frame": kf["unit_turn"] if kf["unit_turn"] else max(0, impact_frame - 30),
-            "stroke_end_frame": kf["recovery_position"] if kf["recovery_position"] else min(video_meta.get("total_frames", 0), impact_frame + 30),
+            "stroke_start_frame": stroke_start_frame,
+            "stroke_end_frame": stroke_end_frame,
             "dominant_side": dominant_side,
             "detection_status": "valid",
             "is_clean_stroke": True,
             "stroke_recommended_action": "auto_accept"
         }
-        
+
         stroke = {
             "stroke_metadata": m,
             "video_quality": vq,
@@ -116,7 +138,7 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
             "metric": c_metric,
             "kinematics": kn_metric,
             "stroke_specific": {}, # TBC
-            "ball": {"available": True}, # TBC real values from ball tracking
+            "ball": ball_metric,
             "derived": {},
             "visibility_flag": {},
             "confidence_flag": {"pose_estimation_confidence": 0.9, "inference_clean": True},

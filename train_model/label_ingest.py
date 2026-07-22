@@ -118,6 +118,20 @@ def _resolve_video_path(label_path: Path, clip_path: str | None, video_id: str |
                 and existing.suffix.lower() in (".mp4", ".mov", ".avi"):
             return existing
 
+    # ชุด set3/set4 พบว่า clip_path ใน json บางไฟล์เขียน suffix ผิดจากไฟล์จริง
+    # (เช่น json บอก "IMG_0300B6(SV1).mp4" แต่ไฟล์จริงชื่อ "IMG_0300B6-SV1.mp4",
+    # บางไฟล์ยังสลับ stroke type ผิดไปเลยเช่น "(VL1)" ทั้งที่ไฟล์จริงคือ "(SV1)")
+    # — stem_guess (เลข IMG_XXXX จากชื่อไฟล์ label เอง) ยังเชื่อถือได้กว่า ใช้
+    # prefix-match แทน แต่ยอมใช้เฉพาะตอนแมตช์ได้ไฟล์เดียวชัดเจน กันจับผิดไฟล์เวลา
+    # มีหลายคลิปขึ้นต้นเลขเดียวกันในโฟลเดอร์เดียวกัน
+    prefix_matches = [
+        existing for existing in folder.iterdir()
+        if existing.is_file() and existing.suffix.lower() in (".mp4", ".mov", ".avi")
+        and existing.stem.lower().startswith(stem_guess.lower())
+    ]
+    if len(prefix_matches) == 1:
+        return prefix_matches[0]
+
     raise FileNotFoundError(
         f"หาไฟล์วิดีโอของ {label_path.name} ไม่เจอ (ลองแล้ว: {candidates}, stem={stem_guess})"
     )
