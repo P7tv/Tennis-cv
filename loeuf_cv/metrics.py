@@ -51,6 +51,21 @@ def _safe_nanargmax(arr: np.ndarray) -> int | None:
     return int(np.nanargmax(arr))
 
 
+def _median3_smooth(arr: np.ndarray) -> np.ndarray:
+    """median-of-3 (nan-safe) — กัน spike เฟรมเดียวจาก noise ก่อนหา peak
+    (เช่น rotation angle จาก atan2 ไวต่อ noise มากตอน dx ใกล้ 0 → position
+    noise เล็ก ๆ กลายเป็น angular velocity spike ใหญ่ผิดธรรมชาติได้ทีเดียว)
+    ค่า peak ที่เกิดจากการหมุนจริงกินหลายเฟรมต่อเนื่อง ไม่ได้ถูกลดทอนจากนี้"""
+    if len(arr) < 3:
+        return arr
+    out = arr.copy()
+    for i in range(1, len(arr) - 1):
+        window = arr[i - 1:i + 2]
+        if not np.all(np.isnan(window)):
+            out[i] = np.nanmedian(window)
+    return out
+
+
 def _r2(v):
     if v is None:
         return None
@@ -294,8 +309,15 @@ class MetricsEngine:
             lm = self.ts.landmarks
             ankle_y = (lm[b3, L_ANKLE, 1] + lm[b3, R_ANKLE, 1]) / 2.0
             wrist = self._wrist(b3)
-            self._put(c, "contact_height_cm", self.cm(ankle_y - wrist[1], b3),
-                      self._vis_at(b3, (s["wrist"],)))
+            c16 = self.cm(ankle_y - wrist[1], b3)
+            c16_vis = self._vis_at(b3, (s["wrist"],))
+            # ความสูงจุดปะทะติดลบไม่มีจริง (ตีบอลใต้พื้นไม่ได้) — เกิดได้จาก noise
+            # ตอนวอลเลย์ต่ำมาก (ข้อมือใกล้ระดับข้อเท้าจนติดลบนิดหน่อย) → clamp ที่ 0
+            # แต่ลด vis ลง เพราะค่าที่ต้อง clamp แปลว่าใกล้ noise floor ไม่ใช่ค่าที่เชื่อได้เต็มที่
+            if c16 < 0:
+                c16 = 0.0
+                c16_vis = "low_confidence"
+            self._put(c, "contact_height_cm", c16, c16_vis)
             # C17: ระยะจาก torso center, (+) = หน้าตัว (ฝั่ง swing)
             lateral = (wrist[0] - self.torso_c[b3, 0]) * s["sign"]
             self._put(c, "contact_distance_from_body_cm", self.cm(lateral, b3),
@@ -496,6 +518,7 @@ class MetricsEngine:
             seg = rot[b2:b3 + 1]
             dt = np.gradient(t_ms[b2:b3 + 1]) / 1000.0
             vel = np.abs(np.gradient(seg) / dt)
+            vel = _median3_smooth(vel)
             i = _safe_nanargmax(vel)
             if i is None:
                 return None, None
@@ -574,12 +597,15 @@ class MetricsEngine:
             else:
                 self._put(ss, "leg_drive_detected", None, "not_detectable")
 
-            # SV4 peak contact height
+            # SV4 peak contact height — ติดลบไม่มีจริง เหตุผลเดียวกับ C16 (contact())
             if b3 is not None:
                 ankle_y = (lm[b3, L_ANKLE, 1] + lm[b3, R_ANKLE, 1]) / 2.0
-                self._put(ss, "peak_contact_height_cm",
-                          self.cm(ankle_y - lm[b3, s["wrist"], 1], b3),
-                          self._vis_at(b3, (s["wrist"],)))
+                sv4 = self.cm(ankle_y - lm[b3, s["wrist"], 1], b3)
+                sv4_vis = self._vis_at(b3, (s["wrist"],))
+                if sv4 < 0:
+                    sv4 = 0.0
+                    sv4_vis = "low_confidence"
+                self._put(ss, "peak_contact_height_cm", sv4, sv4_vis)
             else:
                 self._put(ss, "peak_contact_height_cm", None, "not_detectable")
 
