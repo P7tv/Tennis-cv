@@ -10,7 +10,9 @@ from ..config import CORE_LANDMARKS
 from ..keyframes import Keyframe
 from ..metrics import MetricsEngine
 from ..occlusion_fill import kinematic_fill
+from ..pose_extractor import FrameStats
 from ..smoothing import smooth_timeseries
+from ..video_quality import assess_video_quality
 
 # schema_builder เดิมตั้งชื่อ B5 "recovery_position" (ตรงกับ schema doc field name
 # ในบล็อก 023-B) แต่ loeuf_cv/config.py (KEYFRAME_NAMES, ใช้โดย MetricsEngine)
@@ -56,7 +58,19 @@ def _slice_pose_for_stroke(pose, start_frame: int, end_frame: int, config):
         timestamps_ms=pose.timestamps_ms[s:e],
     )
     filled = kinematic_fill(sliced)
-    return smooth_timeseries(filled, config)
+    smoothed = smooth_timeseries(filled, config)
+    # smooth_timeseries() (loeuf_cv/smoothing.py) สร้าง PoseTimeseries ใหม่โดยไม่
+    # copy frame_stats มาด้วย (ไม่ใช่ field ที่มันแตะ) → ต้องตัดแปะ frame_stats ของ
+    # ช่วง stroke นี้เองทีหลัง ไม่งั้น VQ (assess_video_quality) จะได้ None ทุก field
+    def _slice_stat(arr):
+        return arr[s:e] if arr is not None else None
+
+    fs = pose.frame_stats
+    return dataclasses.replace(smoothed, frame_stats=FrameStats(
+        mean_luma=_slice_stat(fs.mean_luma),
+        blur_score=_slice_stat(fs.blur_score),
+        person_height_frac=_slice_stat(fs.person_height_frac),
+    ))
 
 
 def _pose_confidence(pose, frame_idx: int) -> float:
@@ -283,13 +297,14 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
             "normalization_method": "resampled_to_60fps" if fps >= 60 else "native_fps_no_resample"
         }
 
-        # 022-VQ: video_quality — ยังไม่มี motion_blur/low_light/occlusion check จริง
-        # (ต้องวิเคราะห์ภาพเพิ่ม, scope แยก) usable=True เสมอไปก่อน
-        vq = {
-            "usable": True,
-            "issues": [],
-            "partial_swing_detail": None
-        }
+        # 022-VQ: video_quality — ใช้ loeuf_cv/video_quality.py เดิม (ของ StrokePipeline)
+        # ตรงๆ กับ sliced_pose ของ stroke นี้ (ผ่าน smooth_timeseries + frame_stats
+        # ที่ตัดมาเฉพาะช่วงแล้ว — ดู _slice_pose_for_stroke) ได้ partial_occlusion/
+        # player_near_edge/partial_swing/player_too_far จริงเสมอ ส่วน low_light/
+        # motion_blur ได้จริงเมื่อ track.pose.frame_stats มี mean_luma/blur_score
+        # (เติมจาก webui/yolo_track.py) ไม่งั้นสองอันนี้แค่ไม่ trigger (None-safe
+        # ใน assess_video_quality เอง) ไม่ error
+        vq = assess_video_quality(sliced_pose, engine_config)
 
         # 023-B: keyframe
         b_keyframe = {
@@ -400,7 +415,7 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
             "ball": ball_metric,
             "derived": derived,
             "visibility_flag": vf,
-            "confidence_flag": {"pose_estimation_confidence": round(cf1, 2), "inference_clean": cf2, "issues_detected": []},
+            "confidence_flag": {"pose_estimation_confidence": round(cf1, 2), "inference_clean": cf2, "issues_detected": vq["issues"]},
             "visualization": visualization
         }
 

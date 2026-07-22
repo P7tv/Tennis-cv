@@ -399,12 +399,23 @@ def track_players_with_yolo(
         for tid in kept_tids
     }
 
+    # ต่อเฟรม (ไม่ใช่ต่อ player) — ใช้เติม FrameStats.mean_luma/blur_score ให้ VQ
+    # (loeuf_cv/video_quality.py) เช็ค low_light/motion_blur ได้จริง เหมือนที่
+    # loeuf_cv/pose_extractor.py::extract_pose() ทำกับ path เดิม (StrokePipeline)
+    frame_luma = np.zeros(actual_frames)
+    frame_blur = np.zeros(actual_frames)
+
     cap = cv2.VideoCapture(video_path)
     frame_idx = 0
     while True:
         ok, frame = cap.read()
         if not ok:
             break
+
+        if frame_idx < actual_frames:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            frame_luma[frame_idx] = float(gray.mean())
+            frame_blur[frame_idx] = float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
         for tid in kept_tids:
             if frame_idx not in tracks_bboxes[tid]:
@@ -459,7 +470,11 @@ def track_players_with_yolo(
             visibility=tr["visibility"],
             timestamps_ms=np.arange(actual_frames) / meta.fps * 1000.0,
             meta=meta,
-            frame_stats=FrameStats(person_height_frac=tr["height_frac"]),
+            frame_stats=FrameStats(
+                mean_luma=frame_luma,
+                blur_score=frame_blur,
+                person_height_frac=tr["height_frac"],
+            ),
         )
         result_tracks.append(
             PlayerTrack(

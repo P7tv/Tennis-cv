@@ -6,6 +6,8 @@ Pre-check จาก frame stats ที่เก็บระหว่าง pose 
 Thresholds เป็น heuristic เริ่มต้น — จูนกับคลิปจริงใน Phase 0
 """
 
+import warnings
+
 import numpy as np
 
 from .config import UPPER_BODY, PipelineConfig
@@ -40,7 +42,11 @@ def assess_video_quality(ts: PoseTimeseries, config: PipelineConfig) -> dict:
     # ผู้เล่นชิดขอบเฟรมนาน → เสี่ยง lens distortion + ตัวหลุดเฟรม
     # (⚠️ "player_near_edge" = enum เสนอเพิ่มนอก VQ2 — รอ confirm, ดู D0.2)
     valid_x = ts.landmarks[:, list(UPPER_BODY), 0]
-    with np.errstate(invalid="ignore"):
+    with np.errstate(invalid="ignore"), warnings.catch_warnings():
+        # แถวที่ UPPER_BODY landmark ทั้งหมด NaN (occlusion ยาวเกิน gap-fill limit)
+        # ทำ nanmin/nanmax วอร์น "All-NaN slice" ได้ — errstate ไม่กันวอร์นนี้เพราะ
+        # มันมาจาก warnings module ไม่ใช่ floating point state
+        warnings.simplefilter("ignore", RuntimeWarning)
         near_edge = np.nanmin(valid_x, axis=1) < EDGE_MARGIN
         near_edge |= np.nanmax(valid_x, axis=1) > 1.0 - EDGE_MARGIN
     if np.nanmean(near_edge.astype(float)) > EDGE_FRACTION:
