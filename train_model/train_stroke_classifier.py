@@ -31,6 +31,12 @@ FEATURE_COLS = [
     "contact_distance_from_body_cm",
     "wrist_minus_head_y",
     "wrist_minus_spine_x_dominant_relative",
+    # min/max ตลอดช่วงสวิง (backswing_peak..follow_through_peak) แทนที่จะดูแค่
+    # เฟรมเดียว ณ impact — ดู loeuf_cv/schema_builder/classifier.py::swing_window_features
+    "wrist_minus_spine_x_dominant_relative_min",
+    "wrist_minus_spine_x_dominant_relative_max",
+    "wrist_minus_head_y_min",
+    "wrist_minus_head_y_max",
 ]
 
 # stroke type ที่มีตัวอย่างเทรนน้อยกว่านี้ -> classify_stroke() จะไม่ให้ ML มีสิทธิ์

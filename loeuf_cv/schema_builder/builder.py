@@ -258,7 +258,8 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
         c_metric = blocks
 
         # Stroke Type (A)
-        stype = classify_stroke(track.pose, impact_frame, dominant_side, keyframe_metrics=c_metric)
+        stype = classify_stroke(track.pose, impact_frame, dominant_side, keyframe_metrics=c_metric,
+                                keyframes=kf)
         if stype in stroke_counts:
             stroke_counts[stype] += 1
 

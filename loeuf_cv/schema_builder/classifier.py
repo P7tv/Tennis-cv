@@ -11,8 +11,63 @@ from ..config import L_SHOULDER, R_SHOULDER, L_WRIST, R_WRIST, NOSE
 # (geometry ล้วน ไม่พึ่งข้อมูลเทรน) โดยอัตโนมัติ ไม่ต้อง hardcode แยกเป็นกรณีพิเศษ
 ML_CONFIDENCE_THRESHOLD = 0.60
 
+# ไม่มี backswing_peak/follow_through_peak (keyframe ตรวจไม่เจอ) → ใช้ช่วงนี้
+# รอบ impact แทน ให้ยังได้ "ทั้งสวิง" มาคิด ไม่ใช่แค่เฟรมเดียว
+WINDOW_FALLBACK_FRAMES = 15
+MIN_VISIBLE_WRIST_CONF = 0.3
+
 _stroke_model_cache = None
 _stroke_model_loaded = False
+
+
+def _window_bounds(keyframes: dict | None, impact_frame: int, n_frames: int) -> tuple[int, int]:
+    """ช่วงเฟรม [start, end] (inclusive) ที่ครอบคลุมทั้ง action ของสวิง — ใช้
+    backswing_peak..follow_through_peak ถ้ามี keyframe จริง (จาก label หรือ
+    extract_keyframes()) ไม่งั้น fallback เป็น ±WINDOW_FALLBACK_FRAMES รอบ impact"""
+    start = end = None
+    if keyframes:
+        start = keyframes.get("backswing_peak")
+        end = keyframes.get("follow_through_peak")
+    if start is None:
+        start = impact_frame - WINDOW_FALLBACK_FRAMES
+    if end is None:
+        end = impact_frame + WINDOW_FALLBACK_FRAMES
+    start = max(0, min(start, n_frames - 1))
+    end = max(start + 1, min(end, n_frames - 1))
+    return start, end
+
+
+def swing_window_features(landmarks: np.ndarray, visibility: np.ndarray, wrist_idx: int,
+                          dominant_side: str, keyframes: dict | None, impact_frame: int) -> dict:
+    """min/max ของสัญญาณ FH/BH/SV ตลอดช่วงสวิง (ไม่ใช่แค่เฟรมเดียว ณ impact) —
+    ใช้ทั้งตอนเทรน (train_model/build_training_data.py) และตอน predict จริง
+    (classify_stroke ด้านล่าง) ฟังก์ชันเดียวกัน กัน train/inference feature
+    ไม่ตรงกันโดยไม่ตั้งใจ
+
+    เฟรมที่ wrist visibility ต่ำ (<MIN_VISIBLE_WRIST_CONF) ไม่เอามาคิด กัน noise
+    จาก occlusion ดึง min/max เพี้ยน"""
+    n_frames = len(landmarks)
+    start, end = _window_bounds(keyframes, impact_frame, n_frames)
+
+    seg_vis = visibility[start:end + 1, wrist_idx]
+    good = seg_vis >= MIN_VISIBLE_WRIST_CONF
+    keys = ("wrist_minus_spine_x_dominant_relative_min",
+            "wrist_minus_spine_x_dominant_relative_max",
+            "wrist_minus_head_y_min", "wrist_minus_head_y_max")
+    if not good.any():
+        return {k: None for k in keys}
+
+    seg_lm = landmarks[start:end + 1]
+    spine_x = (seg_lm[:, L_SHOULDER, 0] + seg_lm[:, R_SHOULDER, 0]) / 2.0
+    raw_dx = seg_lm[:, wrist_idx, 0] - spine_x
+    rel_dx = raw_dx if dominant_side == "right" else -raw_dx
+    rel_dy = seg_lm[:, wrist_idx, 1] - seg_lm[:, NOSE, 1]
+    return {
+        "wrist_minus_spine_x_dominant_relative_min": float(np.min(rel_dx[good])),
+        "wrist_minus_spine_x_dominant_relative_max": float(np.max(rel_dx[good])),
+        "wrist_minus_head_y_min": float(np.min(rel_dy[good])),
+        "wrist_minus_head_y_max": float(np.max(rel_dy[good])),
+    }
 
 
 def _load_stroke_model():
@@ -53,7 +108,8 @@ def _rule_based_classify(lm, wrist_idx, dominant_side):
         return "FH" if wrist_x < spine_x else "BH"
 
 
-def classify_stroke(pose_series, impact_frame, dominant_side="right", keyframe_metrics: dict | None = None):
+def classify_stroke(pose_series, impact_frame, dominant_side="right", keyframe_metrics: dict | None = None,
+                    keyframes: dict | None = None):
     """
     Classify the stroke type (FH, BH, SV) based on pose at impact.
 
@@ -65,6 +121,11 @@ def classify_stroke(pose_series, impact_frame, dominant_side="right", keyframe_m
     — ยิ่งส่ง keyframe_metrics (ผลจาก get_body_metrics() ที่ keyframe เดียวกัน)
     เข้ามาด้วย ยิ่งได้ feature ครบขึ้น ไม่ส่งมาก็ยังทำงานได้ (fallback เป็น 0
     เหมือนตอนเทรนที่ fillna(0))
+
+    keyframes: dict ชื่อ -> frame_index (unit_turn/backswing_peak/impact/
+    follow_through_peak/...) — ใช้หาช่วง "ทั้งสวิง" สำหรับ feature
+    wrist_minus_*_min/max (ดู swing_window_features) ไม่ส่งมาก็ยังทำงานได้
+    (fallback เป็น ±WINDOW_FALLBACK_FRAMES รอบ impact)
     """
     if impact_frame is None or impact_frame >= len(pose_series.landmarks):
         return "FH"  # Default fallback
@@ -105,6 +166,9 @@ def classify_stroke(pose_series, impact_frame, dominant_side="right", keyframe_m
         "wrist_minus_head_y": float(lm[wrist_idx][1] - lm[NOSE][1]),
         "wrist_minus_spine_x_dominant_relative": float(raw_dx if dominant_side == "right" else -raw_dx),
     }
+    feats.update(swing_window_features(
+        pose_series.landmarks, pose_series.visibility, wrist_idx, dominant_side,
+        keyframes, impact_frame))
     if keyframe_metrics:
         feats.update({
             "body_shoulder_rotation_at_impact_deg": keyframe_metrics.get("body", {}).get("shoulder_rotation_at_impact_deg"),

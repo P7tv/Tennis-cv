@@ -29,6 +29,7 @@ import cv2  # noqa: E402
 from label_ingest import find_session_labels, load_session_label  # noqa: E402
 from loeuf_cv.config import L_SHOULDER, L_WRIST, NOSE, R_SHOULDER, R_WRIST, PipelineConfig  # noqa: E402
 from loeuf_cv.hit_detection import detect_hit_events, extract_ball_trajectory_kalman  # noqa: E402
+from loeuf_cv.schema_builder.classifier import swing_window_features  # noqa: E402
 from loeuf_cv.schema_builder.metrics import get_body_metrics  # noqa: E402
 from webui.yolo_track import track_players_with_yolo  # noqa: E402
 
@@ -48,6 +49,14 @@ STROKE_FEATURE_COLUMNS = [
     "contact_distance_from_body_cm",
     "wrist_minus_head_y",
     "wrist_minus_spine_x_dominant_relative",
+    # min/max ตลอดช่วงสวิง (backswing_peak..follow_through_peak จาก label จริง)
+    # ไม่ใช่แค่เฟรมเดียว ณ impact — ดู loeuf_cv/schema_builder/classifier.py::
+    # swing_window_features (ใช้ฟังก์ชันเดียวกันตอน predict จริงด้วย กัน
+    # train/inference feature ไม่ตรงกัน)
+    "wrist_minus_spine_x_dominant_relative_min",
+    "wrist_minus_spine_x_dominant_relative_max",
+    "wrist_minus_head_y_min",
+    "wrist_minus_head_y_max",
 ]
 
 
@@ -71,6 +80,10 @@ def _flatten_stroke_features(pose, kf: dict, metrics: dict, dominant_side: str) 
         "contact_distance_from_body_cm": metrics["contact"].get("contact_distance_from_body_cm"),
         "wrist_minus_head_y": None,
         "wrist_minus_spine_x_dominant_relative": None,
+        "wrist_minus_spine_x_dominant_relative_min": None,
+        "wrist_minus_spine_x_dominant_relative_max": None,
+        "wrist_minus_head_y_min": None,
+        "wrist_minus_head_y_max": None,
     }
 
     impact = kf.get("impact")
@@ -83,6 +96,12 @@ def _flatten_stroke_features(pose, kf: dict, metrics: dict, dominant_side: str) 
         # ค่าบวก = ฝั่ง forehand เสมอ ไม่ว่าถนัดซ้ายหรือขวา
         row["wrist_minus_head_y"] = float(lm[wrist_idx][1] - lm[NOSE][1])
         row["wrist_minus_spine_x_dominant_relative"] = float(raw_dx if dominant_side == "right" else -raw_dx)
+
+        # ทั้งช่วงสวิง (backswing_peak..follow_through_peak จาก label จริง ไม่ใช่
+        # heuristic) — ฟังก์ชันเดียวกับที่ classify_stroke() ใช้ตอน predict จริง
+        # กัน train/inference feature ไม่ตรงกัน (ดู loeuf_cv/schema_builder/classifier.py)
+        row.update(swing_window_features(
+            pose.landmarks, pose.visibility, wrist_idx, dominant_side, kf, impact))
 
     return row
 
