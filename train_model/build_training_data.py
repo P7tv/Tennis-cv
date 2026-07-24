@@ -37,6 +37,14 @@ HIT_CSV_COLUMNS = [
     "is_hit", "frame", "confidence", "wrist_speed", "ball_dist",
     "ball_vel_before", "ball_vel_after", "ball_vel_change", "ball_angle_change",
     "racket_dist",
+    # รูปทรงของ wrist speed รอบๆ candidate frame (ดู
+    # loeuf_cv/hit_detection.py::_hit_window_features) — แยกจังหวะตีจริง (peak
+    # แหลมแล้วชะลอทันที) ออกจากการวิ่ง/แกว่งแขนทั่วไป (speed สูงต่อเนื่อง)
+    "speed_pre_mean", "speed_post_mean", "speed_decel_ratio",
+    "speed_peak_sharpness", "speed_std_window",
+    # ต่อ session/วิดีโอ (ไม่ใช่ต่อ stroke) — ใช้ทำ grouped train/test split กัน
+    # data leakage ข้าม candidate ในคลิปเดียวกัน (ดู train_hit_classifier.py)
+    "clip_id",
 ]
 
 STROKE_FEATURE_COLUMNS = [
@@ -151,6 +159,7 @@ def process_session(label_path: Path, args, hit_writer, stroke_writer, stats) ->
         os.chdir(cwd)
         shutil.rmtree(scratch_dir, ignore_errors=True)
 
+    session_clip_id = session.video_path.stem
     for ev in events:
         is_hit = int(any(abs(ev["frame"] - fr) <= args.hit_tolerance_frames for fr in impact_frames))
         feats = ev.get("features", {})
@@ -160,6 +169,10 @@ def process_session(label_path: Path, args, hit_writer, stroke_writer, stats) ->
             feats.get("ball_vel_before", 0), feats.get("ball_vel_after", 0),
             feats.get("ball_vel_change", 0), feats.get("ball_angle_change", 1),
             feats.get("racket_dist", 9999),
+            feats.get("speed_pre_mean", 0), feats.get("speed_post_mean", 0),
+            feats.get("speed_decel_ratio", 1), feats.get("speed_peak_sharpness", 1),
+            feats.get("speed_std_window", 0),
+            session_clip_id,
         ])
         stats["hit_pos" if is_hit else "hit_neg"] += 1
     print(f"  hit candidates: {len(events)} (ground-truth impacts: {len(impact_frames)})")

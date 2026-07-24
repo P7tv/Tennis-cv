@@ -236,6 +236,52 @@ def _find_ball_inflections(ball_traj: np.ndarray) -> set[int]:
 # ─────────────────────────────────────────────────────────
 # ML FEATURE EXTRACTION
 # ─────────────────────────────────────────────────────────
+HIT_WINDOW = 8  # เฟรม — เท่ากับ window ที่ _find_wrist_peaks ใช้หา local max อยู่แล้ว
+
+
+def _hit_window_features(f: int, speed: np.ndarray, window: int = HIT_WINDOW) -> dict:
+    """รูปทรงของ wrist speed รอบๆ frame ผู้สมัคร (candidate) แทนที่จะดูแค่ค่าเดียว ณ frame นั้น
+
+    แรงจูงใจ: การตีจริงคือ peak แหลมสั้นๆ แล้ว "หยุด/ชะลอ" ทันที (follow-through)
+    ต่างจากการวิ่ง/ปรับท่าที่ speed จะสูงต่อเนื่องก่อน-หลัง หรือแกว่งเป็นจังหวะ (periodic)
+    ไม่ใช่ peak เดี่ยวๆ — ใช้เทคนิคเดียวกับ swing_window_features() ที่ช่วย stroke
+    classifier ไปแล้ว (loeuf_cv/schema_builder/classifier.py)
+    """
+    out = {
+        "speed_pre_mean": 0.0,
+        "speed_post_mean": 0.0,
+        "speed_decel_ratio": 1.0,
+        "speed_peak_sharpness": 1.0,
+        "speed_std_window": 0.0,
+    }
+    if speed is None:
+        return out
+
+    n = len(speed)
+    pre = speed[max(0, f - window):f]
+    post = speed[f + 1:min(n, f + window + 1)]
+    pre = pre[~np.isnan(pre)]
+    post = post[~np.isnan(post)]
+    peak = speed[f] if f < n and not np.isnan(speed[f]) else 0.0
+
+    if pre.size > 0:
+        out["speed_pre_mean"] = float(np.mean(pre))
+    if post.size > 0:
+        out["speed_post_mean"] = float(np.mean(post))
+
+    surround_mean = (out["speed_pre_mean"] + out["speed_post_mean"]) / 2.0
+    eps = 1e-6
+    out["speed_decel_ratio"] = float(out["speed_post_mean"] / (peak + eps))
+    out["speed_peak_sharpness"] = float(peak / (surround_mean + eps))
+
+    win_all = speed[max(0, f - window):min(n, f + window + 1)]
+    win_all = win_all[~np.isnan(win_all)]
+    if win_all.size > 0:
+        out["speed_std_window"] = float(np.std(win_all))
+
+    return out
+
+
 def _extract_hit_features(f: int, ball_traj: np.ndarray, speed: np.ndarray, d_px: float, width: int, height: int, racket_bboxes: dict | None) -> dict:
     total_frames = len(ball_traj)
     features = {
@@ -245,13 +291,14 @@ def _extract_hit_features(f: int, ball_traj: np.ndarray, speed: np.ndarray, d_px
         "ball_vel_after": 0.0,
         "ball_vel_change": 0.0,
         "ball_angle_change": 1.0,
-        "racket_dist": 9999.0
+        "racket_dist": 9999.0,
+        **_hit_window_features(f, speed),
     }
-    
+
     # Wrist Speed
     if speed is not None and f < len(speed) and not np.isnan(speed[f]):
         features["wrist_speed"] = float(speed[f])
-        
+
     # Ball Distance
     if d_px is not None:
         features["ball_dist"] = float(d_px)

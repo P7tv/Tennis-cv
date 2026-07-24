@@ -101,8 +101,33 @@ def main():
     y_pred = clf.predict(X_test)
     acc = accuracy_score(y_test, y_pred)
     print(f"ความแม่นยำ (Accuracy บน test set เล็กมาก ตีความอย่างระวัง): {acc*100:.2f}%")
-    print("\nรายงานผลการทดสอบ:")
+    print("\nรายงานผลการทดสอบ (random row split — เสี่ยง data leakage ถ้าคลิปเดียวกัน "
+          "หลุดไปอยู่ทั้ง train และ test ดู grouped CV ด้านล่างสำหรับตัวเลขที่เชื่อถือได้กว่า):")
     print(classification_report(y_test, y_pred, zero_division=0))
+
+    # ─── Grouped (Leave-One-Clip-Out) cross-validation ───
+    # random_test_split ข้างบนแบ่งแบบสุ่มรายแถว ถ้าคลิปเดียวกัน (เช่น IMG_0281_BH
+    # ที่มี 16 แถว) หลุดไปอยู่ทั้ง train และ test โมเดลอาจ "จำ" ลักษณะเฉพาะของคลิป
+    # (แสง/สนาม/สัดส่วนตัวคน) แทนที่จะเรียนรู้ pattern ของ stroke จริง ทำให้ accuracy
+    # ดูดีเกินจริง — เทสนี้ held-out ทีละคลิปเต็มๆ (โมเดลไม่เคยเห็นคลิปนั้นเลยตอนเทรน)
+    # ถึงจะช้ากว่าแต่เป็นตัวเลขที่ใกล้เคียงการใช้งานจริงกับคลิปใหม่มากกว่า
+    if "clip_id" in df.columns and df["clip_id"].nunique() > 1:
+        from sklearn.model_selection import LeaveOneGroupOut
+        groups = df["clip_id"]
+        logo = LeaveOneGroupOut()
+        oof_true, oof_pred = [], []
+        for train_idx, test_idx in logo.split(X, y, groups):
+            clf_fold = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42,
+                                               class_weight="balanced")
+            clf_fold.fit(X.iloc[train_idx], y.iloc[train_idx])
+            oof_pred.extend(clf_fold.predict(X.iloc[test_idx]))
+            oof_true.extend(y.iloc[test_idx])
+        logo_acc = accuracy_score(oof_true, oof_pred)
+        print(f"\n===== Grouped (Leave-One-Clip-Out) cross-validation — {groups.nunique()} คลิป =====")
+        print(f"ความแม่นยำ (held-out ทีละคลิปเต็มๆ, ไม่มี leakage): {logo_acc*100:.2f}%")
+        print(classification_report(oof_true, oof_pred, zero_division=0))
+    else:
+        print("\n⚠️ ไม่มีคอลัมน์ clip_id หรือมีคลิปเดียว — ข้าม grouped cross-validation")
 
     print("\nความสำคัญของฟีเจอร์ (ยิ่งเยอะยิ่งดี):")
     importances = clf.feature_importances_
