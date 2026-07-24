@@ -188,7 +188,7 @@ def main():
     parser.add_argument("--out-dir", default="dataset/training")
     parser.add_argument("--ball-model", default="yolo26s.pt")
     parser.add_argument("--base-model", default="yolo11m.pt")
-    parser.add_argument("--max-players", type=int, default=2)
+    parser.add_argument("--max-players", type=int, default=1)
     parser.add_argument("--hit-tolerance-frames", type=int, default=5,
                          help="candidate frame ห่างจาก impact_frame (label) ไม่เกินกี่เฟรม ถือว่า is_hit=1")
     args = parser.parse_args()

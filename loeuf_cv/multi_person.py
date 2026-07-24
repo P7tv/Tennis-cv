@@ -327,7 +327,7 @@ def _build_background_model(video_path: str):
 
 
 def extract_multi_person(video_path: str, config: PipelineConfig,
-                         max_players: int = 2,
+                         max_players: int = 1,
                          progress_callback=None) -> list[PlayerTrack]:
     """แยกคนหลายคนในคลิป → PoseTimeseries ต่อคน
 

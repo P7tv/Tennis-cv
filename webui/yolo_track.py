@@ -30,7 +30,7 @@ from loeuf_cv.pose_extractor import FrameStats, PoseTimeseries, VideoMeta, read_
 
 def track_players_with_yolo(
     video_path: str,
-    max_players: int = 2,
+    max_players: int = 1,
     config: PipelineConfig | None = None,
     progress_callback=None,
     model_path: str = "yolo11n.pt",

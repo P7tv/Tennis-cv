@@ -42,8 +42,8 @@ with st.sidebar:
                  "30 เฟรม ≈ 377 MB · 100 เฟรม ≈ 1.26 GB · 150 เฟรม ≈ 1.88 GB")
     else:
         sam2_chunk_size = 30
-    max_players = st.slider("max_players", 1, 6, 2,
-                            help="จำนวนคนสูงสุดที่จะ track (รวมคนป้อนบอล/คนรอด้วย — เลือกไม่ใช่ผู้เล่นได้ทีหลัง)")
+    max_players = st.slider("max_players", 1, 6, 1,
+                            help="จำนวนคนสูงสุดที่จะ track — ปกติมีผู้เล่นหลักคนเดียว เพิ่มถ้าต้องการ track คนป้อนบอล/คู่ต่อสู้ด้วย")
     model_complexity = st.selectbox("model_complexity", [0, 1, 2], index=1)
     height_input = st.number_input("subject_height_cm (0 = ไม่ระบุ)", min_value=0, value=0, step=1)
     dominant_side = st.selectbox("มือถนัด", ["right", "left"])
