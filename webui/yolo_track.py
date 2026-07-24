@@ -198,21 +198,30 @@ def track_players_with_yolo(
             cx, cy = bx + bw / 2.0, by + bh / 2.0
             ball_centers.append({"f": f_idx, "b": b_idx, "cx": cx, "cy": cy, "stationary": False})
             
-    # 2. หา Cluster ของจุดที่อยู่ใกล้เคียงกันข้ามเฟรม (Spatial Clustering)
-    # ถ้าระยะห่างระหว่างจุด < 20 pixels ถือว่าเป็นจุดเดียวกัน
+    # 2. หา Cluster ของจุดที่อยู่ใกล้เคียงกันข้าม "เฟรมต่อเนื่อง" (Spatio-temporal
+    # clustering) — ถ้าระยะห่างระหว่างจุด < 20 pixels "และ" ห่างกันไม่เกิน
+    # MAX_FRAME_GAP เฟรม ถือว่าเป็นจุดเดียวกัน (วัตถุอยู่นิ่งจริงต้องนิ่งต่อเนื่อง)
+    #
+    # เดิมเช็คแค่ระยะทางอย่างเดียวโดยไม่สนเวลา ทำให้ลูกที่วิ่งผ่านตำแหน่งเดิมซ้ำๆ
+    # ตลอดคลิปยาว (เช่น จุดกลางสนามใกล้เน็ตที่ลูกผ่านบ่อย) ถูกนับรวมเป็น cluster
+    # เดียวกันข้ามทั้งคลิป (frame_span หลักพัน) แล้วโดนตัดทิ้งเป็น "false positive"
+    # ทั้งที่จริงคือลูกเคลื่อนที่ผ่านจุดนั้นสั้นๆ หลายรอบ ไม่ใช่วัตถุนิ่งจริง
     DIST_THRESH = 20.0
+    MAX_FRAME_GAP = 10
     MIN_STATIONARY_FRAMES = 15
-    
+
     clusters = []
     for pt in ball_centers:
         matched_cluster = None
         for cluster in clusters:
+            if pt["f"] - cluster["last_f"] > MAX_FRAME_GAP:
+                continue
             # Check distance to cluster center
             ccx, ccy = cluster["sum_x"] / cluster["count"], cluster["sum_y"] / cluster["count"]
             if math.hypot(pt["cx"] - ccx, pt["cy"] - ccy) < DIST_THRESH:
                 matched_cluster = cluster
                 break
-                
+
         if matched_cluster:
             matched_cluster["pts"].append(pt)
             matched_cluster["sum_x"] += pt["cx"]
@@ -220,12 +229,13 @@ def track_players_with_yolo(
             matched_cluster["count"] += 1
             matched_cluster["min_f"] = min(matched_cluster["min_f"], pt["f"])
             matched_cluster["max_f"] = max(matched_cluster["max_f"], pt["f"])
+            matched_cluster["last_f"] = pt["f"]
         else:
             clusters.append({
                 "pts": [pt],
                 "sum_x": pt["cx"], "sum_y": pt["cy"],
                 "count": 1,
-                "min_f": pt["f"], "max_f": pt["f"]
+                "min_f": pt["f"], "max_f": pt["f"], "last_f": pt["f"],
             })
             
     # 3. Mark points in stationary clusters (อยู่นิ่งๆ ข้ามหลายเฟรม)
