@@ -1352,8 +1352,14 @@ def test_build_loeuf_schema_ball_block_uses_real_tracked_fraction():
     assert ball_block["ball_speed_kmh"] is None
     assert ball_block["landing_position"] is None
 
-    # ไม่ส่ง ball_traj มา -> fallback ตาม BL1 gate เดิม (ไม่มี detector = available False)
-    assert without_ball["strokes"][0]["ball"] == {"available": False}
+    # ไม่ส่ง ball_traj มา -> fallback ตาม BL1 gate (available False) แต่ key ต้อง
+    # ครบทุกตัวเหมือนตอนมี ball (spec: ห้าม omit key)
+    from loeuf_cv.schema_fields import BALL_FIELDS
+    no_ball_block = without_ball["strokes"][0]["ball"]
+    assert set(no_ball_block) == set(BALL_FIELDS)
+    assert no_ball_block["available"] is False
+    assert all(no_ball_block[k] is None for k in BALL_FIELDS if k != "available")
+    assert set(ball_block) == set(BALL_FIELDS)
 
 
 def test_landing_zone_geometry():
@@ -1397,3 +1403,131 @@ def test_build_loeuf_schema_wires_landing_from_bounce_data():
     # BL อื่นที่ต้องการ depth/height เหนือพื้น ยังคง None เสมอ (ดู docstring)
     assert ball_block["ball_speed_kmh"] is None
     assert ball_block["trajectory_clearance_cm"] is None
+
+
+def test_schema_field_manifest_matches_client_spec():
+    """Freeze test — จุดเดียวในโค้ดเบสที่ hardcode ชื่อ field ตาม client doc
+    เทสอื่นให้ import จาก schema_fields เอา ถ้า manifest เพี้ยน เทสนี้จะจับได้
+    ที่เดียว (ถ้า hardcode ทุกเทส เวลา schema เปลี่ยนต้องแก้ 4 ที่ = ต้นเหตุ
+    ของ drift เดิม)"""
+    from loeuf_cv import schema_fields as sf
+
+    assert sf.KEYFRAME_ENTRY_FIELDS == (
+        "frame_index", "timestamp_ms", "detected", "joint")
+    assert sf.KEYFRAME_BLOCK_NAMES == (
+        "unit_turn", "backswing_peak", "impact", "follow_through_peak",
+        "recovery_position", "trophy_position")
+    # A7 = B1-B5, A8 = B1-B4 — trophy_position (B6, serve-only) ต้องไม่อยู่ในสองอันนี้
+    assert "trophy_position" not in sf.A7_KEYFRAME_NAMES
+    assert "trophy_position" not in sf.A8_KEYFRAME_NAMES
+    assert len(sf.A7_KEYFRAME_NAMES) == 5 and len(sf.A8_KEYFRAME_NAMES) == 4
+
+    assert len(sf.JOINT_NAMES) == 13
+    assert set(sf.JOINT_NAMES) == {
+        "head",
+        "left_shoulder", "right_shoulder", "left_elbow", "right_elbow",
+        "left_wrist", "right_wrist", "left_hip", "right_hip",
+        "left_knee", "right_knee", "left_ankle", "right_ankle"}
+    assert set(sf.JOINT_LANDMARK_IDS) == set(sf.JOINT_NAMES)
+    assert sf.JOINT_LANDMARK_IDS["head"] == 0          # NOSE
+    assert sf.JOINT_LANDMARK_IDS["right_wrist"] == 16  # R_WRIST
+
+    for bl in ("server_position", "target_box_correct",
+               "serve_attempt_number", "is_fault"):
+        assert bl in sf.BALL_FIELDS, f"BL7-BL10: {bl} หายจาก manifest"
+
+    assert sf.VZ_FIELDS == ("wrist_path", "ball_path", "racket_tip_path",
+                            "racket_center_path", "body_center_path")
+
+    empty = sf.empty_ball_block()
+    assert set(empty) == set(sf.BALL_FIELDS)
+    assert empty["available"] is False
+
+
+def test_stroke_specific_fields_complete_per_stroke_type():
+    """SS: doc ระบุ FH/BH/RS ไม่มี field เพิ่ม = {} ส่วน SV/VL/SL ต้องส่งครบ
+    ทุก field ของ type นั้นเสมอ (ตรวจไม่ได้ → null ไม่ใช่ omit)"""
+    from loeuf_cv.config import STROKE_TYPES
+    from loeuf_cv.schema_fields import STROKE_SPECIFIC_FIELDS
+
+    for stroke_type in STROKE_TYPES:
+        ss = PIPELINE.process_timeseries(
+            synthetic_forehand(fps=30), stroke_type)["metrics"]["stroke_specific"]
+        expected = set(STROKE_SPECIFIC_FIELDS[stroke_type])
+        assert set(ss) == expected, f"{stroke_type}: SS key ไม่ตรง manifest"
+
+
+def test_build_loeuf_schema_never_omits_keys():
+    """spec: "ส่งทุก field เสมอ — ห้าม omit key" — key set ของ B / BL / VZ / MT10
+    ต้องเหมือนกันเป๊ะทั้งตอนมี ball_traj และไม่มี ball_traj (เคสที่พังเดิม)"""
+    from loeuf_cv.config import STROKE_TYPES, PipelineConfig
+    from loeuf_cv.schema_builder.builder import build_loeuf_schema
+    from loeuf_cv.schema_fields import (
+        BALL_FIELDS, JOINT_NAMES, KEYFRAME_BLOCK_NAMES, KEYFRAME_ENTRY_FIELDS,
+        VZ_FIELDS,
+    )
+
+    n = 120
+    track = _fake_player_track(n_frames=n)
+    hit_events = [
+        {"frame": 40, "player_id": 1, "confidence": 0.9},
+        {"frame": 90, "player_id": 1, "confidence": 0.9},
+    ]
+    video_meta = {"width": 1920, "height": 1080, "total_frames": n}
+    cfg = PipelineConfig()
+
+    ball_traj = np.full((n, 2), np.nan)
+    ball_traj[20:80, 0] = np.linspace(500, 1400, 60)
+    ball_traj[20:80, 1] = np.linspace(300, 700, 60)
+
+    outputs = {
+        "with_ball": build_loeuf_schema([track], hit_events, 30.0, video_meta,
+                                        cfg, ball_traj=ball_traj),
+        "no_ball": build_loeuf_schema([track], hit_events, 30.0, video_meta,
+                                      cfg, ball_traj=None),
+    }
+
+    for label, out in outputs.items():
+        # MT10 ต้องมีครบทุก stroke type รวมตัวที่นับได้ 0
+        dist = out["session_metadata"]["stroke_type_distribution"]
+        assert set(dist) == set(STROKE_TYPES), f"{label}: MT10 ตกหล่น stroke type"
+
+        assert out["strokes"], f"{label}: ไม่มี stroke เลย"
+        for s in out["strokes"]:
+            # --- 023-B ---
+            assert set(s["keyframe"]) == set(KEYFRAME_BLOCK_NAMES), label
+            for name, entry in s["keyframe"].items():
+                assert set(entry) == set(KEYFRAME_ENTRY_FIELDS), f"{label}/{name}"
+                if entry["detected"]:
+                    assert entry["frame_index"] is not None
+                    assert entry["timestamp_ms"] is not None
+                    assert set(entry["joint"]) == set(JOINT_NAMES), f"{label}/{name}"
+                    for jname, pt in entry["joint"].items():
+                        assert pt is None or set(pt) == {"x", "y"}, f"{label}/{name}/{jname}"
+                else:
+                    assert entry["frame_index"] is None
+                    assert entry["timestamp_ms"] is None
+                    assert entry["joint"] is None
+
+            # B6 serve-only — non-serve ต้อง undetected แต่ key ต้องอยู่
+            if s["stroke_root"]["stroke_type"] != "SV":
+                assert s["keyframe"]["trophy_position"]["detected"] is False
+
+            # A7/A8 ต้องไม่ถูก B6 ทำพัง (non-serve ยัง valid ได้)
+            assert s["stroke_root"]["detection_status"] in ("valid", "partial", "failed")
+
+            # --- 034-BL ---
+            assert set(s["ball"]) == set(BALL_FIELDS), label
+            for bl in ("server_position", "target_box_correct",
+                       "serve_attempt_number", "is_fault"):
+                assert bl in s["ball"]
+
+            # --- 043-VZ ---
+            assert set(s["visualization"]) == set(VZ_FIELDS), label
+
+    # key set ต้องเท่ากันเป๊ะระหว่างสองโหมด (เดิม no_ball หาย BL/VZ ไปหลาย key)
+    a = outputs["with_ball"]["strokes"][0]
+    b = outputs["no_ball"]["strokes"][0]
+    assert set(a) == set(b)
+    for block in ("keyframe", "ball", "visualization"):
+        assert set(a[block]) == set(b[block]), f"{block} key set ต่างกันสองโหมด"

@@ -17,6 +17,7 @@ import numpy as np
 from .config import PipelineConfig
 from .keyframes import Keyframe
 from .pose_extractor import PoseTimeseries
+from .schema_fields import empty_ball_block
 
 FUSION_WINDOW_MS = 150.0     # หา direction change ภายใน ±นี้รอบ pose impact
 MIN_BALL_CONFIDENCE = 0.3
@@ -116,17 +117,15 @@ def fuse_impact(ts: PoseTimeseries, keyframes: dict[str, Keyframe],
 
 def build_ball_block(ball: BallObservations) -> dict:
     """BL block — มี detector แล้วแต่ยังไม่มี court calibration
-    → available true, field อื่น null (ตาม gate BL1)"""
+    → available true, field อื่น null (ตาม gate BL1)
+
+    key ทั้งหมดมาจาก schema_fields.BALL_FIELDS — ห้ามเขียน literal เองซ้ำ
+    (เดิม fallback ใน schema_builder/builder.py ส่งแค่ {"available": False}
+    แล้ว drift ห่างจาก block นี้)"""
     tracked = float(np.mean(~np.isnan(ball.positions[:, 0])))
-    return {
-        "available": True,
-        "ball_speed_kmh": None,            # ต้องการ court calibration
-        "trajectory_clearance_cm": None,
-        "landing_position": None,
-        "landing_zone": None,
-        "landing_call": None,
-        "_tracked_fraction": round(tracked, 2),  # debug extension
-    }
+    block = empty_ball_block(available=True)
+    block["_tracked_fraction"] = round(tracked, 2)   # debug extension
+    return block
 
 
 def build_ball_path(ball: BallObservations, ts: PoseTimeseries,

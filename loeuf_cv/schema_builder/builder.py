@@ -6,11 +6,16 @@ from .metrics import calculate_cm_per_px, get_racket_metrics, _pick_racket_detec
 from .classifier import classify_stroke
 from .aggregator import build_phase2_aggregations
 from ..ball import BallObservations, build_ball_block
-from ..config import CORE_LANDMARKS
+from ..config import CORE_LANDMARKS, STROKE_TYPES
 from ..keyframes import Keyframe
+from ..kinematics import com_xy
 from ..metrics import MetricsEngine
 from ..occlusion_fill import kinematic_fill
 from ..pose_extractor import FrameStats
+from ..schema_fields import (
+    A7_KEYFRAME_NAMES, A8_KEYFRAME_NAMES, JOINT_LANDMARK_IDS, JOINT_NAMES,
+    VZ_FIELDS, empty_ball_block,
+)
 from ..smoothing import smooth_timeseries
 from ..video_quality import assess_video_quality
 
@@ -174,6 +179,61 @@ def _path_vz(values_per_frame, start_frame: int, end_frame: int) -> list[dict] |
         out.append({"frame": int(f), "x": round(float(pt[0]), 4), "y": round(float(pt[1]), 4)})
     return out or None
 
+
+def _joint_dict(pose, frame_index: int | None) -> dict | None:
+    """B-block `joint` — 13 จุดตามชื่อ spec, normalized image coords, ปัด 2 ตำแหน่ง
+
+    INDEX SPACE: frame_index เป็น ABSOLUTE frame ของทั้งคลิป (ตรงกับที่
+    schema_builder/keyframes.py::extract_keyframes คืนมา) และ `pose` ต้องเป็น
+    track.pose (ทั้งคลิป) เท่านั้น — ห้ามส่ง sliced_pose เข้ามา (sliced_pose ถูก
+    reindex ให้ relative กับ stroke_start_frame แล้ว จะได้พิกัดผิดเฟรม)
+
+    คืนค่า:
+      - frame_index เป็น None หรืออยู่นอกช่วง [0, len(landmarks)) → None
+        (เคสนี้ keyframe นั้น detected=False อยู่แล้ว)
+      - ปกติ → dict ที่มีครบ 13 key เสมอ; joint ที่พิกัดเป็น NaN → ค่าเป็น None
+        แต่ key ยังอยู่ (ห้าม omit)
+
+    VISIBILITY: landmark ที่ visibility ต่ำแต่พิกัดเป็นตัวเลขจริง → ยังส่ง x/y
+    ตามปกติ ไม่ null ทิ้ง — ทั้งไฟล์นี้ใช้ NaN เป็น sentinel เดียวของ "ไม่มีค่า"
+    (_wrist_pt / _path_vz ก็ใช้เกณฑ์เดียวกัน) ส่วน visibility เป็นคนละมิติและ
+    รายงานแยกอยู่แล้ว การ null ตามเกณฑ์ visibility จะทำให้ overlay กะพริบ
+    """
+    if frame_index is None:
+        return None
+    lm = pose.landmarks
+    if frame_index < 0 or frame_index >= len(lm):
+        return None
+    out = {}
+    for name in JOINT_NAMES:
+        x, y = lm[frame_index, JOINT_LANDMARK_IDS[name], :2]
+        if np.isnan(x) or np.isnan(y):
+            out[name] = None
+        else:
+            out[name] = {"x": round(float(x), 2), "y": round(float(y), 2)}
+    return out
+
+
+def _b_keyframe_entry(pose, frame_index: int | None, fps: float) -> dict:
+    """023-B keyframe 1 ตัว — ต้องมีครบ 4 key เสมอ (ห้าม omit)
+    undetected → {"frame_index": None, "timestamp_ms": None,
+                  "detected": False, "joint": None}
+
+    frame_index เป็น absolute frame ของทั้งคลิป (ดู _joint_dict)"""
+    if frame_index is None:
+        return {"frame_index": None, "timestamp_ms": None,
+                "detected": False, "joint": None}
+    ts = pose.timestamps_ms
+    ts_ms = (float(ts[frame_index]) if 0 <= frame_index < len(ts)
+             else frame_index / fps * 1000.0)
+    return {
+        "frame_index": int(frame_index),
+        "timestamp_ms": round(ts_ms, 2),
+        "detected": True,
+        "joint": _joint_dict(pose, frame_index),
+    }
+
+
 def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypoints=None, ball_traj=None):
     """
     สร้าง Loeuf Full JSON Schema (17 Layers)
@@ -307,19 +367,32 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
         # ใน assess_video_quality เอง) ไม่ error
         vq = assess_video_quality(sliced_pose, engine_config)
 
-        # 023-B: keyframe
+        # 023-B: keyframe — spec บังคับ 4 key ต่อ keyframe เสมอ
+        # (frame_index, timestamp_ms, detected, joint) + B6 trophy_position
+        # index space: kf[...] เป็น absolute frame → ส่ง track.pose (ทั้งคลิป)
+        # ไม่ใช่ sliced_pose
+        #
+        # B6 trophy_position เป็น serve-only: ท่า trophy ของ serve คือจังหวะ
+        # backswing_peak (จุดเดียวกับที่ MetricsEngine.stroke_specific() ใช้
+        # ประเมิน SV2 trophy_position_achieved — loeuf_cv/metrics.py:579-585)
+        # ⚠️ trophy_frame ห้ามใส่กลับเข้า dict `kf` เด็ดขาด — builder.py ด้านบน
+        # คำนวณ stroke_start_frame/stroke_end_frame จาก kf.values() การเติม
+        # entry ใหม่จะไปยืดหน้าต่าง stroke (ในเคสนี้ค่าเท่ากับ backswing_peak
+        # อยู่แล้ว แต่ต้องไม่พึ่งความบังเอิญนั้น)
+        trophy_frame = kf["backswing_peak"] if stype == "SV" else None
         b_keyframe = {
-            "unit_turn": {"frame_index": kf["unit_turn"], "detected": kf["unit_turn"] is not None},
-            "backswing_peak": {"frame_index": kf["backswing_peak"], "detected": kf["backswing_peak"] is not None},
-            "impact": {"frame_index": kf["impact"], "detected": True},
-            "follow_through_peak": {"frame_index": kf["follow_through_peak"], "detected": kf["follow_through_peak"] is not None},
-            "recovery_position": {"frame_index": kf["recovery_position"], "detected": kf["recovery_position"] is not None}
+            "unit_turn": _b_keyframe_entry(track.pose, kf["unit_turn"], fps),
+            "backswing_peak": _b_keyframe_entry(track.pose, kf["backswing_peak"], fps),
+            "impact": _b_keyframe_entry(track.pose, kf["impact"], fps),
+            "follow_through_peak": _b_keyframe_entry(track.pose, kf["follow_through_peak"], fps),
+            "recovery_position": _b_keyframe_entry(track.pose, kf["recovery_position"], fps),
+            "trophy_position": _b_keyframe_entry(track.pose, trophy_frame, fps),
         }
 
         # Ball (BL) — available/_tracked_fraction จริงจาก ball trajectory (Kalman-filtered)
         # ในช่วงเฟรมของ stroke นี้ — ball_speed_kmh/landing_* ยังเป็น None เสมอ
         # เพราะต้องมี court calibration ก่อน (ดู docstring ด้านบน)
-        ball_metric = {"available": False}
+        ball_metric = empty_ball_block()
         if ball_traj is not None and video_meta.get("width") and video_meta.get("height"):
             seg = np.asarray(ball_traj[stroke_start_frame:stroke_end_frame], dtype=float)
             if len(seg):
@@ -332,15 +405,16 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
                 ball_metric["landing_call"] = landing_call
 
         # A7 detection_status: valid = ครบ B1-B5, partial = บางส่วน, failed = ไม่มีเลย
-        b_detected = [b_keyframe[n]["detected"] for n in
-                      ("unit_turn", "backswing_peak", "impact", "follow_through_peak", "recovery_position")]
+        # ⚠️ นับเฉพาะ B1-B5 (A7_KEYFRAME_NAMES) — trophy_position (B6) เป็น
+        # serve-only ถ้านับรวมจะทำให้ non-serve ทุก stroke กลายเป็น partial ทันที
+        b_detected = [b_keyframe[n]["detected"] for n in A7_KEYFRAME_NAMES]
         n_detected = sum(b_detected)
-        detection_status = "valid" if n_detected == 5 else ("failed" if n_detected == 0 else "partial")
+        detection_status = ("valid" if n_detected == len(A7_KEYFRAME_NAMES)
+                            else ("failed" if n_detected == 0 else "partial"))
 
         # A8 is_clean_stroke: B1-B4 ตรวจเจอครบ + ไม่มี issue จาก VQ2 (ตอนนี้ issues ว่างเสมอ
         # เพราะ VQ ยังไม่ implement จริง — ค่าจะแม่นขึ้นอัตโนมัติเมื่อ VQ พร้อม)
-        is_clean = all(b_keyframe[n]["detected"] for n in
-                       ("unit_turn", "backswing_peak", "impact", "follow_through_peak")) and not vq["issues"]
+        is_clean = all(b_keyframe[n]["detected"] for n in A8_KEYFRAME_NAMES) and not vq["issues"]
 
         cf2 = _inference_clean(track.pose, stroke_start_frame, stroke_end_frame, config)
         recommended_action = _recommended_action(detection_status, cf1, is_clean, config)
@@ -358,8 +432,12 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
             "stroke_recommended_action": recommended_action
         }
 
-        # 043-VZ: visualization — wrist_path (VZ1, required), + ball/racket path (VZ2-4)
-        # ถ้ามีข้อมูล ทุกจุดระหว่าง backswing_peak -> follow_through_peak ตาม spec
+        # 043-VZ: visualization — spec บังคับ 5 key เสมอ (wrist_path, ball_path,
+        # racket_tip_path, racket_center_path, body_center_path) ไม่มีข้อมูล → null
+        # ห้ามสร้าง key แบบมีเงื่อนไขเหมือนเดิม (VZ2-4 หายไปทั้ง key เมื่อไม่ส่ง
+        # ball_traj/racket_keypoints) — ดู schema_fields.VZ_FIELDS
+        # index space: vz_start/vz_end + f ทุกตัวในบล็อกนี้เป็น ABSOLUTE frame
+        # ของทั้งคลิป → ใช้ track.pose / ball_traj ตรง ๆ (ไม่ใช่ sliced_pose)
         vz_start = kf.get("backswing_peak")
         vz_end = kf.get("follow_through_peak")
 
@@ -369,7 +447,17 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
             x, y = track.pose.landmarks[f, wrist_idx, :2]
             return None if (np.isnan(x) or np.isnan(y)) else (x, y)
 
-        visualization = {"wrist_path": _path_vz(_wrist_pt, vz_start, vz_end) or []}
+        com_full = com_xy(track.pose)   # (T, 2) normalized, absolute frame index
+
+        def _com_pt(f):
+            if f >= len(com_full):
+                return None
+            x, y = com_full[f]
+            return None if (np.isnan(x) or np.isnan(y)) else (x, y)
+
+        visualization = {name: None for name in VZ_FIELDS}
+        visualization["wrist_path"] = _path_vz(_wrist_pt, vz_start, vz_end) or []
+        visualization["body_center_path"] = _path_vz(_com_pt, vz_start, vz_end)
 
         if ball_traj is not None and video_meta.get("width") and video_meta.get("height"):
             fw, fh = video_meta["width"], video_meta["height"]
@@ -422,7 +510,8 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
 
         strokes.append(stroke)
         
-    mt["stroke_type_distribution"] = {k: v for k, v in stroke_counts.items() if v > 0}
+    # MT10 — ต้องมีครบทุก stroke type เสมอ (ห้าม omit key ที่นับได้ 0)
+    mt["stroke_type_distribution"] = {k: stroke_counts.get(k, 0) for k in STROKE_TYPES}
     
     # Phase 2 Analytics
     agg, trend, pattern, summary = build_phase2_aggregations(strokes, config)

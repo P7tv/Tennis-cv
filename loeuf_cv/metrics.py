@@ -27,6 +27,7 @@ from .kinematics import (
     rotation_vs_baseline_deg, speed, torso_center,
 )
 from .pose_extractor import PoseTimeseries
+from .schema_fields import empty_ball_block
 
 # D8 contact_timing ideal range (cm หน้าลำตัว) ต่อ stroke — ⚠️ TBC RS/VL/late
 CONTACT_IDEAL_CM = {
@@ -665,8 +666,9 @@ class MetricsEngine:
         return ss
 
     def ball(self) -> dict:
-        # BL1 gate: ไม่มี ball detection → ส่งแค่ available (stretch goal)
-        return {"available": False}
+        # BL1 gate: ไม่มี ball detection → available false แต่ key ต้องครบทุกตัว
+        # (spec: ห้าม omit key) — ดู schema_fields.BALL_FIELDS
+        return empty_ball_block()
 
     def derived(self, blocks: dict) -> dict:
         d: dict = {}
