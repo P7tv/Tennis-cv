@@ -7,27 +7,37 @@ from ultralytics import YOLO
 # 2. ไปที่เว็บ https://universe.roboflow.com/ เพื่อหา Dataset เทนนิสที่คุณต้องการ
 # 3. กดปุ่ม "Export Dataset" -> เลือก Format เป็น "YOLOv8"
 # 4. เลือก "Show download code" แล้วก็อปปี้โค้ดมาใส่ทับในส่วนด้านล่างนี้
+# 5. ตั้ง env var ก่อนรัน: set ROBOFLOW_API_KEY=xxxx (Windows) หรือ
+#    export ROBOFLOW_API_KEY=xxxx (macOS/Linux) — ห้าม hardcode key ในไฟล์นี้
 # ==============================================================================
 
-from roboflow import Roboflow
-rf = Roboflow(api_key="PUibTgdxgSHRcmyOZUEI")
-project = rf.workspace("test-06r5e").project("tennis-racket-r6mgq")
-version = project.version(4)
-dataset = version.download("yolov8")
-# ------------------------------------------
 
-DATASET_YAML_PATH = os.path.join(dataset.location, "data.yaml")
+def _download_dataset():
+    from roboflow import Roboflow
+    api_key = os.environ.get("ROBOFLOW_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "ไม่พบ ROBOFLOW_API_KEY — ตั้ง env var ก่อนรัน "
+            "(set ROBOFLOW_API_KEY=xxxx บน Windows)")
+    rf = Roboflow(api_key=api_key)
+    project = rf.workspace("test-06r5e").project("tennis-racket-r6mgq")
+    version = project.version(4)
+    return version.download("yolov8")
+
 
 def main():
     print("🚀 กำลังเริ่มต้น Train YOLO11...")
-    
+
+    dataset = _download_dataset()
+    dataset_yaml_path = os.path.join(dataset.location, "data.yaml")
+
     # โหลดโมเดล YOLO11n (โมเดลตัวเล็กที่สุด เร็วที่สุด) มาเป็นตัวตั้งต้น
     # ถ้าอยากให้แม่นขึ้น สามารถเปลี่ยนเป็น "yolo11s.pt" หรือ "yolo11m.pt" ได้ครับ (กินสเปคเพิ่มขึ้น)
     model = YOLO("yolo11n.pt")
-    
+
     # ถ้าโหลด Dataset ยังไม่สำเร็จ อย่าเพิ่งรันต่อ
-    if not os.path.exists(DATASET_YAML_PATH):
-        print(f"❌ ไม่พบไฟล์ {DATASET_YAML_PATH}")
+    if not os.path.exists(dataset_yaml_path):
+        print(f"❌ ไม่พบไฟล์ {dataset_yaml_path}")
         print("กรุณาใส่โค้ดดาวน์โหลดจาก Roboflow ด้านบน หรือตรวจสอบ Path ก่อนรันครับ!")
         return
 
@@ -37,7 +47,7 @@ def main():
     # - imgsz: ขนาดภาพที่ใช้ Train (640 เป็นมาตรฐาน)
     # - device: เลือก 0 เพื่อใช้การ์ดจอ Nvidia (CUDA)
     results = model.train(
-        data=DATASET_YAML_PATH,
+        data=dataset_yaml_path,
         epochs=100,
         imgsz=640,
         device=0,  # ใช้ GPU 0

@@ -16,3 +16,4 @@ tennis-ball-racket-pose/
 hit_candidates.csv
 dataset/
 *.pkl
+dist/

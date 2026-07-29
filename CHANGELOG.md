@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.3.9 — 2026-07-29 (schema null-rule compliance + first handover package)
+
+Client sent the full schema spec doc (`cv_schema_table_loeuf`) — audited
+`build_loeuf_schema()` output against it field-by-field. 142/148 fields were
+already present, but the doc's "never omit a key" rule was violated in
+several places: keyframes (023-B) only emitted `{frame_index, detected}`
+instead of the required `{frame_index, timestamp_ms, detected, joint}` (joint
+= 13 named 2-D landmarks), the ball block (034-BL) fallback collapsed to a
+single `{"available": false}` key instead of all 11 BL fields, `stroke_type_distribution`
+(MT10) silently dropped zero-count stroke types, and the visualization block
+(043-VZ) omitted keys entirely instead of nulling them when ball/racket data
+was unavailable. `trophy_position` (B6, serve-only) and four serve-only BL
+fields (`server_position`/`target_box_correct`/`serve_attempt_number`/`is_fault`)
+were missing altogether.
+
+Added `loeuf_cv/schema_fields.py` as a single source of truth for these key
+lists (the duplication across `ball.py`/`metrics.py`/`schema_builder/builder.py`
+was exactly what caused the drift), fixed all five holes in `schema_builder/builder.py`,
+and added 3 tests that assert full key-set equality between the
+`ball_traj`-present and `ball_traj=None` code paths (the case that was
+silently broken). Deliberately left `stroke_specific` and `visibility_flag`
+untouched — both are already compliant per the doc's own rules once verified
+against it. Test suite: 65 → 68 passing.
+
+Also assembled the first handover package matching the client's required
+structure (`configs/`, `checkpoints/`, `dataset/{labels,metadata.csv}`,
+`scripts/{train,predict,eval,preprocess}.py`, plus new `docs/FINETUNE_GUIDE.md`
+and `docs/BENCHMARK.md`) — none of this existed before; the repo only had
+its own internal layout. Rotated a hardcoded Roboflow API key out of
+`scripts/train_yolo.py` into an env var while doing this (was committed in
+git history — should be revoked on the Roboflow side).
+
 ## 0.3.8 — 2026-07-11 (SAM 2 vs classical CV, head-to-head on the actual bad clip — real win, with two caught bugs along the way)
 
 Direct follow-up to 0.3.6/0.3.7: instead of patching `multi_person.py`
