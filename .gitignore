@@ -17,3 +17,4 @@ hit_candidates.csv
 dataset/
 *.pkl
 dist/
+_incoming/

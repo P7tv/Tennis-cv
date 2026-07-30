@@ -6,6 +6,8 @@ Fusion approach for hit detection:
   SECONDARY: Ball Direction Change (Inflection) — ยืนยัน Timing และ Confidence
   FALLBACK:  Racket Proximity — ใช้เมื่อ Ball ไม่มีข้อมูล
 """
+from pathlib import Path
+
 import numpy as np
 
 
@@ -238,6 +240,70 @@ def _find_ball_inflections(ball_traj: np.ndarray) -> set[int]:
 # ─────────────────────────────────────────────────────────
 HIT_WINDOW = 8  # เฟรม — เท่ากับ window ที่ _find_wrist_peaks ใช้หา local max อยู่แล้ว
 
+# ค่า probability ต่ำกว่านี้จาก hit_classifier → ทิ้ง candidate
+# ⚠️ 0.4 เป็นค่าที่ permissive มาก วัด end-to-end แล้วได้ precision 0.101
+# (FP 762 ตัวจาก GT 142) — ปรับผ่าน param ml_prob_threshold ของ
+# detect_hit_events() ได้ ดู scripts/tune_hit_detection.py สำหรับผลการ sweep
+ML_PROB_THRESHOLD = 0.4
+
+# prob เกินนี้ → ยก confidence เป็น HIGH (มีผลต่อ tie-break ตอน de-dup)
+ML_CONFIDENT_PROB = 0.8
+
+HIT_CLASSIFIER_FILENAME = "hit_classifier.pkl"
+_hit_clf_cache: tuple | None = None
+
+
+def _load_hit_classifier(path: str | None = None) -> tuple:
+    """โหลด hit_classifier.pkl แบบไม่ขึ้นกับ current working directory
+
+    ⚠️ ของเดิมเปิดไฟล์ด้วย relative path `"hit_classifier.pkl"` ตรง ๆ ซึ่งหมายถึง
+    "หาจาก CWD" ผลคือถ้าโปรเซสเรียกจากโฟลเดอร์อื่น โมเดลจะโหลดไม่ได้ **แบบเงียบ ๆ**
+    แล้ว detection ตกไปใช้ candidate ดิบทั้งหมดโดยไม่กรอง — FP พุ่งหลายเท่า
+    โดยไม่มี error ให้เห็น
+
+    เคสที่โดนจริง 2 เคส:
+      1. scripts/run_keyframe_benchmark.py ครอบ os.chdir ไป temp dir (กัน
+         hit_candidates.csv เขียนลง repo) → ตัวเลข benchmark ที่วัดก่อนแก้นี้
+         วัดโดยไม่มี classifier เลย
+      2. dist/loeuf-cv/ ที่ส่งลูกค้า — ถ้ารัน predict.py จากโฟลเดอร์อื่น
+         จะได้ FP เยอะขึ้นหลายเท่าเงียบ ๆ เหมือนกัน
+
+    ลำดับการค้นหา: LOEUF_HIT_CLASSIFIER (env) → รากโปรเจกต์ (แม่ของ loeuf_cv/)
+    → CWD (ไว้เพื่อ backward compat)
+    """
+    global _hit_clf_cache
+    if _hit_clf_cache is not None and path is None:
+        return _hit_clf_cache
+
+    import os
+    import pickle
+
+    candidates = []
+    if path:
+        candidates.append(Path(path))
+    env = os.environ.get("LOEUF_HIT_CLASSIFIER")
+    if env:
+        candidates.append(Path(env))
+    candidates.append(Path(__file__).resolve().parent.parent / HIT_CLASSIFIER_FILENAME)
+    candidates.append(Path.cwd() / HIT_CLASSIFIER_FILENAME)
+
+    for p in candidates:
+        try:
+            if p.is_file():
+                with open(p, "rb") as f:
+                    model, cols = pickle.load(f)
+                if path is None:
+                    _hit_clf_cache = (model, cols)
+                return model, cols
+        except Exception as e:
+            print(f"Failed to load hit classifier from {p}: {e}")
+
+    # ไม่เจอ → เตือนให้ดังพอ ไม่ให้หายเงียบเหมือนของเดิม
+    print(f"WARNING: ไม่พบ {HIT_CLASSIFIER_FILENAME} (ค้นแล้ว: "
+          f"{', '.join(str(c) for c in candidates)}) — hit detection จะไม่กรอง "
+          f"candidate ด้วย ML ทำให้ false positive สูงกว่าปกติหลายเท่า")
+    return None, []
+
 
 def _hit_window_features(f: int, speed: np.ndarray, window: int = HIT_WINDOW) -> dict:
     """รูปทรงของ wrist speed รอบๆ frame ผู้สมัคร (candidate) แทนที่จะดูแค่ค่าเดียว ณ frame นั้น
@@ -351,6 +417,9 @@ def detect_hit_events(
     proximity_thresh: float = 0.30,
     racket_bboxes: dict | None = None,
     min_wrist_speed_px: float = 8.0,
+    ml_prob_threshold: float = ML_PROB_THRESHOLD,
+    nms_by_prob: bool = True,
+    return_candidates: bool = False,
 ) -> list[dict]:
     """
     Fusion Hit Detection:
@@ -500,46 +569,47 @@ def detect_hit_events(
     MIN_GAP = int(fps * 0.75)  # เช่น 30fps * 0.75 = 22 เฟรม (คนเราตีลูกติดกันเร็วกว่า 0.75 วิได้ยากมาก)
 
     # ─── Integration with ML Classifier ───
-    ml_model = None
-    feature_cols = []
-    try:
-        import os, pickle
-        if os.path.exists("hit_classifier.pkl"):
-            with open("hit_classifier.pkl", "rb") as f:
-                ml_model, feature_cols = pickle.load(f)
-    except Exception as e:
-        print(f"Failed to load ML model: {e}")
+    ml_model, feature_cols = _load_hit_classifier()
+
+    # ─── Pass 1: คิด ml_prob ให้ "ทุก" candidate ก่อน ยังไม่กรอง ───
+    # แยกออกมาเพื่อให้ return_candidates ส่งข้อมูลดิบพร้อม prob ออกไป tune ได้
+    # โดยไม่ต้องรัน YOLO ใหม่ (tracking แพงกว่า detection ~95 เท่า)
+    for c in all_candidates:
+        c.setdefault("ml_prob", None)
+        if ml_model is None:
+            continue
+        import pandas as pd
+        X_dict = {col: c.get("features", {}).get(col, 0) for col in feature_cols}
+        try:
+            prob = float(ml_model.predict_proba(pd.DataFrame([X_dict]))[0][1])
+            c["ml_prob"] = round(prob, 4)
+            if prob > ML_CONFIDENT_PROB:
+                c["confidence"] = "HIGH"
+        except Exception as e:
+            # อย่าให้ candidate เดียวพัง detection ทั้งคลิป — ตกไปใช้
+            # rule-based confidence เดิมของ candidate นี้แทน (ไม่ drop, ไม่ boost)
+            print(f"ML predict failed for frame {c['frame']}, falling back to rule-based: {e}")
+
+    if return_candidates:
+        return all_candidates
+
+    # ─── Pass 2: กรองด้วย threshold ───
+    kept = [c for c in all_candidates
+            if c["ml_prob"] is None or c["ml_prob"] >= ml_prob_threshold]
+
+    # ─── Pass 3: de-dup ───
+    if nms_by_prob:
+        # NMS แบบมาตรฐาน: เรียงตามคะแนนมาก→น้อย แล้วกดเพื่อนบ้านที่ใกล้กว่า MIN_GAP
+        # ต่างจาก de-dup เดิมที่ไล่ตาม "ลำดับเฟรม" แล้วเก็บตัวที่มาก่อน ซึ่งทำให้
+        # ได้เฟรมที่ไม่ใช่ตัวคะแนนสูงสุดในกลุ่ม → ตำแหน่ง impact เพี้ยน
+        chosen: list[dict] = []
+        for c in sorted(kept, key=lambda x: -(x["ml_prob"] if x["ml_prob"] is not None else 0.0)):
+            if all(abs(c["frame"] - k["frame"]) >= MIN_GAP for k in chosen):
+                chosen.append(c)
+        return sorted(chosen, key=lambda x: x["frame"])
 
     final: list[dict] = []
-    for c in all_candidates:
-        feats = c.get("features", {})
-        
-        # 1. Evaluate with ML Model if available
-        if ml_model is not None:
-            import pandas as pd
-            # Create DataFrame for single row
-            X_dict = {col: feats.get(col, 0) for col in feature_cols}
-            X_df = pd.DataFrame([X_dict])
-
-            try:
-                # Get probability of being a hit (class 1)
-                prob = ml_model.predict_proba(X_df)[0][1]
-
-                # If ML model is very confident it's NOT a hit, drop it
-                if prob < 0.4:
-                    continue
-
-                # If ML model is confident it IS a hit, boost confidence
-                if prob > 0.8:
-                    c["confidence"] = "HIGH"
-                    c["ml_prob"] = round(float(prob), 2)
-                else:
-                    c["ml_prob"] = round(float(prob), 2)
-            except Exception as e:
-                # อย่าให้ candidate เดียวพัง detection ทั้งคลิป — ตกไปใช้
-                # rule-based confidence เดิมของ candidate นี้แทน (ไม่ drop, ไม่ boost)
-                print(f"ML predict failed for frame {c['frame']}, falling back to rule-based: {e}")
-
+    for c in kept:
         # 2. Minimum Gap De-duplication
         if not final or c["frame"] - final[-1]["frame"] >= MIN_GAP:
             final.append(c)

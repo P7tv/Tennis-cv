@@ -71,11 +71,20 @@ def render_overlay_video(video_path: str, tracks: list,
     _TMP_DIR = Path(__file__).parent / ".tmp"
     _TMP_DIR.mkdir(exist_ok=True)
 
+    # ⚠️ เขียน mp4v ดิบลง raw_path (temp) เสมอ แล้วค่อย transcode เป็น H.264 ไปที่
+    # out_path — ห้ามเขียนดิบลง out_path ตรง ๆ เพราะขั้น ffmpeg ด้านล่างจะกลายเป็น
+    # อ่าน/เขียนไฟล์เดียวกัน ("FFmpeg cannot edit existing files in-place") แล้ว
+    # finally จะลบไฟล์ที่ render เสร็จทิ้ง = เสียงานทั้งคลิป
+    # (บั๊กเดิม: h264_path = out_path.replace("_raw.mp4", ".mp4") ทำงานถูกเฉพาะ
+    #  ตอน out_path ถูกสร้างเองด้วย suffix="_raw.mp4" ถ้า caller ส่งชื่อมาเอง
+    #  replace ไม่เกิดผล → h264_path == out_path)
+    with tempfile.NamedTemporaryFile(suffix="_raw.mp4", delete=False,
+                                     dir=str(_TMP_DIR)) as f:
+        raw_path = f.name
     if out_path is None:
-        with tempfile.NamedTemporaryFile(suffix="_raw.mp4", delete=False, dir=str(_TMP_DIR)) as f:
-            out_path = f.name
-            
-    writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (fw, fh))
+        out_path = raw_path.replace("_raw.mp4", ".mp4")
+
+    writer = cv2.VideoWriter(raw_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (fw, fh))
 
     colors, names = _track_display(tracks, player_labels)
     
@@ -257,8 +266,8 @@ def render_overlay_video(video_path: str, tracks: list,
     writer.release()
     cap.release()
 
-    h264_path = out_path.replace("_raw.mp4", ".mp4")
-    
+    h264_path = out_path
+
     def _get_ffmpeg_path() -> str:
         import shutil
         import glob
@@ -274,15 +283,15 @@ def render_overlay_video(video_path: str, tracks: list,
     
     try:
         result = subprocess.run(
-            [_get_ffmpeg_path(), "-y", "-i", out_path, "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            [_get_ffmpeg_path(), "-y", "-i", raw_path, "-c:v", "libx264", "-pix_fmt", "yuv420p",
              "-crf", "23", "-preset", "ultrafast", "-threads", "2", h264_path],
             capture_output=True, text=True)
         if result.returncode != 0:
             raise RuntimeError(f"FFMPEG failed (exit {result.returncode}):\n{result.stderr or result.stdout}")
     finally:
-        if os.path.exists(out_path):
+        if os.path.exists(raw_path):
             try:
-                os.unlink(out_path)
+                os.unlink(raw_path)
             except Exception:
                 pass
                 
