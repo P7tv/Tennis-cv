@@ -1531,3 +1531,374 @@ def test_build_loeuf_schema_never_omits_keys():
     assert set(a) == set(b)
     for block in ("keyframe", "ball", "visualization"):
         assert set(a[block]) == set(b[block]), f"{block} key set ต่างกันสองโหมด"
+
+
+# ===========================================================================
+# Keyframe benchmark (loeuf_cv/benchmark_keyframes.py) — วัดเกณฑ์ TOR >= 0.80
+# ทั้งหมด pure ไม่ต้องใช้วิดีโอ/YOLO
+# ===========================================================================
+
+
+def _fake_stroke_label(stroke_no=1, stroke_type="FH", fps=29.97, **keyframes):
+    """StrokeLabel ปลอม — เลียนแบบสิ่งที่ label_ingest.load_session_label() คืน"""
+    from train_model.label_ingest import KEYFRAME_FIELD_MAP, StrokeLabel
+
+    kf = {name: None for name in KEYFRAME_FIELD_MAP}
+    kf.update(keyframes)
+    return StrokeLabel(clip_id="IMG_TEST", stroke_no=stroke_no,
+                       player_id="pl001", stroke_type=stroke_type,
+                       fps=fps, usable=True, keyframes=kf)
+
+
+class _FakeSession:
+    def __init__(self, strokes, stem="IMG_TEST"):
+        self.strokes = strokes
+        self.video_path = Path(f"{stem}.MOV")
+
+
+def test_label_ingest_extracts_trophy_position():
+    """B6 trophy_position ต้องถูกดึงมาด้วย — SV 64 stroke มี GT ตัวนี้
+    ถ้าไม่มีใน map จะถูกทิ้งเงียบ ๆ ทั้งหมด"""
+    from train_model.label_ingest import KEYFRAME_FIELD_MAP, _extract_keyframes
+
+    assert "trophy_position" in KEYFRAME_FIELD_MAP
+    serve = {"backswing_peak_frame": 83, "trophy_position_frame": 100,
+             "impact_frame": 115, "follow_through_peak_frame": 120}
+    kf = _extract_keyframes(serve)
+    assert kf["trophy_position"] == 100
+    assert kf["impact"] == 115
+    assert kf["unit_turn"] is None          # SV ไม่มี unit_turn ตาม spec
+    assert kf["recovery_position"] is None
+    # groundstroke ที่ไม่มี trophy → None ไม่ใช่ KeyError
+    assert _extract_keyframes({"impact_frame": 50})["trophy_position"] is None
+
+
+def test_stroke_key_roundtrips_through_match_pred():
+    """_match_pred ทำ str(Path(k).with_suffix("")) แล้วเทียบตรง — คีย์ต้องรอด
+    ทั้งจุด (จะถูกตัดเป็น suffix) และ separator (Windows normalize)"""
+    from loeuf_cv.benchmark_keyframes import stroke_key
+
+    for set_name, stem in [("set2", "IMG_0284"), ("set3", "IMG_0281(BH)"),
+                           ("sessions_deferred/set4", "IMG_0294(SV1)")]:
+        k = stroke_key(set_name, stem, 3)
+        assert str(Path(k).with_suffix("")) == k, f"คีย์ไม่ roundtrip: {k}"
+        assert "." not in k and "/" not in k
+
+    # stroke ต่างกันในคลิปเดียวกันต้องไม่ชนกัน
+    assert len({stroke_key("set2", "IMG_0284", i) for i in range(1, 24)}) == 23
+
+
+def test_label_rows_one_per_stroke():
+    from loeuf_cv.benchmark_keyframes import (
+        BENCH_KEYFRAME_COLS, label_rows_from_session,
+    )
+
+    session = _FakeSession([
+        _fake_stroke_label(1, "FH", impact=100, backswing_peak=80, unit_turn=60),
+        _fake_stroke_label(2, "SV", impact=300, backswing_peak=270,
+                           trophy_position=285),
+    ])
+    rows = label_rows_from_session(session, "set2")
+
+    assert len(rows) == 2                       # ต่อ stroke ไม่ใช่ต่อคลิป
+    assert len({r["clip_path"] for r in rows}) == 2
+    for r in rows:
+        for name in BENCH_KEYFRAME_COLS:
+            assert name in r, f"ขาด column {name}"
+    fh, sv = rows
+    assert fh["unit_turn"] == 60 and fh["trophy_position"] is None
+    assert sv["trophy_position"] == 285 and sv["unit_turn"] is None
+
+
+def test_match_strokes_one_to_one():
+    from loeuf_cv.benchmark_keyframes import match_strokes
+
+    r = match_strokes([100, 200, 300], [98, 205, 500], tolerance=10)
+    assert [(g, p) for g, p, _ in r["matches"]] == [(0, 0), (1, 1)]
+    assert r["fn"] == [2] and r["fp"] == [2]
+
+    # เลือกใกล้สุด ไม่ใช่ซ้ายสุด: 158 ควรจับกับ 160 (Δ2) ไม่ใช่ 150 (Δ8)
+    r2 = match_strokes([150, 160], [158], tolerance=10)
+    assert [(g, p) for g, p, _ in r2["matches"]] == [(1, 0)]
+    assert r2["fn"] == [0]
+
+    # pred 2 ตัวชน GT เดียว → จับได้ตัวเดียว อีกตัวเป็น FP
+    r3 = match_strokes([100], [100, 108], tolerance=10)
+    assert len(r3["matches"]) == 1 and r3["fp"] == [1]
+
+    # delta มีเครื่องหมาย (pred - gt) เพื่อดู systematic lag
+    assert match_strokes([100], [105], tolerance=10)["matches"][0][2] == 5
+
+
+def test_match_tolerance_within_gap_bounds():
+    """guard: ข้อพิสูจน์ว่า greedy = optimal พังทันทีถ้า tolerance ใหญ่เกิน
+    ครึ่งหนึ่งของระยะห่างที่แคบที่สุด"""
+    from loeuf_cv.benchmark_keyframes import (
+        HIT_MIN_GAP_FRAMES_AT_30, MATCH_TOLERANCE_FRAMES, MIN_GT_IMPACT_GAP,
+    )
+
+    assert 2 * MATCH_TOLERANCE_FRAMES < MIN_GT_IMPACT_GAP
+    assert 2 * MATCH_TOLERANCE_FRAMES < HIT_MIN_GAP_FRAMES_AT_30
+
+
+def test_detection_metrics_handles_empty():
+    from loeuf_cv.benchmark_keyframes import detection_metrics
+
+    m = detection_metrics([
+        {"clip": "a", "n_gt": 2, "n_pred": 2, "tp": 2, "fn": 0, "fp": 0,
+         "duration_sec": 60.0, "deltas": [1, -2]},
+        {"clip": "b", "n_gt": 2, "n_pred": 1, "tp": 1, "fn": 1, "fp": 0,
+         "duration_sec": 60.0, "deltas": [3]},
+    ])
+    assert m["tp"] == 3 and m["fn"] == 1 and m["fp"] == 0
+    assert m["recall"] == 0.75 and m["precision"] == 1.0
+    assert m["fp_per_minute"] == 0.0
+
+    # ไม่มี prediction เลย → precision None ไม่ใช่ ZeroDivisionError
+    empty = detection_metrics([{"clip": "c", "n_gt": 3, "n_pred": 0, "tp": 0,
+                                "fn": 3, "fp": 0, "duration_sec": 0.0,
+                                "deltas": []}])
+    assert empty["precision"] is None and empty["recall"] == 0.0
+
+
+def test_pred_strokes_from_schema_renames_block():
+    """production ใช้ key `keyframe` (เอกพจน์) แต่ keyframe_accuracy คาด
+    `keyframes` (พหูพจน์)"""
+    from loeuf_cv.benchmark_keyframes import (
+        BENCH_KEYFRAME_COLS, pred_strokes_from_schema,
+    )
+
+    def _kf(idx):
+        return {"frame_index": idx, "timestamp_ms": idx / 29.97 * 1000,
+                "detected": True, "joint": None}
+
+    schema = {"strokes": [{
+        "stroke_root": {"stroke_index": 1, "stroke_type": "SV",
+                        "detection_status": "valid"},
+        "keyframe": {name: _kf(100 + i)
+                     for i, name in enumerate(BENCH_KEYFRAME_COLS.values())},
+    }]}
+    preds = pred_strokes_from_schema(schema)
+    assert len(preds) == 1
+    p = preds[0]
+    assert set(p["keyframes"]) == set(BENCH_KEYFRAME_COLS.values())
+    assert p["stroke_type"] == "SV"
+    assert p["impact_frame"] == p["keyframes"]["impact"]["frame_index"]
+
+
+def test_keyframe_accuracy_with_bench_cols_scores_trophy():
+    """keyframe_cols ใหม่ต้องนับ trophy_position ได้ และ keyframe ที่ไม่มี GT
+    ต้องไม่ถูกนับเป็นผิด (ไม่มี GT = ไม่ได้วัด)"""
+    from loeuf_cv.benchmark import keyframe_accuracy
+    from loeuf_cv.benchmark_keyframes import BENCH_KEYFRAME_COLS
+
+    fps = 29.97
+
+    def _kf(frame):
+        return {"frame_index": frame, "timestamp_ms": frame / fps * 1000.0,
+                "detected": True}
+
+    preds = {"k1": {"keyframes": {"impact": _kf(115), "backswing_peak": _kf(83),
+                                  "trophy_position": _kf(100),
+                                  "unit_turn": _kf(50),
+                                  "follow_through_peak": _kf(120),
+                                  "recovery_position": _kf(150)}}}
+    row = {"clip_path": "k1", "stroke_type": "SV", "fps": fps, "usable": True,
+           "impact": 115, "backswing_peak": 83, "trophy_position": 100,
+           "unit_turn": None, "follow_through_peak": 120,
+           "recovery_position": None}
+
+    r = keyframe_accuracy([row], preds, tolerance_frames=1,
+                          keyframe_cols=BENCH_KEYFRAME_COLS)
+    assert r["per_stroke"]["SV"]["trophy_position"]["n"] == 1
+    assert r["per_stroke"]["SV"]["trophy_position"]["accuracy"] == 1.0
+    # unit_turn / recovery ไม่มี GT → ต้องไม่โผล่มาเป็น 0.0
+    assert "unit_turn" not in r["per_stroke"]["SV"]
+    assert r["acceptance_accuracy"] == 1.0 and r["acceptance_n"] == 2
+
+    # row ที่ขาด column ไปเลย ต้องไม่ KeyError (พิสูจน์ .get())
+    sparse = {"clip_path": "k1", "stroke_type": "SV", "fps": fps,
+              "usable": True, "impact": 115}
+    assert keyframe_accuracy([sparse], preds, 1,
+                             BENCH_KEYFRAME_COLS)["acceptance_n"] == 1
+
+
+def test_unmatched_gt_counts_as_failure_not_dropped():
+    """GT ที่ hit detection หาไม่เจอ ต้องนับเป็นผิด ไม่ใช่หายจากตัวหาร
+    (ไม่งั้น accuracy จะสูงหลอก)"""
+    from loeuf_cv.benchmark import keyframe_accuracy
+    from loeuf_cv.benchmark_keyframes import (
+        BENCH_KEYFRAME_COLS, NOT_DETECTED_PRED,
+    )
+
+    row = {"clip_path": "missed", "stroke_type": "FH", "fps": 29.97,
+           "usable": True, "impact": 115, "backswing_peak": 83}
+    r = keyframe_accuracy([row], {"missed": NOT_DETECTED_PRED}, 1,
+                          BENCH_KEYFRAME_COLS)
+    assert r["acceptance_accuracy"] == 0.0
+    assert r["acceptance_n"] == 2          # ยังอยู่ในตัวหาร
+    assert all(f["reason"] == "not_detected" for f in r["failures"])
+
+
+def test_anomaly_flags_detect_bad_labels():
+    from loeuf_cv.benchmark_keyframes import anomaly_flags
+
+    assert anomaly_flags({"impact": 100, "backswing_peak": 80,
+                          "follow_through_peak": 120}) == []
+    assert "backswing_not_before_impact" in anomaly_flags(
+        {"impact": 1371, "backswing_peak": 1371, "follow_through_peak": 1379})
+    assert "backswing_not_before_impact" in anomaly_flags(
+        {"impact": 330, "backswing_peak": 361, "follow_through_peak": 344})
+    assert "follow_through_before_impact" in anomaly_flags(
+        {"impact": 2150, "backswing_peak": 2144, "follow_through_peak": 1569})
+    assert "missing_follow_through" in anomaly_flags(
+        {"impact": 100, "backswing_peak": 80})
+
+
+def test_render_marks_missing_gt_not_as_zero():
+    """ช่องที่ไม่มี GT ต้องขึ้น "no GT" ห้ามขึ้น 0.000 (จะอ่านเป็นสอบตก)"""
+    from loeuf_cv.benchmark_keyframes import render_keyframe_markdown
+
+    md = render_keyframe_markdown({
+        "mode_a": {"acceptance_accuracy": 0.85, "acceptance_n": 128,
+                   "per_stroke": {"SV": {"impact": {"n": 64, "accuracy": 0.9,
+                                                    "mae_ms": 12.0}}},
+                   "coverage": {"SV": {"impact": 64, "trophy_position": 64}},
+                   "failures": [], "missing_predictions": 0},
+        "detection": {"tp": 120, "fn": 22, "fp": 5, "recall": 0.845,
+                      "precision": 0.96, "fp_per_minute": 0.17,
+                      "delta_mean": 1.2, "delta_median": 1.0, "delta_p90": 4.0,
+                      "per_clip": [{"clip": "IMG_0284", "n_gt": 2, "n_pred": 2,
+                                    "tp": 2, "fn": 0, "fp": 0}]},
+        "meta": {"n_gt_strokes": 142},
+    })
+    assert "no GT" in md                   # SV x unit_turn ไม่มี GT
+    assert "TOR" in md and "0.8" in md
+    assert "PASS" in md
+    assert "Mode A" in md
+
+
+def test_real_label_set_regression():
+    """ล็อกข้อเท็จจริงของ label set ที่ตัวเลขในรายงานอ้างอิง — ถ้า label
+    เปลี่ยน ตัวเลขที่ประกาศไปแล้วเป็นโมฆะ ต้องรู้ตัว"""
+    from collections import Counter
+
+    import pytest
+
+    from train_model.label_ingest import find_session_labels, load_session_label
+
+    dataset = Path(__file__).resolve().parent.parent / "dataset"
+    if not dataset.exists():
+        pytest.skip("ไม่มี dataset/ บนเครื่องนี้")
+
+    # ต้อง glob จาก dataset/ ไม่ใช่ dataset/sessions/ ไม่งั้นได้ 12 ไม่ใช่ 13
+    label_paths = find_session_labels(dataset)
+    assert len(label_paths) == 13
+
+    strokes, impacts_by_clip = [], {}
+    for p in label_paths:
+        session = load_session_label(p)
+        strokes.extend(session.strokes)
+        impacts_by_clip[p.stem] = sorted(
+            s.keyframes["impact"] for s in session.strokes)
+
+    assert len(strokes) == 142
+    assert dict(Counter(s.stroke_type for s in strokes)) == {
+        "SV": 64, "BH": 26, "FH": 21, "VL": 20, "SL": 11}
+
+    # เกณฑ์รับงานผูกกับ 2 ตัวนี้ — ต้องมี GT ครบทุก stroke
+    assert sum(s.keyframes["impact"] is not None for s in strokes) == 142
+    assert sum(s.keyframes["backswing_peak"] is not None for s in strokes) == 142
+    assert sum(s.keyframes["trophy_position"] is not None for s in strokes) == 64
+
+    # ระยะห่างที่แคบสุดต้องยังรองรับ match tolerance ที่ใช้อยู่
+    from loeuf_cv.benchmark_keyframes import MATCH_TOLERANCE_FRAMES
+    gaps = [b - a for imp in impacts_by_clip.values()
+            for a, b in zip(imp, imp[1:])]
+    assert min(gaps) >= 2 * MATCH_TOLERANCE_FRAMES
+
+
+# ---------------------------------------------------------------------------
+# backswing_peak (B2) — offset ที่คาลิเบรตกับ GT ลูกค้า
+# ดู loeuf_cv/schema_builder/keyframes.py สำหรับที่มาของค่าคงที่
+# ---------------------------------------------------------------------------
+
+def _straight_wrist_path(n=200, y=0.5):
+    """ข้อมือนิ่ง — ไม่มี motion cue ให้กิ่ง slice จุดชนวน"""
+    p = np.zeros((n, 2), dtype=float)
+    p[:, 0] = 0.5
+    p[:, 1] = y
+    return p
+
+
+def test_backswing_ground_uses_calibrated_offset():
+    """ไม่ใช่เสิร์ฟ ไม่ใช่ slice → impact - GROUND_BACKSWING_OFFSET"""
+    from loeuf_cv.schema_builder.keyframes import (GROUND_BACKSWING_OFFSET,
+                                                   extract_keyframes)
+    wrist = _straight_wrist_path()
+    head = _straight_wrist_path(y=0.2)      # หัวอยู่สูงกว่าข้อมือ = ไม่ใช่เสิร์ฟ
+    kf = extract_keyframes(100, wrist, 30.0, 200, head_path=head)
+    assert kf["backswing_peak"] == 100 - GROUND_BACKSWING_OFFSET
+
+
+def test_backswing_detects_serve_from_wrist_above_head():
+    """ข้อมือเหนือหัวตอน impact → ใช้กิ่งเสิร์ฟ (หาเฟรมข้อมือสูงสุด)
+
+    ไม่พึ่ง stroke classifier เพราะ extract_keyframes ถูกเรียกก่อน classify_stroke
+    """
+    from loeuf_cv.schema_builder.keyframes import (SERVE_SEARCH_MAX,
+                                                   SERVE_SEARCH_MIN,
+                                                   extract_keyframes)
+    wrist = _straight_wrist_path(y=0.5)
+    head = _straight_wrist_path(y=0.6)      # หัวต่ำกว่าข้อมือ (y มาก) = เสิร์ฟ
+    imp = 100
+    trophy = imp - 20                        # อยู่ในช่วงค้นหา 9..35
+    wrist[trophy, 1] = 0.1                   # ข้อมือสูงสุดที่เฟรมนี้
+    kf = extract_keyframes(imp, wrist, 30.0, 200, head_path=head)
+    assert kf["backswing_peak"] == trophy
+    assert imp - SERVE_SEARCH_MAX <= kf["backswing_peak"] <= imp - SERVE_SEARCH_MIN
+
+
+def test_backswing_detects_slice_from_downward_wrist_velocity():
+    """ข้อมือสับลง (vy > threshold) → ใช้ offset ของ slice ซึ่งยาวกว่า groundstroke"""
+    from loeuf_cv.schema_builder.keyframes import (GROUND_BACKSWING_OFFSET,
+                                                   SLICE_BACKSWING_OFFSET,
+                                                   SLICE_VY_THRESHOLD,
+                                                   extract_keyframes)
+    wrist = _straight_wrist_path(y=0.5)
+    head = _straight_wrist_path(y=0.2)
+    imp = 100
+    # y เพิ่ม = เคลื่อนลงในพิกัดภาพ ให้เกิน threshold ชัด ๆ
+    wrist[imp, 1] = 0.5 + SLICE_VY_THRESHOLD * 3
+    kf = extract_keyframes(imp, wrist, 30.0, 200, head_path=head)
+    assert kf["backswing_peak"] == imp - SLICE_BACKSWING_OFFSET
+    assert SLICE_BACKSWING_OFFSET != GROUND_BACKSWING_OFFSET
+
+
+def test_backswing_without_head_path_falls_back_to_ground():
+    """head_path=None → แยกเสิร์ฟไม่ได้ ต้องไม่ crash และใช้ค่า groundstroke"""
+    from loeuf_cv.schema_builder.keyframes import (GROUND_BACKSWING_OFFSET,
+                                                   extract_keyframes)
+    kf = extract_keyframes(100, _straight_wrist_path(), 30.0, 200)
+    assert kf["backswing_peak"] == 100 - GROUND_BACKSWING_OFFSET
+
+
+def test_backswing_offsets_match_client_gt_convention():
+    """guard: GT ลูกค้าวาง B2 ใกล้ impact มาก (groundstroke median 3 เฟรม)
+
+    ถ้าใครเปลี่ยนค่าคงที่ให้ห่างขึ้นเยอะ = กลับไปเป็นบั๊กเดิมที่ prediction
+    ไปกองที่ขอบหน้าต่างค้นหา (accuracy 0.000) — ต้อง fail ทันที
+    """
+    from loeuf_cv.schema_builder.keyframes import (GROUND_BACKSWING_OFFSET,
+                                                   SLICE_BACKSWING_OFFSET)
+    assert 1 <= GROUND_BACKSWING_OFFSET <= 8
+    assert 1 <= SLICE_BACKSWING_OFFSET <= 12
+
+
+def test_unit_turn_offset_matches_gt_median():
+    """B1 = B2 - 0.5s ; 15 เฟรมที่ 30fps ตรงกับ GT median ของ (B2 - B1) พอดี"""
+    from loeuf_cv.schema_builder.keyframes import extract_keyframes
+    wrist = _straight_wrist_path()
+    head = _straight_wrist_path(y=0.2)
+    kf = extract_keyframes(100, wrist, 30.0, 200, head_path=head)
+    assert kf["backswing_peak"] - kf["unit_turn"] == 15

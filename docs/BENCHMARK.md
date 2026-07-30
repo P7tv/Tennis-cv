@@ -1,31 +1,75 @@
 # Benchmark Report — Loeuf CV Pipeline
 
-⚠️ **เอกสารนี้เขียนขึ้นเอง ไม่ได้มาจากการรัน `scripts/eval.py`** (ตัวรัน harness
-จริง คือ `scripts/run_benchmark.py`) เพราะ harness ต้องการไฟล์ `labels/stroke_labels.csv`
-ที่ยังไม่มี — ของที่มีจริงคือ label ต่อคลิปแบบ JSON (`dataset/labels/*.json`,
-13 ไฟล์) คนละ format ต้องเขียน converter ก่อนถึงจะรันได้ ดูรายละเอียดใน
-"ยังไม่ได้วัด" ด้านล่าง
+⚠️ **เอกสารนี้เขียนขึ้นเอง** รวบรวมตัวเลขที่วัดไว้แล้วจากหลายที่ (git history +
+training data) — ไม่ได้ generate จาก harness
 
-## เป้าหมาย
+## 👉 Keyframe accuracy (เกณฑ์รับงาน TOR ≥ 0.80)
 
-Keyframe accuracy เทียบ ground-truth label (tolerance ±1 เฟรม) **เป้า TOR ≥ 0.80**
-— **ยังไม่เคยวัดตัวเลขนี้จริง** (ดูเหตุผลด้านบน) นี่คือช่องว่างหลักของ
-benchmark ชุดนี้
+**วัดจริงแล้ว → ดู [`BENCHMARK_KEYFRAME.md`](BENCHMARK_KEYFRAME.md)**
+(machine-readable: `benchmark_keyframe_results.json`)
+
+| ตัวเลข | ค่า | vs เป้า 0.80 |
+|---|---|---|
+| **Mode A end-to-end** (จริงตามที่ลูกค้าได้) | **0.148** | ❌ FAIL |
+| Mode A matched-only (เฉพาะ stroke ที่ detect เจอ) | 0.244 | ❌ |
+| **Mode B oracle-impact** (เพดานของ keyframe logic) | **0.761** | ❌ (เกือบถึง) |
+
+Detection: recall **0.606** · precision **0.101** (TP 86 / FN 56 / FP 762)
+
+**คอขวดอยู่ที่ hit detection ไม่ใช่ keyframe logic** — Mode B (ป้อน GT impact) ได้
+0.761 แต่ end-to-end เหลือ 0.148 เพราะ `0.606 (หา stroke เจอ) × 0.29 (เจอแล้วตรง
+±1 เฟรม) = 0.17` ต้องแก้ทั้งสองชั้น
+
+วัดด้วย `scripts/run_keyframe_benchmark.py` บน ground truth จริงของลูกค้า
+(13 คลิป / 142 stroke) เทียบ pipeline production (`build_loeuf_schema`) —
+รายงานนั้นแยก 2 โหมด: **end-to-end** (จริงตามที่ลูกค้าได้ รวม error ของ hit
+detection) กับ **oracle-impact** (ป้อน GT impact เข้าไป = เพดานของ keyframe
+logic ล้วน ๆ) เพื่อให้รู้ว่าควรไปแก้ hit detection หรือ keyframe logic ก่อน
+
+หมายเหตุ: `scripts/run_benchmark.py` (harness เดิม) ยังใช้กับข้อมูลชุดนี้ไม่ได้
+เพราะออกแบบมาสำหรับคลิป single-stroke + `labels/stroke_labels.csv` ที่ไม่เคยมี
+— ของจริงเป็น session ยาวหลาย stroke ต่อคลิป label เป็น JSON
 
 ## ตัวเลขจริงที่วัดแล้ว (จาก git history + training data)
 
-### Classifier accuracy — Leave-One-Clip-Out CV
+### Classifier accuracy — ต้องใช้ Leave-One-**Person**-Out
 
 Random row split เสี่ยง data leakage (แถวจากคลิปเดียวกันหลุดไปอยู่ทั้ง train/test)
-— ตัวเลขที่เชื่อถือได้คือ grouped CV เท่านั้น (ดู `docs/FINETUNE_GUIDE.md`)
+— แต่ **leave-one-clip-out ยังไม่พอ** เพราะผู้เล่นคนเดียวกันอยู่หลายคลิป
+(earth 4 คลิป · poom 3 คลิป · moo-grey 2 · navy 2) → group ด้วยคลิปยังมี leakage
+ระดับบุคคล ตัวเลขที่เชื่อถือได้คือ **LOPO**
 
-| โมเดล | Random split | LOCO-CV (เชื่อถือได้) |
+| โมเดล | Random split | LOCO-CV | **LOPO-CV (เชื่อถือได้)** |
+|---|---|---|---|
+| Stroke classifier (accuracy) | 92.59% | 80.30% | **72.7%** |
+| Hit classifier (precision/recall) | 45% / 64% | 24% / 44% | — (ยังไม่วัด) |
+
+ที่มา LOCO/random: commit `89840a6` · ที่มา LOPO: วัดใหม่ 2026-07-30 บน
+`dataset/training/stroke_features.csv` (n=132) โดย map clip → ผู้เล่นจาก
+`StrokeLabel.clip_id`
+
+⚠️ **ข้อจำกัดของ dataset ที่กระทบทุกตัวเลขข้างบน** — ประเภท stroke เกือบจะ
+collinear กับตัวบุคคล:
+
+| ท่า | n | มาจากกี่คน |
 |---|---|---|
-| Stroke classifier (accuracy) | 92.59% | **80.30%** |
-| Hit classifier (precision/recall) | 45% / 64% | **24% / 44%** |
+| SL | 11 | **1 คน** (earth) |
+| FH | 21 | 2 คน (moo-grey 20, poom 1) |
+| VL | 20 | 2 คน |
+| BH | 26 | 3 คน |
+| SV | 64 | 6 คน ✅ |
 
-ที่มา: commit `89840a6` ("window-shape hit-detection features + grouped
-Leave-One-Clip-Out CV")
+SL มาจากคนเดียว → LOPO ให้ 0.00 โดยโครงสร้าง (ทุกโมเดลที่ทดสอบ) และยังพิสูจน์
+ไม่ได้ว่าโมเดลเรียน "ท่า" หรือเรียน "ตัวบุคคล" — **การเก็บ label เพิ่มโดยกระจาย
+ท่าข้ามคน สำคัญกว่าการเปลี่ยนโมเดล**
+
+เทียบโมเดลอื่นบน feature ชุดเดิม (LOPO): RF ลึกกว่า 0.788 · HistGradientBoosting
+0.780 · ExtraTrees 0.735 · **Stacking 0.644** (แย่ลง — n=132 ไม่พอเรียน
+meta-model) → เพดานคือข้อมูล ไม่ใช่ model class
+
+หมายเหตุเชิงระเบียบวิธี: 0.788 เป็นค่าที่ได้จากการ *เลือกโมเดลดีสุดจาก 11 ตัว
+โดยดูคะแนน LOPO เดียวกัน* จึงมี selection bias — กำไรจริงน่าจะน้อยกว่า +6 จุด
+ถ้าจะอ้างต้องทำ nested CV
 
 ### Stroke classifier — per-class recall หลังเพิ่ม swing-window features
 
@@ -94,16 +138,23 @@ streaming) คลิปยาวของลูกค้าจริง (70-120s
 
 ### Test suite
 
-`pytest tests/ -q` → **68 passed** (65 เดิม + 3 ที่เพิ่มเข้ามาสำหรับตรวจ
-schema null-rule compliance — ดู `CHANGELOG.md`)
+`pytest tests/ -q` → **86 passed** (65 เดิม + 3 schema null-rule + 12 keyframe
+benchmark + 6 backswing offset)
+
+<!-- ค่าเดิมตอนเขียนเอกสารรอบแรก: 68 passed (65 + 3 schema null-rule
+compliance — ดู `CHANGELOG.md`) -->
 
 ## ยังไม่ได้วัด (ไม่ใช่ "ผลไม่ดี" — คือ "ยังไม่มีตัวเลข")
 
-- **Keyframe accuracy vs TOR ≥ 0.80** — เป้าหลักของ benchmark นี้ ยังไม่วัด
-  ต้องเขียน converter จาก `dataset/labels/*.json` → `labels/stroke_labels.csv`
-  ก่อน แล้วรัน `scripts/run_batch.py` + `scripts/eval.py` จริง
+- ~~**Keyframe accuracy vs TOR ≥ 0.80**~~ — **วัดแล้ว** ดู
+  [`BENCHMARK_KEYFRAME.md`](BENCHMARK_KEYFRAME.md)
 - **Inter-annotator agreement** — มี annotator เดียว (`atikan`) ในชุด label
-  ปัจจุบัน ยังวัด agreement ระหว่างคนไม่ได้
+  ปัจจุบัน ยังวัด agreement ระหว่างคนไม่ได้ (ต้องให้คนที่ 2 label ทับบางคลิป)
+- **BL2/BL3 (ball speed, trajectory clearance)** — ยังเป็น `null` เสมอ ต้องมี
+  court calibration ก่อน (ของที่มีแล้ว: `loeuf_cv/court_calibration.py`,
+  `scripts/solve_camera_pose.py`)
+- **Serve fields BL7/BL8/BL10** — key ครบตาม schema แล้วแต่ค่าเป็น `null`
+  ยังไม่ implement logic จริง
 - **Action spotting (Phase 2)** — ยังไม่มีข้อมูล session เต็มที่ label ครบ
 
 ## ห้ามอ้างเป็นผลลัพธ์

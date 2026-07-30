@@ -13,10 +13,14 @@ from pathlib import Path
 
 
 # frame fields เท่าที่มีในไฟล์ label จริง — SV ไม่มี unit_turn/recovery_frame
-# (ตรงกับ keyframe spec: "No unit_turn in serve")
+# (ตรงกับ keyframe spec: "No unit_turn in serve") ส่วน trophy_position เป็น
+# ตรงกันข้าม: มีเฉพาะ SV (64/142 stroke = SV ทั้งหมดพอดี) — ใช้โดย
+# loeuf_cv/benchmark_keyframes.py เทียบ B6 กับ ground truth
+# key ที่นี่ใช้ชื่อชุดเดียวกับ B-block ใน schema_builder/builder.py
 KEYFRAME_FIELD_MAP = {
     "unit_turn": "unit_turn_frame",
     "backswing_peak": "backswing_peak_frame",
+    "trophy_position": "trophy_position_frame",
     "impact": "impact_frame",
     "follow_through_peak": "follow_through_peak_frame",
     "recovery_position": "recovery_frame",

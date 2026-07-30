@@ -72,9 +72,33 @@ def _match_pred(preds: dict, clip_path: str) -> dict | None:
 
 
 def keyframe_accuracy(labels: list[dict], preds: dict,
-                      tolerance_frames: int = 1) -> dict:
-    """accuracy ต่อ (stroke_type × keyframe) + failure list"""
-    stats = defaultdict(lambda: {"n": 0, "correct": 0, "errors_ms": []})
+                      tolerance_frames: int = 1,
+                      keyframe_cols: dict | None = None,
+                      frame_domain: bool = False) -> dict:
+    """accuracy ต่อ (stroke_type × keyframe) + failure list
+
+    keyframe_cols: mapping {label_column -> keyframe_name} — default = KEYFRAME_COLS
+    (schema เดิมจาก stroke_labels.csv + StrokePipeline) ส่ง mapping อื่นเข้ามาได้
+    เมื่อ label/prediction ใช้ vocabulary คนละชุด — ดู
+    loeuf_cv/benchmark_keyframes.py::BENCH_KEYFRAME_COLS ที่ใช้ชื่อ B-block ของ
+    schema_builder (มี trophy_position, ใช้ recovery_position แทน
+    ready_position_restored)
+
+    frame_domain: ตัดสินถูก/ผิดด้วย ``frame_index`` ตรง ๆ
+    (``|pred - gt| <= tolerance_frames``) แทนการเทียบ ``timestamp_ms``
+
+    ⚠️ ทำไมต้องมีโหมดนี้ — spec ลูกค้ากำหนด tolerance เป็น "เฟรม" แต่การเทียบแบบ
+    timestamp เอา GT (``frame / fps_ใน_label``) ไปชนกับ prediction
+    (``timestamp_ms`` ที่อ่านจาก cv2 = เวลาจริงในไฟล์) ซึ่งเป็น **คนละฐานเวลา**:
+    fps ใน label เป็นค่าปัดเศษ (29.97) ของจริง 29.974841... ทำให้คลาดสะสมเชิงเส้น
+    ~38.8 ms ต่อ 1000 เฟรม ขณะที่ tolerance 1 เฟรม ≈ 34.4 ms → พอเลยวินาทีที่ ~30
+    ของคลิป prediction ที่เฟรม "ตรงเป๊ะ" ก็ถูกนับผิด (วัดจากข้อมูลจริง: 68/132
+    stroke = 51.5%) คลิป session ลูกค้ายาว 1-11 นาที จึงต้องใช้ frame_domain=True
+    (default False เพื่อไม่ให้ CLI เดิมเปลี่ยนพฤติกรรม)
+    """
+    keyframe_cols = keyframe_cols or KEYFRAME_COLS
+    stats = defaultdict(lambda: {"n": 0, "correct": 0, "errors_ms": [],
+                                 "errors_frames": []})
     failures, missing_pred = [], 0
 
     for row in labels:
@@ -86,8 +110,10 @@ def keyframe_accuracy(labels: list[dict], preds: dict,
             continue
         tol_ms = tolerance_frames * 1000.0 / row["fps"] + 1.0
 
-        for col, kf_name in KEYFRAME_COLS.items():
-            gt_frame = row[col]
+        for col, kf_name in keyframe_cols.items():
+            # .get() ไม่ใช่ [] — caller ที่ส่ง keyframe_cols ชุดอื่นอาจไม่มี column
+            # ครบทุกตัวใน row (เช่น GT ที่ไม่ได้ label keyframe นั้นเลย)
+            gt_frame = row.get(col)
             if gt_frame is None:
                 continue
             gt_ms = gt_frame / row["fps"] * 1000.0
@@ -101,7 +127,19 @@ def keyframe_accuracy(labels: list[dict], preds: dict,
                 continue
             err = abs(p["timestamp_ms"] - gt_ms)
             stats[key]["errors_ms"].append(err)
-            if err <= tol_ms:
+            if frame_domain:
+                # เทียบเฟรมตรง ๆ ตาม spec — err_ms ยังเก็บไว้รายงาน MAE ได้
+                # แต่ห้ามใช้ตัดสิน (คนละฐานเวลา ดู docstring)
+                pf = p.get("frame_index")
+                if pf is None:
+                    ok = False
+                else:
+                    df = abs(int(pf) - int(gt_frame))
+                    stats[key]["errors_frames"].append(df)
+                    ok = df <= tolerance_frames
+            else:
+                ok = err <= tol_ms
+            if ok:
                 stats[key]["correct"] += 1
             else:
                 failures.append({"clip": row["clip_path"], "keyframe": kf_name,
@@ -114,6 +152,11 @@ def keyframe_accuracy(labels: list[dict], preds: dict,
             "accuracy": round(s["correct"] / s["n"], 3) if s["n"] else None,
             "mae_ms": round(float(np.mean(s["errors_ms"])), 1)
             if s["errors_ms"] else None,
+            # frame-domain: ไม่ปนกับ time-base drift (ดู docstring)
+            "mae_frames": round(float(np.mean(s["errors_frames"])), 2)
+            if s["errors_frames"] else None,
+            "median_frames": round(float(np.median(s["errors_frames"])), 1)
+            if s["errors_frames"] else None,
         }
 
     # เกณฑ์ acceptance รวม (impact + backswing_peak ทุกท่า)

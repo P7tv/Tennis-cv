@@ -288,9 +288,13 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
         dominant_side = config.dominant_side if hasattr(config, 'dominant_side') else "right"
         wrist_idx = R_WRIST if dominant_side == "right" else L_WRIST
         wrist_path = track.pose.landmarks[:, wrist_idx, :2]
+        # head_path ใช้แยกท่าเสิร์ฟใน extract_keyframes (ข้อมือเหนือหัว = SV) —
+        # ต้องส่งไป ไม่งั้น backswing_peak ของ SV จะใช้ค่า groundstroke แล้วเพี้ยน
+        head_path = track.pose.landmarks[:, NOSE, :2]
 
         # Extract Keyframes (B)
-        kf = extract_keyframes(impact_frame, wrist_path, fps, video_meta.get("total_frames", 0))
+        kf = extract_keyframes(impact_frame, wrist_path, fps, video_meta.get("total_frames", 0),
+                               head_path=head_path)
 
         # ต้องครอบคลุมทุก keyframe ที่ตรวจเจอจริง ไม่ใช่แค่ unit_turn/recovery_position —
         # backswing_peak ค้นหาได้ไกลถึง impact-1.5s ซึ่งอาจไกลกว่า fallback impact-30 เฟรม
