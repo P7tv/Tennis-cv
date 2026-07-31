@@ -32,9 +32,9 @@ import numpy as np
 GROUND_BACKSWING_OFFSET = 3
 
 # slice — GT median = 5 เฟรม (ง้างค้างนานกว่า groundstroke เล็กน้อย)
-# ⚠️ กิ่งนี้ **ยังพิสูจน์ข้ามคนไม่ได้** เพราะ SL ในชุด label มาจากคนเดียว
-# (11 stroke / 1 คน) ตอน Leave-One-Person-Out จึงวัดค่านี้ไม่ได้เลย
-# 4/5 fold ที่มี SL อยู่ใน train เลือก 5 ตรงกัน — ต้องเก็บ SL จากคนอื่นมายืนยัน
+# ✅ 2026-07-30: พิสูจน์ข้ามคนได้แล้ว — ชุด label เพิ่ม IMG_0266-SL (prem 10 stroke)
+# ทำให้ SL มาจาก 2 คน (earth 11 + prem 10) เดิมมาจากคนเดียวจึง LOPO ให้ 0.00
+# โดยโครงสร้าง ตอนนี้วัดได้จริง: Mode B backswing SL = 0.571 (LOPO per-type 0.667)
 SLICE_BACKSWING_OFFSET = 5
 
 # แยก slice จาก FH/BH ด้วยทิศความเร็วแนวดิ่งของข้อมือตอน impact
@@ -43,6 +43,17 @@ SLICE_BACKSWING_OFFSET = 5
 # FH/BH ได้สะอาด แลกกับกิน VL ไป 2 ตัว
 SLICE_VY_THRESHOLD = 0.01
 SLICE_VY_LOOKBACK = 2          # เฟรมที่ใช้คิด vy (impact-2 → impact)
+
+# ❌ เคยลองเพิ่ม "กิ่ง volley" แยกจาก groundstroke แล้ว **แย่ลง** — ไม่ต้องลองซ้ำ
+# แนวคิด: volley เหวี่ยงสั้นกว่า จึงแยกด้วย amplitude ที่ข้อมือกวาดในแนวนอน
+# (หารความกว้างไหล่) วัดบน GT 160 stroke: VL median 2.75 · FH 6.99 · BH 6.69
+# · SL 4.35 · SV 4.59 → ดูเหมือนแยกได้ แต่ p25 ของ FH (3.74) และ BH (4.15)
+# ต่ำกว่า threshold 4.0 → 25% ของ groundstroke ถูกส่งเข้ากิ่ง volley ผิด
+# ผลจริง (Mode B backswing_peak): FH 0.905→0.810 · BH 0.808→0.577 ·
+# VL 0.575→0.450 (ตัวที่ควรดีขึ้นกลับแย่ เพราะ offset 4 แพ้ 3 สำหรับ VL) ·
+# SL 0.571→0.762  รวม acceptance 0.759→0.733
+VOLLEY_AMP_WINDOW = 30         # เก็บไว้ให้ _is_volley_swing ที่ยังไม่ถูกเรียกใช้
+VOLLEY_AMP_THRESHOLD = 4.0
 
 # serve — ไม่ใช้ค่าคงที่ แต่หาเฟรมที่ข้อมืออยู่ "สูงสุด" (y น้อยสุด) ในช่วงนี้
 # = จังหวะ trophy/ง้างสุดของการเสิร์ฟ ซึ่งแปรผันตามความสูงที่แต่ละคนโยนลูก
@@ -83,6 +94,23 @@ def _serve_backswing(wrist_path, impact_frame: int) -> int:
     return max(0, impact_frame - SERVE_FALLBACK_OFFSET)
 
 
+def _is_volley_swing(wrist_path, impact_frame: int,
+                     shoulder_width: float | None) -> bool:
+    """volley = ข้อมือกวาดในแนวนอนสั้น ๆ (บล็อกลูก ไม่เหวี่ยงเต็มวง)
+
+    หาร amplitude ด้วยความกว้างไหล่เพื่อให้เทียบข้ามขนาดคน/ระยะกล้องได้
+    ถ้าไม่รู้ความกว้างไหล่ → คืน False (ตกไปใช้ offset ของ groundstroke)
+    """
+    if not shoulder_width or shoulder_width <= 1e-6:
+        return False
+    a = max(0, impact_frame - VOLLEY_AMP_WINDOW)
+    seg = wrist_path[a:impact_frame + 1, 0]
+    if len(seg) < 3 or np.isnan(seg).all():
+        return False
+    amp = (np.nanmax(seg) - np.nanmin(seg)) / shoulder_width
+    return bool(amp < VOLLEY_AMP_THRESHOLD)
+
+
 def _wrist_vy(wrist_path, impact_frame: int) -> float:
     """ความเร็วแนวดิ่งของข้อมือตอน impact (บวก = สับลง)"""
     i0 = impact_frame - SLICE_VY_LOOKBACK
@@ -93,12 +121,16 @@ def _wrist_vy(wrist_path, impact_frame: int) -> float:
 
 
 def extract_keyframes(impact_frame: int, wrist_path: np.ndarray, fps: float,
-                      max_frames: int, head_path: np.ndarray | None = None):
+                      max_frames: int, head_path: np.ndarray | None = None,
+                      shoulder_width: float | None = None):
     """
     วิเคราะห์หา 5 Keyframes หลักจาก trajectory ของข้อมือ
     wrist_path: numpy array (N, 2) พิกัด x, y ของข้อมือข้างที่ถือไม้ (dominant_wrist)
     head_path: (N, 2) พิกัดจมูก — ใช้แยกท่าเสิร์ฟสำหรับ backswing_peak
                ถ้าไม่ส่งมา จะถือว่าไม่ใช่เสิร์ฟทุกครั้ง (B2 จะเพี้ยนกับ SV)
+    shoulder_width: ความกว้างไหล่ (พิกัด normalized เดียวกับ wrist_path) ใช้แยก
+               volley ออกจาก groundstroke — ไม่ส่งมาก็ได้ (volley จะใช้ offset
+               ของ groundstroke แทน)
     """
     keyframes = {
         "unit_turn": None,

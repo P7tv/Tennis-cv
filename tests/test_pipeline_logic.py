@@ -1791,9 +1791,16 @@ def test_real_label_set_regression():
     if not dataset.exists():
         pytest.skip("ไม่มี dataset/ บนเครื่องนี้")
 
-    # ต้อง glob จาก dataset/ ไม่ใช่ dataset/sessions/ ไม่งั้นได้ 12 ไม่ใช่ 13
+    # ต้อง glob จาก dataset/ ไม่ใช่ dataset/sessions/ ไม่งั้นตกคลิปใน
+    # sessions_deferred/ ไป
+    #
+    # ⚠️ 2026-07-30: ชุด label ขยายจาก 13 ไฟล์ / 142 stroke เป็น 16 / 172 หลัง
+    # ลูกค้าส่งคลิปเพิ่ม (IMG_0266-SL, IMG_0283A-VLfh, IMG_0283B-VLbh)
+    # ที่สำคัญคือ SL เพิ่มจาก 1 คน (earth 11) เป็น 2 คน (+prem 10) ทำให้
+    # Leave-One-Person-Out วัด SL ได้เป็นครั้งแรก — ก่อนหน้านี้ SL ให้ 0.00
+    # ทุกโมเดลโดยโครงสร้าง ไม่ใช่เพราะโมเดลแย่
     label_paths = find_session_labels(dataset)
-    assert len(label_paths) == 13
+    assert len(label_paths) == 16
 
     strokes, impacts_by_clip = [], {}
     for p in label_paths:
@@ -1802,14 +1809,18 @@ def test_real_label_set_regression():
         impacts_by_clip[p.stem] = sorted(
             s.keyframes["impact"] for s in session.strokes)
 
-    assert len(strokes) == 142
+    assert len(strokes) == 172
     assert dict(Counter(s.stroke_type for s in strokes)) == {
-        "SV": 64, "BH": 26, "FH": 21, "VL": 20, "SL": 11}
+        "SV": 64, "VL": 40, "BH": 26, "SL": 21, "FH": 21}
 
     # เกณฑ์รับงานผูกกับ 2 ตัวนี้ — ต้องมี GT ครบทุก stroke
-    assert sum(s.keyframes["impact"] is not None for s in strokes) == 142
-    assert sum(s.keyframes["backswing_peak"] is not None for s in strokes) == 142
+    assert sum(s.keyframes["impact"] is not None for s in strokes) == 172
+    assert sum(s.keyframes["backswing_peak"] is not None for s in strokes) == 172
     assert sum(s.keyframes["trophy_position"] is not None for s in strokes) == 64
+
+    # SL ต้องมาจากอย่างน้อย 2 คน ไม่งั้นตัวเลข SL พิสูจน์ข้ามคนไม่ได้อีก
+    sl_players = {s.player_id for s in strokes if s.stroke_type == "SL"}
+    assert len(sl_players) >= 2, f"SL มาจาก {len(sl_players)} คน — LOPO วัดไม่ได้"
 
     # ระยะห่างที่แคบสุดต้องยังรองรับ match tolerance ที่ใช้อยู่
     from loeuf_cv.benchmark_keyframes import MATCH_TOLERANCE_FRAMES
