@@ -273,8 +273,8 @@ def stage_track(args, sessions, manifest: Manifest):
                 raise RuntimeError("ไม่เจอผู้เล่นในคลิปนี้")
 
             track = _pick_target_track(tracks)
-            ball_traj = extract_ball_trajectory_kalman(
-                ball_bboxes, len(track.pose.landmarks))
+            ball_traj, ball_measured = extract_ball_trajectory_kalman(
+                ball_bboxes, len(track.pose.landmarks), return_measured=True)
 
             out.parent.mkdir(parents=True, exist_ok=True)
             with open(out, "wb") as f:
@@ -285,6 +285,7 @@ def stage_track(args, sessions, manifest: Manifest):
                     "racket_keypoints": racket_keypoints,
                     "ball_bboxes": ball_bboxes,
                     "ball_traj": ball_traj,
+                    "ball_measured": ball_measured,
                     "fps": fps, "duration_sec": n_frames / fps if fps else 0.0,
                     "video_meta": {"width": width, "height": height,
                                    "total_frames": n_frames},
@@ -326,7 +327,8 @@ def _build_for_mode(cached: dict, session, mode: str):
         with scratch_cwd():
             hit_events = detect_hit_events(
                 cached["ball_traj"], [track], fps, vm["width"], vm["height"],
-                racket_bboxes=cached["racket_bboxes"])
+                racket_bboxes=cached["racket_bboxes"],
+                ball_measured=cached.get("ball_measured"))
     else:
         gt = sorted((s for s in session.strokes
                      if s.keyframes.get("impact") is not None),

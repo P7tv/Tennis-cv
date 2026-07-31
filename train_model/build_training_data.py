@@ -145,7 +145,8 @@ def process_session(label_path: Path, args, hit_writer, stroke_writer, stats) ->
 
     # ─── Hit candidates: auto-label จาก impact_frame ที่คน label ───
     n_pose_frames = len(track.pose.landmarks)
-    traj = extract_ball_trajectory_kalman(ball_bboxes, n_pose_frames)
+    traj, ball_measured = extract_ball_trajectory_kalman(
+        ball_bboxes, n_pose_frames, return_measured=True)
     impact_frames = [
         s.keyframes["impact"] for s in session.strokes if s.keyframes.get("impact") is not None
     ]
@@ -154,7 +155,9 @@ def process_session(label_path: Path, args, hit_writer, stroke_writer, stats) ->
     scratch_dir = tempfile.mkdtemp(prefix="hit_candidates_scratch_")
     try:
         os.chdir(scratch_dir)
-        events = detect_hit_events(traj, [track], fps, width, height, racket_bboxes=racket_bboxes)
+        events = detect_hit_events(traj, [track], fps, width, height,
+                                   racket_bboxes=racket_bboxes,
+                                   ball_measured=ball_measured)
     finally:
         os.chdir(cwd)
         shutil.rmtree(scratch_dir, ignore_errors=True)

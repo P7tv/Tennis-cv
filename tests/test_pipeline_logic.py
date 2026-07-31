@@ -2054,3 +2054,28 @@ def test_static_filter_thresholds_stay_physical():
     assert STATIC_BALL_SPAN >= 15
     assert STATIC_BALL_MIN_HITS >= 3
     assert 4.0 <= STATIC_BALL_RADIUS <= 20.0
+
+
+def test_ball_gate_ignores_kalman_coasting():
+    """ด่าน 'ลูกอยู่ไกลข้อมือ' ต้องไม่ปัด candidate ทิ้งด้วยตำแหน่งที่ Kalman เดาเอง
+
+    regression: ก่อนแก้ ด่านนี้เชื่อ ball_traj ทุกค่ารวมช่วง coasting ทำให้
+    ตัด stroke จริงทิ้ง วัดแล้วกิน recall 17% (ดู scripts/diagnose_hit_recall.py)
+    """
+    from loeuf_cv.hit_detection import extract_ball_trajectory_kalman
+    n = 60
+    # ลูกถูกเห็นแค่ 5 เฟรมแรก ที่เหลือ Kalman เดาต่อ
+    bb = {i: [_bb(100 + 25 * i, 400)] for i in range(5)}
+    traj, measured = extract_ball_trajectory_kalman(bb, n, return_measured=True)
+    assert measured[:5].all(), "เฟรมที่มี detection ต้องถูกทำเครื่องหมายว่าวัดจริง"
+    assert not measured[5:].any(), "ช่วง Kalman เดาต่อต้องไม่ถูกนับว่าวัดจริง"
+    # แต่ trajectory ยังมีค่าอยู่ (coasting) — นี่คือค่าที่ห้ามเอาไปตัดสินใจ
+    assert not np.isnan(traj[10, 0])
+
+
+def test_extract_ball_trajectory_kalman_default_return_unchanged():
+    """ค่า default ต้องคืน array เดี่ยวเหมือนเดิม (ไม่ทำ caller เก่าพัง)"""
+    from loeuf_cv.hit_detection import extract_ball_trajectory_kalman
+    out = extract_ball_trajectory_kalman({0: [_bb(100, 200)]}, 10)
+    assert isinstance(out, np.ndarray)
+    assert out.shape == (10, 2)

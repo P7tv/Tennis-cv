@@ -147,7 +147,8 @@ def extract_ball_trajectory_kalman(
     total_frames: int,
     max_gap: int = 30,
     drop_static: bool = True,
-) -> np.ndarray:
+    return_measured: bool = False,
+):
     """
     Ball Trajectory ด้วย Kalman Filter (ดีกว่า Linear Interpolation):
     - คาด (predict) ตำแหน่งลูกในเฟรมที่จับไม่ได้ โดยใช้ velocity จากเฟรมก่อน
@@ -158,6 +159,10 @@ def extract_ball_trajectory_kalman(
 
     drop_static: คัดลูกที่นอนนิ่ง (บนพื้น/ในรถเข็น) ออกก่อน ดู
                  filter_static_ball_bboxes() — ปิดได้ถ้าต้องการพฤติกรรมเดิม
+    return_measured: คืน (traj, measured) โดย measured[i] = True เฉพาะเฟรมที่
+                 มี detection จริง ไม่ใช่ค่าที่ Kalman เดาต่อ — จำเป็นสำหรับ
+                 ตรรกะที่ "เชื่อตำแหน่งลูกแล้วตัดสินใจ" เพราะช่วง coasting
+                 ตำแหน่งลูกเป็นของสมมติ (ดู detect_hit_events ด่าน ball gate)
     """
     import cv2
 
@@ -187,6 +192,7 @@ def extract_ball_trajectory_kalman(
     kf.errorCovPost = np.eye(4, dtype=np.float32)
 
     traj = np.full((total_frames, 2), np.nan)
+    measured = np.zeros(total_frames, dtype=bool)
     initialized = False
     frames_since_detection = 0
     last_pt = None
@@ -231,6 +237,7 @@ def extract_ball_trajectory_kalman(
             state_val = np.asarray(kf.statePost, dtype=float).reshape(-1)
             traj[i, 0] = state_val[0]
             traj[i, 1] = state_val[1]
+            measured[i] = True
             last_pt = (traj[i, 0], traj[i, 1])
         elif initialized:
             frames_since_detection += 1
@@ -243,7 +250,7 @@ def extract_ball_trajectory_kalman(
                 initialized = False
                 last_pt = None
 
-    return traj
+    return (traj, measured) if return_measured else traj
 
 
 # ─────────────────────────────────────────────────────────
@@ -509,6 +516,7 @@ def detect_hit_events(
     ml_prob_threshold: float = ML_PROB_THRESHOLD,
     nms_by_prob: bool = True,
     return_candidates: bool = False,
+    ball_measured: np.ndarray | None = None,
 ) -> list[dict]:
     """
     Fusion Hit Detection:
@@ -561,8 +569,18 @@ def detect_hit_events(
 
                 # กรองพวกที่แกว่งแขนเฉยๆ (MEDIUM confidence แต่ลูกอยู่ไกลมาก)
                 if confidence == "MEDIUM" and not ball_nearby:
-                    # ถ้าระบบหาลูกไม่เจอเลยแถวนั้น อนุโลมให้ผ่าน (อาจจะโดนบัง) แต่ถ้าหาเจอแล้วอยู่ไกล ให้ปัดตก
-                    if not np.isnan(ball_traj[min(f, total_frames - 1), 0]):
+                    # ถ้าระบบหาลูกไม่เจอเลยแถวนั้น อนุโลมให้ผ่าน (อาจจะโดนบัง)
+                    # แต่ถ้าหาเจอแล้วอยู่ไกล ให้ปัดตก
+                    #
+                    # ⚠️ ต้องเชื่อ "เฉพาะตำแหน่งที่มาจาก detection จริง" — ช่วงที่
+                    # Kalman เดาต่อ (coasting) ตำแหน่งลูกเป็นของสมมติ การเอามาปัด
+                    # candidate ทิ้งคือการตัด stroke จริงด้วยหลักฐานที่ระบบแต่งเอง
+                    # วัดแล้วด่านนี้กิน recall ไป 17% (109 -> 90 จาก GT 112)
+                    # ดู scripts/diagnose_hit_recall.py
+                    fi = min(f, total_frames - 1)
+                    ball_is_real = (ball_measured is None
+                                    or bool(ball_measured[fi]))
+                    if ball_is_real and not np.isnan(ball_traj[fi, 0]):
                         continue
 
                 d_val = float(d) if ball_nearby else None
