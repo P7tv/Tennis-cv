@@ -15,6 +15,68 @@ import numpy as np
 # Ball Trajectory (ไม่เปลี่ยน)
 # ─────────────────────────────────────────────────────────
 
+# คัด detection ของ "ลูกที่นอนนิ่ง" (ลูกบนพื้นสนาม / ในรถเข็นซ้อม) ออกก่อน
+# เข้าตัวติดตาม — ในคลิปมุมกว้างของ dataset จริง 87.7% ของ detection เป็น
+# ลูกนิ่ง ทำให้ Kalman association ล็อกผิดตัวได้ เพราะเงื่อนไขเดิมคือ
+# "bbox ที่ใกล้ตำแหน่งทำนายที่สุด ภายใน 200px" โดยไม่สนว่าเคลื่อนที่หรือไม่
+# ดู docs/BALL_DETECTION_ISSUE.md สำหรับตัวเลขที่วัดได้
+STATIC_BALL_WINDOW = 20    # ดูเฟรมข้างเคียง ±20
+STATIC_BALL_RADIUS = 8.0   # อยู่ห่างกัน < 8px ถือว่า "ตำแหน่งเดิม"
+STATIC_BALL_FRAC = 0.5     # เจอที่ตำแหน่งเดิมเกินครึ่งของหน้าต่าง = วัตถุนิ่ง
+
+
+def filter_static_ball_bboxes(
+    ball_bboxes: dict,
+    total_frames: int,
+    window: int = STATIC_BALL_WINDOW,
+    radius: float = STATIC_BALL_RADIUS,
+    frac: float = STATIC_BALL_FRAC,
+) -> dict:
+    """ตัด detection ที่อยู่กับที่ออก คืน dict รูปเดิม (frame -> list[bbox])
+
+    ลูกที่ลอยจริงจะไม่ค้างตำแหน่งเดิมเกิน ~4 เฟรม แม้แต่ตอนถึงจุดสูงสุด
+    ของการโยนเสิร์ฟ (แรงโน้มถ่วง 4.4 px/frame² -> ขยับ 8px ใน 1.9 เฟรม)
+    เกณฑ์ 50% ของหน้าต่าง 41 เฟรมจึงห่างจากลูกจริงมาก
+
+    ⚠️ ใช้ไม่ได้ถ้ากล้างขยับ (pan/handheld) เพราะลูกนิ่งจะเลื่อนในภาพ —
+    ในกรณีนั้นฟังก์ชันนี้แค่ไม่ตัดอะไรเลย ไม่ได้ทำให้แย่ลง
+    """
+    # ปักหมุด detection ลงตาราง cell ขนาด radius เพื่อไม่ต้องเทียบทุกคู่
+    grid: dict[tuple[int, int], list[tuple[int, float, float]]] = {}
+    for i in range(total_frames):
+        for bx, by, bw, bh in ball_bboxes.get(i, []):
+            cx, cy = bx + bw / 2.0, by + bh / 2.0
+            grid.setdefault((int(cx // radius), int(cy // radius)),
+                            []).append((i, cx, cy))
+
+    out: dict[int, list] = {}
+    r2 = radius * radius
+    for i in range(total_frames):
+        bboxes = ball_bboxes.get(i, [])
+        if not bboxes:
+            continue
+        lo, hi = max(0, i - window), min(total_frames - 1, i + window)
+        span = hi - lo  # จำนวนเฟรมข้างเคียง (ไม่นับตัวเอง)
+        keep = []
+        for bb in bboxes:
+            bx, by, bw, bh = bb
+            cx, cy = bx + bw / 2.0, by + bh / 2.0
+            gx, gy = int(cx // radius), int(cy // radius)
+            seen = set()
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    for (j, ox, oy) in grid.get((gx + dx, gy + dy), ()):
+                        if j == i or j < lo or j > hi:
+                            continue
+                        if (ox - cx) ** 2 + (oy - cy) ** 2 < r2:
+                            seen.add(j)
+            if span <= 0 or len(seen) / span <= frac:
+                keep.append(bb)
+        if keep:
+            out[i] = keep
+    return out
+
+
 def extract_ball_trajectory(ball_bboxes: dict, total_frames: int, max_gap: int = 15) -> np.ndarray:
     """
     สร้าง 2D Trajectory (x, y) ของลูกเทนนิสจาก Bounding boxes ที่ได้
@@ -73,6 +135,7 @@ def extract_ball_trajectory_kalman(
     ball_bboxes: dict,
     total_frames: int,
     max_gap: int = 30,
+    drop_static: bool = True,
 ) -> np.ndarray:
     """
     Ball Trajectory ด้วย Kalman Filter (ดีกว่า Linear Interpolation):
@@ -81,8 +144,14 @@ def extract_ball_trajectory_kalman(
     - ใช้แทน extract_ball_trajectory ได้ทันที (API เหมือนกันทุกอย่าง)
 
     State: [x, y, vx, vy]  — ตำแหน่งและความเร็ว
+
+    drop_static: คัดลูกที่นอนนิ่ง (บนพื้น/ในรถเข็น) ออกก่อน ดู
+                 filter_static_ball_bboxes() — ปิดได้ถ้าต้องการพฤติกรรมเดิม
     """
     import cv2
+
+    if drop_static:
+        ball_bboxes = filter_static_ball_bboxes(ball_bboxes, total_frames)
 
     # ─── Kalman Filter Setup ───
     kf = cv2.KalmanFilter(4, 2)

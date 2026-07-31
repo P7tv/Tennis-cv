@@ -64,7 +64,9 @@ from train_model.label_ingest import find_session_labels, load_session_label
 from webui.yolo_track import track_players_with_yolo
 
 ROOT = Path(__file__).resolve().parent.parent
-CACHE_VERSION = 1
+# v2: เก็บ ball_bboxes ดิบไว้ด้วย เพื่อให้ทดลองอัลกอริทึม ball tracking
+#     (เช่น filter_static_ball_bboxes) ได้โดยไม่ต้องรัน YOLO ใหม่ 112 นาที
+CACHE_VERSION = 2
 DEFAULT_MODEL = "runs/pose/tennis_ball_racket_pose_finetune_best.pt"
 
 # ข้อจำกัดเชิงโค้ดที่ทราบล่วงหน้า — ใส่ในรายงานเพื่อไม่ให้ตัวเลขต่ำถูกอ่านผิด
@@ -281,6 +283,7 @@ def stage_track(args, sessions, manifest: Manifest):
                     "track": track, "n_tracks": len(tracks),
                     "racket_bboxes": racket_bboxes,
                     "racket_keypoints": racket_keypoints,
+                    "ball_bboxes": ball_bboxes,
                     "ball_traj": ball_traj,
                     "fps": fps, "duration_sec": n_frames / fps if fps else 0.0,
                     "video_meta": {"width": width, "height": height,

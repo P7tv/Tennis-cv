@@ -1913,3 +1913,97 @@ def test_unit_turn_offset_matches_gt_median():
     head = _straight_wrist_path(y=0.2)
     kf = extract_keyframes(100, wrist, 30.0, 200, head_path=head)
     assert kf["backswing_peak"] - kf["unit_turn"] == 15
+
+
+# ─────────────────────────────────────────────────────────
+# filter_static_ball_bboxes — คัดลูกที่นอนนิ่งบนพื้น/ในรถเข็นออก
+# วัดจริงแล้ว 87.7% ของ detection ในคลิปมุมกว้างเป็นลูกนิ่ง
+# ดู docs/BALL_DETECTION_ISSUE.md
+# ─────────────────────────────────────────────────────────
+
+def _bb(x, y, s=12):
+    """bbox (x, y, w, h) ที่มีจุดกึ่งกลางอยู่ที่ (x, y)"""
+    return (int(x - s / 2), int(y - s / 2), s, s)
+
+
+def test_static_ball_is_filtered_out():
+    """ลูกที่นอนอยู่ตำแหน่งเดิมตลอด ต้องถูกตัดออกทุกเฟรม"""
+    from loeuf_cv.hit_detection import filter_static_ball_bboxes
+    n = 120
+    bb = {i: [_bb(500, 800)] for i in range(n)}
+    assert filter_static_ball_bboxes(bb, n) == {}
+
+
+def test_moving_ball_is_kept():
+    """ลูกที่ลอยเป็นเส้นตรงเร็ว ต้องไม่ถูกตัดเลย"""
+    from loeuf_cv.hit_detection import filter_static_ball_bboxes
+    n = 120
+    bb = {i: [_bb(100 + 25 * i, 400)] for i in range(n)}
+    out = filter_static_ball_bboxes(bb, n)
+    assert len(out) == n
+
+
+def test_toss_apex_ball_is_kept():
+    """จุดสูงสุดของการโยนเสิร์ฟ ความเร็วแนวดิ่ง = 0 ชั่วขณะ แต่แรงโน้มถ่วง
+    ยังพาลูกออกจากรัศมี 8px ภายใน ~2 เฟรม -> ต้องไม่โดนตัด
+    (นี่คือเคสที่อันตรายที่สุดของตัวกรองนี้)"""
+    from loeuf_cv.hit_detection import filter_static_ball_bboxes
+    n = 61
+    g = 4.4  # px/frame^2 ที่ 30fps
+    apex = 30
+    bb = {i: [_bb(600, 300 + 0.5 * g * (i - apex) ** 2)] for i in range(n)}
+    out = filter_static_ball_bboxes(bb, n)
+    assert apex in out, "ลูกตรงจุดสูงสุดของการโยนต้องรอด"
+    assert len(out) >= n - 6
+
+
+def test_static_and_moving_together_keeps_only_moving():
+    """เคสจริง: ลูกนิ่งหลายลูกในสนาม + ลูกที่กำลังเล่น 1 ลูก"""
+    from loeuf_cv.hit_detection import filter_static_ball_bboxes
+    n = 120
+    statics = [(300, 900), (450, 950), (700, 880)]
+    bb = {}
+    for i in range(n):
+        bb[i] = [_bb(sx, sy) for sx, sy in statics]
+        bb[i].append(_bb(100 + 25 * i, 400))
+    out = filter_static_ball_bboxes(bb, n)
+    assert len(out) == n
+    for i, kept in out.items():
+        assert len(kept) == 1, f"เฟรม {i} ควรเหลือลูกเดียว ได้ {kept}"
+        cx = kept[0][0] + kept[0][2] / 2
+        assert abs(cx - (100 + 25 * i)) < 2
+
+
+def test_kalman_ignores_static_ball_decoy():
+    """end-to-end: Kalman ต้องตามลูกที่เคลื่อนที่ ไม่ใช่ลูกนิ่งที่อยู่ใกล้กว่า
+
+    ก่อนแก้: association เลือก 'bbox ที่ใกล้ตำแหน่งทำนายที่สุด ภายใน 200px'
+    โดยไม่สนว่าเคลื่อนที่ไหม -> พอลูกจริงวิ่งผ่านใกล้ลูกนิ่ง มันจะสลับไปเกาะ
+    ลูกนิ่งแล้วค้างอยู่ตรงนั้น
+    """
+    from loeuf_cv.hit_detection import extract_ball_trajectory_kalman
+    n = 100
+    decoy = (1300, 402)
+    bb = {}
+    for i in range(n):
+        bb[i] = [_bb(*decoy), _bb(100 + 25 * i, 400)]
+    traj = extract_ball_trajectory_kalman(bb, n)
+    # ปลายคลิปลูกจริงอยู่ไกลจาก decoy มาก — ถ้าไปเกาะ decoy จะค้างที่ x=1300
+    assert abs(traj[n - 1, 0] - (100 + 25 * (n - 1))) < 60, \
+        f"Kalman ไปเกาะลูกนิ่ง: x={traj[n-1, 0]}"
+
+
+def test_drop_static_false_preserves_old_behaviour():
+    """ต้องปิดกลับไปพฤติกรรมเดิมได้ (สำหรับเทียบผล/debug)"""
+    from loeuf_cv.hit_detection import extract_ball_trajectory_kalman
+    n = 60
+    bb = {i: [_bb(500, 800)] for i in range(n)}
+    on = extract_ball_trajectory_kalman(bb, n, drop_static=True)
+    off = extract_ball_trajectory_kalman(bb, n, drop_static=False)
+    assert np.isnan(on).all(), "เปิดกรอง: ลูกนิ่งล้วน ต้องไม่เหลือ trajectory"
+    assert not np.isnan(off[:, 0]).all(), "ปิดกรอง: ต้องได้พฤติกรรมเดิม"
+
+
+def test_static_filter_no_op_when_no_detections():
+    from loeuf_cv.hit_detection import filter_static_ball_bboxes
+    assert filter_static_ball_bboxes({}, 50) == {}
