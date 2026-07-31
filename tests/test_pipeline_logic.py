@@ -2007,3 +2007,50 @@ def test_drop_static_false_preserves_old_behaviour():
 def test_static_filter_no_op_when_no_detections():
     from loeuf_cv.hit_detection import filter_static_ball_bboxes
     assert filter_static_ball_bboxes({}, 50) == {}
+
+
+def test_intermittent_static_ball_is_filtered():
+    """ลูกนิ่งที่ detector จับได้ติด ๆ ดับ ๆ ก็ต้องโดนตัด
+
+    regression: เกณฑ์แรกใช้ 'สัดส่วนเฟรมที่เจอในหน้าต่าง ±20 > 50%' แล้ว
+    ปล่อยหลุด เพราะลูกนิ่งใน dataset จริงถูกจับได้แค่ ~40-50% ของเฟรม
+    (เจอที่ IMG_0281 เฟรม 937-955 จุด (1247.5, 539.0))
+    """
+    from loeuf_cv.hit_detection import filter_static_ball_bboxes
+    n = 300
+    bb = {}
+    for i in range(n):
+        if i % 5 in (0, 1):        # เจอแค่ 40% ของเฟรม
+            bb[i] = [_bb(1247, 539)]
+    assert filter_static_ball_bboxes(bb, n) == {}
+
+
+def test_ball_passing_same_spot_twice_still_kept():
+    """ลูกที่บังเอิญผ่านจุดเดิมสองครั้งห่างกันมาก ต้องไม่โดนตัด
+
+    span ยาวก็จริง แต่จำนวนครั้งที่เจอน้อย -> ไม่เข้าเกณฑ์ 'ของนิ่ง'
+    (นี่คือเหตุผลที่ต้องมี min_hits ไม่ใช่ดู span อย่างเดียว)
+    """
+    from loeuf_cv.hit_detection import filter_static_ball_bboxes
+    n = 300
+    bb = {}
+    for i in range(60):                       # ตีที่ 1: วิ่งผ่าน x=100..1290
+        bb[i] = [_bb(100 + 20 * i, 400)]
+    for i in range(200, 260):                 # ตีที่ 2: วิ่งเส้นทางเดิมย้อนกลับ
+        bb[i] = [_bb(1280 - 20 * (i - 200), 400)]
+    out = filter_static_ball_bboxes(bb, n)
+    assert len(out) == 120, \
+        f"ลูกที่เคลื่อนที่ตลอดต้องรอดแม้ผ่านจุดเดิมซ้ำ (เหลือ {len(out)})"
+
+
+def test_static_filter_thresholds_stay_physical():
+    """guard: เกณฑ์ต้องห่างจาก 'ลูกที่จุดสูงสุดของการโยน' พอสมควร
+
+    ลูกตรง apex อยู่ในวง 8px ได้ ~4 เฟรม (แรงโน้มถ่วง 4.4 px/frame²)
+    ถ้าใครลด span ลงมาใกล้ค่านั้น = เริ่มตัดลูกจริงทิ้ง
+    """
+    from loeuf_cv.hit_detection import (STATIC_BALL_RADIUS, STATIC_BALL_SPAN,
+                                        STATIC_BALL_MIN_HITS)
+    assert STATIC_BALL_SPAN >= 15
+    assert STATIC_BALL_MIN_HITS >= 3
+    assert 4.0 <= STATIC_BALL_RADIUS <= 20.0

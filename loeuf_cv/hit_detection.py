@@ -20,25 +20,39 @@ import numpy as np
 # ลูกนิ่ง ทำให้ Kalman association ล็อกผิดตัวได้ เพราะเงื่อนไขเดิมคือ
 # "bbox ที่ใกล้ตำแหน่งทำนายที่สุด ภายใน 200px" โดยไม่สนว่าเคลื่อนที่หรือไม่
 # ดู docs/BALL_DETECTION_ISSUE.md สำหรับตัวเลขที่วัดได้
-STATIC_BALL_WINDOW = 20    # ดูเฟรมข้างเคียง ±20
-STATIC_BALL_RADIUS = 8.0   # อยู่ห่างกัน < 8px ถือว่า "ตำแหน่งเดิม"
-STATIC_BALL_FRAC = 0.5     # เจอที่ตำแหน่งเดิมเกินครึ่งของหน้าต่าง = วัตถุนิ่ง
+STATIC_BALL_RADIUS = 8.0   # อยู่ห่างกัน < 8px ถือว่าเป็น "จุดเดียวกัน"
+STATIC_BALL_SPAN = 30      # ครอบครองจุดเดิมนานเกิน 30 เฟรม (1 วิ) = ของนิ่ง
+STATIC_BALL_MIN_HITS = 6   # และต้องเจอซ้ำอย่างน้อยเท่านี้ครั้ง
+
+# Kalman noise — เชื่อโมเดลกับค่าที่วัดได้พอ ๆ กัน (ค่ากลาง ไม่ได้ fit มา)
+# ค่าเดิมคือ 1e-2 / 5.0 = เชื่อโมเดล "ความเร็วคงที่" มากกว่าค่าที่วัดได้ 500
+# เท่า ซึ่งบังคับ trajectory ให้เป็นเส้นตรงจนฟิสิกส์จริงหายไป
+PROCESS_NOISE = 1.0        # Q — เผื่อให้ลูกเร่ง/เปลี่ยนทิศได้ (แรงโน้มถ่วง ฯลฯ)
+MEASUREMENT_NOISE = 1.0    # R — จุดกึ่งกลาง bbox ลูกแม่นราว ±1px
 
 
 def filter_static_ball_bboxes(
     ball_bboxes: dict,
     total_frames: int,
-    window: int = STATIC_BALL_WINDOW,
     radius: float = STATIC_BALL_RADIUS,
-    frac: float = STATIC_BALL_FRAC,
+    span_frames: int = STATIC_BALL_SPAN,
+    min_hits: int = STATIC_BALL_MIN_HITS,
 ) -> dict:
     """ตัด detection ที่อยู่กับที่ออก คืน dict รูปเดิม (frame -> list[bbox])
 
-    ลูกที่ลอยจริงจะไม่ค้างตำแหน่งเดิมเกิน ~4 เฟรม แม้แต่ตอนถึงจุดสูงสุด
-    ของการโยนเสิร์ฟ (แรงโน้มถ่วง 4.4 px/frame² -> ขยับ 8px ใน 1.9 เฟรม)
-    เกณฑ์ 50% ของหน้าต่าง 41 เฟรมจึงห่างจากลูกจริงมาก
+    เกณฑ์: ดูว่า "จุดนี้" ถูก detection ครอบครองยาวนานแค่ไหน — ถ้ามี
+    detection อยู่ในรัศมี 8px เดิม ตั้งแต่เฟรมแรกถึงเฟรมสุดท้ายห่างกัน
+    เกิน 30 เฟรม (1 วินาที) และเจอซ้ำ >= 6 ครั้ง = ไม่ใช่ลูกที่กำลังเล่น
 
-    ⚠️ ใช้ไม่ได้ถ้ากล้างขยับ (pan/handheld) เพราะลูกนิ่งจะเลื่อนในภาพ —
+    ทำไมใช้ 'ช่วงเวลา' ไม่ใช่ 'สัดส่วนเฟรมที่เจอ': ลูกนิ่งใน dataset จริง
+    ถูก detect แบบติด ๆ ดับ ๆ (เจอราว 40-50% ของเฟรม) เกณฑ์สัดส่วนจึง
+    ปล่อยหลุด — แต่ช่วงเวลาที่มันครอบครองจุดนั้นยาวเป็นพันเฟรมเสมอ
+
+    ความปลอดภัย: ลูกที่ลอยจริงอยู่ในวง 8px เดิมได้ไม่กี่เฟรม แม้ตอนถึง
+    จุดสูงสุดของการโยนเสิร์ฟที่ความเร็วแนวดิ่งเป็น 0 — แรงโน้มถ่วง
+    4.4 px/frame² พาออกจากรัศมีใน ~1.9 เฟรม (span ~4) ห่างจาก 30 มาก
+
+    ⚠️ ใช้ไม่ได้ถ้ากล้องขยับ (pan/handheld) เพราะลูกนิ่งจะเลื่อนในภาพ —
     ในกรณีนั้นฟังก์ชันนี้แค่ไม่ตัดอะไรเลย ไม่ได้ทำให้แย่ลง
     """
     # ปักหมุด detection ลงตาราง cell ขนาด radius เพื่อไม่ต้องเทียบทุกคู่
@@ -55,22 +69,19 @@ def filter_static_ball_bboxes(
         bboxes = ball_bboxes.get(i, [])
         if not bboxes:
             continue
-        lo, hi = max(0, i - window), min(total_frames - 1, i + window)
-        span = hi - lo  # จำนวนเฟรมข้างเคียง (ไม่นับตัวเอง)
         keep = []
         for bb in bboxes:
             bx, by, bw, bh = bb
             cx, cy = bx + bw / 2.0, by + bh / 2.0
             gx, gy = int(cx // radius), int(cy // radius)
-            seen = set()
+            frames = []
             for dx in (-1, 0, 1):
                 for dy in (-1, 0, 1):
                     for (j, ox, oy) in grid.get((gx + dx, gy + dy), ()):
-                        if j == i or j < lo or j > hi:
-                            continue
                         if (ox - cx) ** 2 + (oy - cy) ** 2 < r2:
-                            seen.add(j)
-            if span <= 0 or len(seen) / span <= frac:
+                            frames.append(j)
+            occupied = max(frames) - min(frames)
+            if not (occupied > span_frames and len(frames) >= min_hits):
                 keep.append(bb)
         if keep:
             out[i] = keep
@@ -166,8 +177,13 @@ def extract_ball_trajectory_kalman(
         [1, 0, 0, 0],
         [0, 1, 0, 0],
     ], dtype=np.float32)
-    kf.processNoiseCov = np.eye(4, dtype=np.float32) * 1e-2
-    kf.measurementNoiseCov = np.eye(2, dtype=np.float32) * 5.0
+    # Q >> Q เดิม (1e-2) โดยตั้งใจ: โมเดล transition เป็น "ความเร็วคงที่" ซึ่ง
+    # ไม่มีแรงโน้มถ่วงอยู่ในสมการ ถ้า Q เล็กเทียบกับ R ฟิลเตอร์จะเชื่อโมเดล
+    # มากกว่าค่าที่วัดได้ แล้วบังคับ trajectory ให้เป็นเส้นตรง — วัดจริงแล้ว
+    # ความเร่งแนวดิ่งเหลือ 0.05 px/frame² ทั้งที่ detection ดิบให้ 1.00
+    # (กลบฟิสิกส์จริงทิ้ง 20 เท่า) ดู docs/BALL_DETECTION_ISSUE.md
+    kf.processNoiseCov = np.eye(4, dtype=np.float32) * PROCESS_NOISE
+    kf.measurementNoiseCov = np.eye(2, dtype=np.float32) * MEASUREMENT_NOISE
     kf.errorCovPost = np.eye(4, dtype=np.float32)
 
     traj = np.full((total_frames, 2), np.nan)
@@ -178,16 +194,21 @@ def extract_ball_trajectory_kalman(
     for i in range(total_frames):
         bboxes = ball_bboxes.get(i, [])
 
+        # predict หนึ่งครั้งต่อเฟรมเสมอ — เดิมเรียกซ้ำได้เมื่อเฟรมนั้นมี bbox
+        # แต่ทุกตัวไกลเกิน 200px (predict ตอน associate + predict ตอนเติม gap)
+        # ทำให้ state เดินหน้าไป 2 เฟรมในเฟรมเดียว
+        predicted = None
+        if initialized:
+            predicted = np.asarray(kf.predict(), dtype=float).reshape(-1)
+
         # เลือก bbox ที่ใกล้ตำแหน่ง predict ล่าสุดที่สุด
         measurement = None
         if bboxes:
-            if not initialized or last_pt is None:
+            if predicted is None or last_pt is None:
                 bx, by, bw, bh = bboxes[0]
                 measurement = (bx + bw / 2.0, by + bh / 2.0)
             else:
-                # ใช้ Kalman predict เพื่อ associate กับ bbox ที่ถูกต้อง
-                pred_val = np.asarray(kf.predict(), dtype=float).reshape(-1)
-                px, py = pred_val[0], pred_val[1]
+                px, py = predicted[0], predicted[1]
                 min_dist = float('inf')
                 for bx, by, bw, bh in bboxes:
                     cx, cy = bx + bw / 2.0, by + bh / 2.0
@@ -215,9 +236,8 @@ def extract_ball_trajectory_kalman(
             frames_since_detection += 1
             if frames_since_detection <= max_gap:
                 # ใช้ predict แทน (ลูกยังน่าจะอยู่แถวนี้)
-                pred_val = np.asarray(kf.predict(), dtype=float).reshape(-1)
-                traj[i, 0] = pred_val[0]
-                traj[i, 1] = pred_val[1]
+                traj[i, 0] = predicted[0]
+                traj[i, 1] = predicted[1]
             else:
                 # หลุดนานเกิน max_gap → reset (อาจเป็นลูกใหม่)
                 initialized = False
