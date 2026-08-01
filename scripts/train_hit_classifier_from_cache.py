@@ -23,6 +23,9 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from loeuf_cv.augment import (jitter_landmarks, remap_bboxes,  # noqa: E402
+                              rescale_body, resample_series, time_warp,
+                              warp_frame_index)
 from loeuf_cv.hit_detection import (detect_hit_events,  # noqa: E402
                                     extract_ball_trajectory_kalman)
 from train_model.label_ingest import (find_session_labels,  # noqa: E402
@@ -49,7 +52,72 @@ LABEL_TOL = 5   # candidate ห่าง GT impact <= 5 เฟรม ถือ�
 MATCH_TOL = 10  # ตอนวัดผล ใช้ tolerance เดียวกับ benchmark harness
 
 
-def build_rows(cache_dir: Path, dataset_root: Path) -> pd.DataFrame:
+def _candidates_for(track, traj, meas, racket, w, h, fps, gt, key, person,
+                    variant: str) -> list[dict]:
+    """รัน detect_hit_events บน pose ชุดหนึ่ง แล้วแปลงเป็นแถวฝึก
+
+    ⚠️ เรียก detect_hit_events ตัวจริงเสมอ ไม่คำนวณ feature เอง — augmentation
+    ต้องไหลผ่านโค้ดเดียวกับตอนใช้งาน ไม่งั้นเกิด train/serve skew (โปรเจกต์นี้
+    โดนมาแล้ว 3 รอบ)
+    """
+    cands = detect_hit_events(traj, [track], fps, w, h, racket_bboxes=racket,
+                              ball_measured=meas, return_candidates=True)
+    out = []
+    for ev in cands:
+        fe = ev.get("features", {})
+        out.append({
+            **{col: fe.get(col, 0.0) for col in FEATURE_COLS},
+            "is_hit": int(any(abs(ev["frame"] - g) <= LABEL_TOL for g in gt)),
+            "frame": ev["frame"], "clip": key, "person": person, "fps": fps,
+            "n_gt": len(gt), "variant": variant, "is_aug": int(variant != "orig"),
+        })
+    return out
+
+
+def augmented_variants(track, ball_bboxes, racket, w, h, fps, gt, seed: int,
+                       n_aug: int):
+    """สร้างชุด (track, traj, meas, racket, gt, ชื่อ) ที่ augment แล้ว
+
+    ทำ 3 อย่างพร้อมกันต่อสำเนา:
+      rescale   คนตัวใหญ่/เล็กลง (หรือกล้องใกล้/ไกลขึ้น)
+      time warp สวิงเร็ว/ช้าลง  <- ตัวที่สร้าง "จังหวะปะทะแบบใหม่" จริง ๆ
+      jitter    ความสั่นของ pose estimator (ขนาดวัดจากข้อมูลจริง)
+
+    time warp ต้องยืดของทุกอย่างพร้อมกัน (pose + ball + racket + เฉลย) ไม่งั้น
+    ฟีเจอร์ระยะห่างลูก-ข้อมือจะหลุดเฟรมกันทั้งชุด
+    """
+    import dataclasses
+
+    rng = np.random.default_rng(seed)
+    variants = []
+    for i in range(n_aug):
+        scale = float(rng.uniform(0.85, 1.20))
+        warp = float(rng.uniform(0.80, 1.25))
+        lm = rescale_body(track.pose.landmarks, scale)
+        lm, src = time_warp(lm, warp)
+        lm = jitter_landmarks(lm, rng)
+
+        vis = track.pose.visibility
+        vis_w = resample_series(vis.astype(float), src)
+        ts = resample_series(track.pose.timestamps_ms.astype(float), src)
+        pose = dataclasses.replace(
+            track.pose, landmarks=lm, visibility=vis_w,
+            world_landmarks=resample_series(track.pose.world_landmarks, src),
+            timestamps_ms=ts)
+        t2 = dataclasses.replace(track, pose=pose)
+
+        n_new = len(lm)
+        bb = remap_bboxes(ball_bboxes, src)
+        traj, meas = extract_ball_trajectory_kalman(
+            bb, n_new, return_measured=True, fps=fps)
+        gt2 = [warp_frame_index(g, src) for g in gt]
+        variants.append((t2, traj, meas, remap_bboxes(racket, src), gt2,
+                         f"aug{i}_s{scale:.2f}_w{warp:.2f}"))
+    return variants
+
+
+def build_rows(cache_dir: Path, dataset_root: Path, n_aug: int = 0,
+               seed: int = 0) -> pd.DataFrame:
     sessions = {}
     for p in find_session_labels(dataset_root):
         try:
@@ -79,22 +147,26 @@ def build_rows(cache_dir: Path, dataset_root: Path) -> pd.DataFrame:
         track = c["track"]
         vm = c["video_meta"]
         w, h, fps = vm["width"], vm["height"], c["fps"]
+        racket = c.get("racket_bboxes")
         traj, meas = extract_ball_trajectory_kalman(
-            c["ball_bboxes"], len(track.pose.landmarks), return_measured=True)
-        cands = detect_hit_events(traj, [track], fps, w, h,
-                                  racket_bboxes=c.get("racket_bboxes"),
-                                  ball_measured=meas, return_candidates=True)
-        for ev in cands:
-            # detect_hit_events เติม feature ที่ normalize แล้วมาให้ครบตั้งแต่ต้นทาง
-            fe = ev.get("features", {})
-            rows.append({
-                **{col: fe.get(col, 0.0) for col in FEATURE_COLS},
-                "is_hit": int(any(abs(ev["frame"] - g) <= LABEL_TOL for g in gt)),
-                "frame": ev["frame"],
-                "clip": key, "person": person, "fps": fps,
-                "n_gt": len(gt),
-            })
-        print(f"  {key:28s} candidate {len(cands):4d} · GT {len(gt):3d} · {person}")
+            c["ball_bboxes"], len(track.pose.landmarks), return_measured=True,
+            fps=fps)
+        orig = _candidates_for(track, traj, meas, racket, w, h, fps, gt, key,
+                               person, "orig")
+        rows.extend(orig)
+
+        n_aug_rows = 0
+        for t2, tr2, me2, rb2, gt2, name in augmented_variants(
+                track, c["ball_bboxes"], racket, w, h, fps, gt,
+                seed + abs(hash(key)) % 10_000, n_aug):
+            r = _candidates_for(t2, tr2, me2, rb2, w, h, fps, gt2, key, person,
+                                name)
+            rows.extend(r)
+            n_aug_rows += len(r)
+
+        extra = f" · augment +{n_aug_rows}" if n_aug else ""
+        print(f"  {key:28s} candidate {len(orig):4d} · GT {len(gt):3d} · "
+              f"{person}{extra}")
     return pd.DataFrame(rows)
 
 
@@ -142,6 +214,10 @@ def main():
     ap.add_argument("--max-depth", type=int, default=6)
     ap.add_argument("--save", action="store_true",
                     help="เขียนทับโมเดลจริง (ไม่ใส่ = ประเมินอย่างเดียว)")
+    ap.add_argument("--n-aug", type=int, default=0,
+                    help="จำนวนสำเนา augment ต่อคลิป (0 = ปิด) — ใช้เฉพาะฝั่ง "
+                         "train เท่านั้น ตอนวัดผลตัดออกเสมอ")
+    ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--features", choices=("all", "scaled", "base"),
                     default="all",
                     help="all=ทั้งหมด · scaled=เฉพาะที่ normalize แล้ว "
@@ -161,7 +237,8 @@ def main():
     from sklearn.model_selection import LeaveOneGroupOut
 
     print("=== สร้าง candidate + feature จาก cache ===")
-    df = build_rows(Path(args.cache_dir), Path(args.dataset_root))
+    df = build_rows(Path(args.cache_dir), Path(args.dataset_root),
+                    n_aug=args.n_aug, seed=args.seed)
     if df.empty:
         print("ไม่มีข้อมูล — cache v2 ยังไม่พร้อม?")
         return
@@ -179,7 +256,9 @@ def main():
             if st.keyframes.get("impact") is not None)
 
     n_person = df["person"].nunique()
-    print(f"\nแถวทั้งหมด {len(df)} · is_hit=1 {int(df['is_hit'].sum())} "
+    n_orig = int((df["is_aug"] == 0).sum())
+    print(f"\nแถวทั้งหมด {len(df)} (ของจริง {n_orig} · augment "
+          f"{len(df) - n_orig}) · is_hit=1 {int(df['is_hit'].sum())} "
           f"({df['is_hit'].mean():.1%}) · {df['clip'].nunique()} คลิป "
           f"· {n_person} คน")
 
@@ -189,14 +268,24 @@ def main():
     print(f"\n=== Leave-One-Person-Out ({n_person} คน) ===")
     df["oof_prob"] = np.nan
     logo = LeaveOneGroupOut()
+    is_aug = df["is_aug"].to_numpy()
     for tr, te in logo.split(X, y, df["person"]):
+        # 🔴 สำเนา augment ของ "คนที่กำลังทดสอบ" ก็อยู่ใน fold ทดสอบด้วย
+        # (LeaveOneGroupOut จัดกลุ่มตามคน) ถ้าปล่อยไว้จะกลายเป็นวัดผลบนข้อมูล
+        # สังเคราะห์ -> ตัวเลขสวยเกินจริง จึงตัดออกจากทั้งการ fit และการวัด
+        tr = tr[is_aug[tr] >= 0]          # train ใช้ได้ทั้งของจริงและ augment
+        te_real = te[is_aug[te] == 0]     # test ใช้เฉพาะของจริงเท่านั้น
         clf = RandomForestClassifier(n_estimators=args.n_estimators,
                                      max_depth=args.max_depth,
                                      random_state=42, class_weight="balanced",
                                      n_jobs=-1)
         clf.fit(X.iloc[tr], y.iloc[tr])
-        df.iloc[te, df.columns.get_loc("oof_prob")] = \
-            clf.predict_proba(X.iloc[te])[:, 1]
+        if len(te_real):
+            df.iloc[te_real, df.columns.get_loc("oof_prob")] = \
+                clf.predict_proba(X.iloc[te_real])[:, 1]
+
+    # วัดผลบนแถวของจริงล้วน
+    df = df[df["is_aug"] == 0].reset_index(drop=True)
 
     ths = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
     print(f"{'threshold':>10s} {'TP':>5s} {'FN':>5s} {'FP':>5s} "

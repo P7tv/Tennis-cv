@@ -1534,6 +1534,128 @@ def test_build_loeuf_schema_never_omits_keys():
         assert set(a[block]) == set(b[block]), f"{block} key set ต่างกันสองโหมด"
 
 
+def _fake_skeleton(n=90, seed=0):
+    """โครงกระดูก 33 จุดที่ขยับแบบสวิง — ใช้ทดสอบ augmentation"""
+    rng = np.random.default_rng(seed)
+    lm = np.zeros((n, 33, 4), dtype=float)
+    t = np.linspace(0, 1, n)
+    for j in range(33):
+        lm[:, j, 0] = 0.5 + 0.02 * j / 33 + 0.01 * rng.standard_normal(n)
+        lm[:, j, 1] = 0.2 + 0.02 * j / 33 + 0.01 * rng.standard_normal(n)
+    from loeuf_cv.config import L_HIP, L_SHOULDER, R_HIP, R_SHOULDER, R_WRIST
+    lm[:, L_SHOULDER, 0], lm[:, R_SHOULDER, 0] = 0.45, 0.55
+    lm[:, L_SHOULDER, 1] = lm[:, R_SHOULDER, 1] = 0.30
+    lm[:, L_HIP, 0], lm[:, R_HIP, 0] = 0.46, 0.54
+    lm[:, L_HIP, 1] = lm[:, R_HIP, 1] = 0.55
+    # ข้อมือกวาดเป็นสวิง (สัญญาณที่ augmentation ห้ามทำลาย)
+    lm[:, R_WRIST, 0] = 0.5 + 0.25 * np.sin(2 * np.pi * t)
+    lm[:, R_WRIST, 1] = 0.40
+    return lm
+
+
+def test_augment_rescale_keeps_player_in_place_and_changes_size():
+    """ขยายตัวรอบสะโพก — ขนาดต้องเปลี่ยน แต่ตำแหน่งที่ยืนต้องคงเดิม"""
+    from loeuf_cv.augment import rescale_body, shoulder_width
+    from loeuf_cv.config import L_HIP, R_HIP
+
+    lm = _fake_skeleton()
+    big = rescale_body(lm, 1.30)
+    assert shoulder_width(big) == pytest.approx(shoulder_width(lm) * 1.30, rel=1e-6)
+
+    hip0 = np.nanmean(lm[:, [L_HIP, R_HIP], :2], axis=1)
+    hip1 = np.nanmean(big[:, [L_HIP, R_HIP], :2], axis=1)
+    assert np.allclose(hip0, hip1), "จุดยืน (สะโพก) ต้องไม่ขยับ"
+
+    # factor 1.0 ต้องไม่เปลี่ยนอะไรเลย
+    assert np.allclose(rescale_body(lm, 1.0)[..., :2], lm[..., :2])
+
+
+def test_augment_jitter_scales_with_body_size_not_absolute():
+    """noise ต้องผูกกับขนาดตัว — คนที่ยืนไกลกล้องต้องได้ noise เล็กตามสัดส่วน
+
+    ถ้าใช้ค่าคงที่สัมบูรณ์ คนตัวเล็กในภาพจะโดน noise กลบท่าทางจนหมด
+    """
+    from loeuf_cv.augment import jitter_landmarks, shoulder_width
+
+    near = _fake_skeleton()
+    far = near.copy()
+    far[..., :2] *= 0.4            # ยืนไกล -> ตัวเล็กลงในภาพ
+
+    rng = np.random.default_rng(1)
+    dn = np.abs(jitter_landmarks(near, rng)[..., :2] - near[..., :2]).mean()
+    rng = np.random.default_rng(1)
+    df = np.abs(jitter_landmarks(far, rng)[..., :2] - far[..., :2]).mean()
+
+    ratio = df / dn
+    expected = shoulder_width(far) / shoulder_width(near)
+    assert ratio == pytest.approx(expected, rel=0.05), \
+        f"noise ไม่ได้สเกลตามขนาดตัว: {ratio:.3f} vs {expected:.3f}"
+
+
+def test_augment_time_warp_preserves_swing_shape_and_maps_frames():
+    """ยืดเวลาแล้วรูปทรงสวิงต้องเหมือนเดิม และ map เลขเฟรมได้ถูก"""
+    from loeuf_cv.augment import time_warp, warp_frame_index
+    from loeuf_cv.config import R_WRIST
+
+    lm = _fake_skeleton(n=90)
+    slow, src = time_warp(lm, 1.5)
+    assert len(slow) == 135
+    # แอมพลิจูดของสวิงต้องไม่หาย (ยืดเวลาไม่ใช่ย่อระยะ)
+    a0 = lm[:, R_WRIST, 0].max() - lm[:, R_WRIST, 0].min()
+    a1 = slow[:, R_WRIST, 0].max() - slow[:, R_WRIST, 0].min()
+    assert a1 == pytest.approx(a0, rel=0.02)
+
+    # เฟรมกลางคลิปเดิม ต้อง map ไปกลางคลิปใหม่
+    assert warp_frame_index(45, src) == pytest.approx(67, abs=2)
+    assert warp_frame_index(0, src) == 0
+    assert warp_frame_index(89, src) == pytest.approx(134, abs=2)
+
+    # factor 1.0 = ไม่เปลี่ยน
+    same, s1 = time_warp(lm, 1.0)
+    assert np.allclose(same, lm)
+    assert warp_frame_index(30, s1) == 30
+
+
+def test_augment_mirror_flips_handedness_not_stroke_type():
+    """🔴 mirror ได้ 'คนถนัดอีกข้างตีท่าเดิม' ไม่ใช่ 'อีกท่าหนึ่ง'
+
+    ถ้าใครเอา mirror ไปแปลง FH เป็น BH จะเป็นการยัด label ผิด 100%
+    เทสต์นี้ล็อกไว้ว่าโครงสร้างที่ได้คือภาพสะท้อนจริง ๆ
+    """
+    from loeuf_cv.augment import mirror_landmarks
+    from loeuf_cv.config import L_SHOULDER, L_WRIST, R_SHOULDER, R_WRIST
+
+    lm = _fake_skeleton()
+    m = mirror_landmarks(lm)
+
+    # ข้อมือขวาเดิม -> ไปอยู่ที่ข้อมือซ้าย และพิกัด x กลับด้าน
+    assert np.allclose(m[:, L_WRIST, 0], 1.0 - lm[:, R_WRIST, 0])
+    assert np.allclose(m[:, R_SHOULDER, 0], 1.0 - lm[:, L_SHOULDER, 0])
+    # แกน y ต้องไม่ถูก "กลับหัว" — ค่าเดิมย้ายไปตาม joint คู่ของมันเท่านั้น
+    assert np.allclose(m[:, L_WRIST, 1], lm[:, R_WRIST, 1])
+    assert np.allclose(np.sort(m[..., 1], axis=1), np.sort(lm[..., 1], axis=1))
+    # สะท้อนสองครั้ง = ของเดิม
+    assert np.allclose(mirror_landmarks(m)[..., :2], lm[..., :2])
+
+
+def test_augment_resample_series_keeps_gaps_as_gaps():
+    """ยืดเวลา ball trajectory แล้ว 'เฟรมที่ไม่เจอลูก' ต้องยังไม่เจอ
+
+    ถ้า interp กลบ NaN ทิ้ง จะกลายเป็นว่าเรามีข้อมูลลูกมากกว่าความจริง
+    """
+    from loeuf_cv.augment import resample_series, time_warp
+
+    traj = np.full((20, 2), np.nan)
+    traj[:5] = np.arange(5)[:, None] * 10.0
+    traj[15:] = 500.0
+    _, src = time_warp(np.zeros((20, 33, 4)), 2.0)
+    out = resample_series(traj, src)
+
+    assert len(out) == 40
+    assert np.isfinite(out[0]).all() and np.isfinite(out[-1]).all()
+    assert np.isnan(out[len(out) // 2]).all(), "ช่องว่างต้องยังเป็นช่องว่าง"
+
+
 def _phase_row(**kf):
     """label row สำหรับเทสต์เกณฑ์ช่วงเดียวกัน"""
     row = {"clip_path": "s__c__s01", "stroke_type": kf.pop("stroke_type", "FH"),
