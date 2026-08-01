@@ -1,7 +1,8 @@
 import dataclasses
 import datetime
 import numpy as np
-from .keyframes import extract_keyframes
+from .keyframes import (extract_keyframes, refine_keyframes_for_type,
+                        trophy_position_frame)
 from .metrics import calculate_cm_per_px, get_racket_metrics, _pick_racket_detection, _racket_tip_center_px
 from .classifier import classify_stroke
 from .aggregator import build_phase2_aggregations
@@ -333,9 +334,20 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
         if stype in stroke_counts:
             stroke_counts[stype] += 1
 
-        if stype != "FH":
-            blocks, derived, vf = MetricsEngine(sliced_pose, engine_kf, engine_config, stype).compute()
-            c_metric = blocks
+        # B4/B5 ขึ้นกับ stroke_type ซึ่งเพิ่งรู้ตอนนี้ → ปรับแล้วคำนวณ metric ใหม่
+        # ทั้งชุด (ไม่ใช่แค่ตอน stype != "FH" เหมือนเดิม) ไม่งั้น B block ที่ส่ง
+        # ลูกค้าจะรายงานเฟรมที่ปรับแล้ว แต่ metric ยังคิดจากเฟรมชุดเก่า
+        kf = refine_keyframes_for_type(kf, stype, impact_frame,
+                                       video_meta.get("total_frames", 0))
+        detected_frames = [f for f in kf.values() if f is not None]
+        stroke_start_frame = max(0, min(detected_frames + [impact_frame - 30]))
+        stroke_end_frame = min(video_meta.get("total_frames", 0) - 1,
+                               max(detected_frames + [impact_frame + 30]))
+        sliced_pose = _slice_pose_for_stroke(track.pose, stroke_start_frame,
+                                             stroke_end_frame, engine_config)
+        engine_kf = _build_engine_keyframes(kf, fps, stroke_start_frame)
+        blocks, derived, vf = MetricsEngine(sliced_pose, engine_kf, engine_config, stype).compute()
+        c_metric = blocks
 
         # Kinematics (KN) — racket_tip/center_position + racket_head_speed_mps จาก keypoint
         # จริง (custom pose model) — แม่นกว่า MetricsEngine เดิมที่ไม่มี racket detector
@@ -382,14 +394,15 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
         # index space: kf[...] เป็น absolute frame → ส่ง track.pose (ทั้งคลิป)
         # ไม่ใช่ sliced_pose
         #
-        # B6 trophy_position เป็น serve-only: ท่า trophy ของ serve คือจังหวะ
-        # backswing_peak (จุดเดียวกับที่ MetricsEngine.stroke_specific() ใช้
-        # ประเมิน SV2 trophy_position_achieved — loeuf_cv/metrics.py:579-585)
+        # B6 trophy_position เป็น serve-only — ผูกกับ impact ตรง ๆ (impact-14)
+        # ไม่ใช่กับ backswing_peak เหมือนเดิม เพราะ backswing ของ SV เองยังต่ำ
+        # (0.219) ทำให้ trophy ได้แค่ 0.094 ทั้งที่วัด GT แล้ว offset จาก impact
+        # ให้ LOPO 37.5% — ดู schema_builder/keyframes.py::trophy_position_frame
         # ⚠️ trophy_frame ห้ามใส่กลับเข้า dict `kf` เด็ดขาด — builder.py ด้านบน
         # คำนวณ stroke_start_frame/stroke_end_frame จาก kf.values() การเติม
-        # entry ใหม่จะไปยืดหน้าต่าง stroke (ในเคสนี้ค่าเท่ากับ backswing_peak
-        # อยู่แล้ว แต่ต้องไม่พึ่งความบังเอิญนั้น)
-        trophy_frame = kf["backswing_peak"] if stype == "SV" else None
+        # entry ใหม่จะไปยืดหน้าต่าง stroke
+        trophy_frame = trophy_position_frame(
+            stype, impact_frame, video_meta.get("total_frames", 0))
         b_keyframe = {
             "unit_turn": _b_keyframe_entry(track.pose, kf["unit_turn"], fps),
             "backswing_peak": _b_keyframe_entry(track.pose, kf["backswing_peak"], fps),

@@ -165,30 +165,68 @@ def extract_keyframes(impact_frame: int, wrist_path: np.ndarray, fps: float,
         if bp > ut_search_start:
             keyframes["unit_turn"] = int(np.mean([ut_search_start, bp])) # Approximation
 
-    # 3. Follow Through Peak (B4):
-    # จุดสูงสุดของการเหวี่ยงข้อมือหลัง impact ในช่วง 1.0 วิ
-    window_end = min(N, impact_frame + int(1.0 * fps))
-    if window_end > impact_frame:
-        path_after_y = wrist_path[impact_frame:window_end, 1]
-        if not np.isnan(path_after_y).all():
-            # Y น้อยสุด = จุดที่อยู่สูงที่สุดบนจอ (จอภาพ 0 อยู่บนสุด)
-            peak_idx_local = np.nanargmin(path_after_y)
-            keyframes["follow_through_peak"] = impact_frame + int(peak_idx_local)
-
-    # 4. Recovery Position (B5):
-    # จุดที่ผู้เล่นกลับมาหยุดนิ่ง หลัง follow_through
-    if keyframes["follow_through_peak"] is not None:
-        ftp = keyframes["follow_through_peak"]
-        rec_end = min(N, ftp + int(2.5 * fps))
-        if rec_end > ftp:
-            vel_x = np.diff(wrist_path[ftp:rec_end, 0])
-            vel_y = np.diff(wrist_path[ftp:rec_end, 1])
-            vel_mag = np.sqrt(vel_x**2 + vel_y**2)
-            for i, v in enumerate(vel_mag):
-                if v < 0.5: # ความเร็วน้อยมาก
-                    keyframes["recovery_position"] = ftp + i
-                    break
-            if keyframes["recovery_position"] is None:
-                keyframes["recovery_position"] = rec_end - 1
+    # 3. Follow Through Peak (B4) + 4. Recovery Position (B5)
+    # ค่าเริ่มต้นก่อนรู้ stroke_type — builder จะเรียก refine_keyframes_for_type()
+    # ทับอีกทีหลังจำแนกท่าได้ (ดูคอมเมนต์ที่ฟังก์ชันนั้น)
+    _apply_type_offsets(keyframes, None, impact_frame, N)
 
     return keyframes
+
+
+# ─────────────────────────────────────────────────────────
+# offset ต่อ stroke type สำหรับ B4/B5/B6
+# ─────────────────────────────────────────────────────────
+#
+# ที่มา: median ของ (keyframe − impact) จาก GT ลูกค้า 172 stroke
+# (scripts/probe_broken_keyframes.py) — ใช้ median ไม่ใช่ค่าที่ fit ได้ดีสุด
+# เพราะ median ทนต่อ outlier และ generalize ข้ามคนดีกว่า
+#
+# ทำไมถึงเลิกใช้วิธี "หาจุดสูงสุดของข้อมือ" กับ B4: วัดแล้วได้ 0.000-0.200
+# ส่วน offset คงที่ให้ 26.9% แบบ Leave-One-Person-Out (BH 40% · VL 52%)
+# — รูปแบบเดียวกับ backswing_peak ที่นิยามเชิงจลนศาสตร์แพ้ค่าคงที่
+#
+# ทำไม B5 ยังต่ำอยู่ดี (LOPO 10.3%): GT ของ recovery มี sd 15-16 เฟรม
+# = ตัวนิยามเองก็ไม่ชัด ไม่ใช่ว่าโมเดลแย่ แต่ 10.3% ยังดีกว่าของเดิมที่ 0.000
+# (ของเดิมใช้เกณฑ์ vel_mag < 0.5 บนพิกัด normalized 0-1 = ครึ่งความกว้างภาพ
+#  ต่อเฟรม ซึ่งเข้าเงื่อนไขทันทีที่เฟรมแรกเสมอ → recovery = follow_through)
+#
+# ❌ เคยลองเปลี่ยน unit_turn (B1) มาใช้ offset ต่อท่าแบบเดียวกันแล้ว **แย่ลง**
+#    (LOPO 19.1% เทียบกับของเดิมที่ได้ BH 0.308 / SL 0.286) — ไม่ต้องลองซ้ำ
+FOLLOW_THROUGH_OFFSET = {"BH": 13, "FH": 15, "SL": 12, "SV": 9, "VL": 8}
+FOLLOW_THROUGH_OFFSET_DEFAULT = 10
+RECOVERY_OFFSET = {"BH": 42, "FH": 34, "SL": 31, "VL": 38}
+RECOVERY_OFFSET_DEFAULT = 38
+TROPHY_OFFSET = -14          # SV เท่านั้น (trophy − impact)
+
+
+def _apply_type_offsets(keyframes: dict, stroke_type, impact_frame: int, n: int):
+    ft = FOLLOW_THROUGH_OFFSET.get(stroke_type, FOLLOW_THROUGH_OFFSET_DEFAULT)
+    keyframes["follow_through_peak"] = min(n - 1, impact_frame + ft)
+    rc = RECOVERY_OFFSET.get(stroke_type, RECOVERY_OFFSET_DEFAULT)
+    keyframes["recovery_position"] = min(n - 1, impact_frame + rc)
+
+
+def refine_keyframes_for_type(keyframes: dict, stroke_type: str,
+                              impact_frame: int, max_frames: int) -> dict:
+    """ปรับ B4/B5 ให้ตรงกับ stroke_type หลังจำแนกท่าได้แล้ว
+
+    extract_keyframes() ถูกเรียกก่อน classify_stroke() (classifier ต้องใช้
+    metric ที่คำนวณจาก keyframe ก่อน) จึงยังไม่รู้ท่าตอนนั้น — builder เรียก
+    ฟังก์ชันนี้ทับอีกรอบเมื่อรู้ท่าแล้ว
+    """
+    if impact_frame is None or max_frames <= 0:
+        return keyframes
+    _apply_type_offsets(keyframes, stroke_type, impact_frame, max_frames)
+    return keyframes
+
+
+def trophy_position_frame(stroke_type: str, impact_frame: int,
+                          max_frames: int) -> int | None:
+    """B6 — serve เท่านั้น
+
+    เดิมใช้ค่าเดียวกับ backswing_peak ของ SV ซึ่งวัดได้แค่ 0.094 เพราะ
+    backswing ของ SV เองก็ยังต่ำ (0.219) — ผูกกับ impact ตรง ๆ ได้ LOPO 37.5%
+    """
+    if stroke_type != "SV" or impact_frame is None:
+        return None
+    return max(0, min(max_frames - 1, impact_frame + TROPHY_OFFSET))

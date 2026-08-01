@@ -2079,3 +2079,64 @@ def test_extract_ball_trajectory_kalman_default_return_unchanged():
     out = extract_ball_trajectory_kalman({0: [_bb(100, 200)]}, 10)
     assert isinstance(out, np.ndarray)
     assert out.shape == (10, 2)
+
+
+# ─────────────────────────────────────────────────────────
+# B4/B5/B6 — offset ต่อ stroke type (ดู scripts/probe_broken_keyframes.py)
+# ─────────────────────────────────────────────────────────
+
+def test_follow_through_uses_per_type_offset():
+    """B4 ต้องเป็น impact + offset ของท่านั้น ไม่ใช่ 'จุดที่ข้อมือสูงสุด'
+
+    วิธีเดิม (argmin y ใน 1 วิหลัง impact) วัดได้ 0.000-0.200
+    offset คงที่ให้ LOPO 26.9% (BH 40% · VL 52%)
+    """
+    from loeuf_cv.schema_builder.keyframes import (FOLLOW_THROUGH_OFFSET,
+                                                   refine_keyframes_for_type)
+    for stype, off in FOLLOW_THROUGH_OFFSET.items():
+        kf = {"impact": 100, "follow_through_peak": None,
+              "recovery_position": None}
+        refine_keyframes_for_type(kf, stype, 100, 500)
+        assert kf["follow_through_peak"] == 100 + off, stype
+
+
+def test_recovery_no_longer_collapses_onto_follow_through():
+    """regression: เกณฑ์เดิม vel_mag < 0.5 บนพิกัด normalized 0-1
+    = ครึ่งความกว้างภาพต่อเฟรม -> เข้าเงื่อนไขทันทีเฟรมแรกเสมอ
+    ทำให้ recovery == follow_through ทุกครั้ง และได้ accuracy 0.000"""
+    from loeuf_cv.schema_builder.keyframes import refine_keyframes_for_type
+    kf = {"impact": 100, "follow_through_peak": None, "recovery_position": None}
+    refine_keyframes_for_type(kf, "FH", 100, 500)
+    assert kf["recovery_position"] > kf["follow_through_peak"]
+    assert kf["recovery_position"] - 100 >= 20
+
+
+def test_keyframe_offsets_clamped_to_clip_length():
+    from loeuf_cv.schema_builder.keyframes import refine_keyframes_for_type
+    kf = {"impact": 98, "follow_through_peak": None, "recovery_position": None}
+    refine_keyframes_for_type(kf, "BH", 98, 100)
+    assert kf["follow_through_peak"] <= 99
+    assert kf["recovery_position"] <= 99
+
+
+def test_trophy_is_serve_only_and_anchored_to_impact():
+    """B6 เดิมใช้ค่าเดียวกับ backswing_peak ของ SV ซึ่งพาความผิดพลาดของ
+    backswing มาด้วย (0.219 -> trophy 0.094) — ผูกกับ impact ตรง ๆ ได้ 0.344"""
+    from loeuf_cv.schema_builder.keyframes import (TROPHY_OFFSET,
+                                                   trophy_position_frame)
+    assert trophy_position_frame("SV", 100, 500) == 100 + TROPHY_OFFSET
+    for other in ("FH", "BH", "VL", "SL"):
+        assert trophy_position_frame(other, 100, 500) is None
+    assert trophy_position_frame("SV", 5, 500) == 0        # clamp ล่าง
+    assert trophy_position_frame("SV", None, 500) is None
+
+
+def test_unit_turn_offset_left_alone():
+    """guard: เคยลองเปลี่ยน B1 ไปใช้ offset ต่อท่าแล้ว **แย่ลง**
+    (LOPO 19.1% เทียบของเดิมที่ให้ BH 0.308 / SL 0.286) — ห้ามเปลี่ยนตาม
+    B4/B5 โดยไม่วัดใหม่"""
+    from loeuf_cv.schema_builder.keyframes import extract_keyframes
+    wrist = _straight_wrist_path()
+    head = _straight_wrist_path(y=0.2)
+    kf = extract_keyframes(100, wrist, 30.0, 200, head_path=head)
+    assert kf["backswing_peak"] - kf["unit_turn"] == 15
