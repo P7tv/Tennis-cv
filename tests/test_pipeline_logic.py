@@ -1533,6 +1533,52 @@ def test_build_loeuf_schema_never_omits_keys():
         assert set(a[block]) == set(b[block]), f"{block} key set ต่างกันสองโหมด"
 
 
+def test_session_metadata_matches_client_spec():
+    """011-MT / 021-M ตาม cv_schema_table_loeuf — 4 จุดที่เคยไม่ตรง spec:
+
+    MT0-3 pose_model_version  ขาดทั้ง field
+    MT4   fps                 ส่ง float ดิบ 29.9735 (spec value-example = 60)
+    MT5   camera_angle        ส่ง behind_baseline ซึ่งเป็น enum ของ M3 คนละ block
+                              (MT5 = single_view / multi_view)
+    MT9   usable_strokes      ส่ง len(hit_events) ซึ่งเป็นนิยามของ MT8
+    M4/M5 velocity_normalized กลับตรรกะ: fps>=60 -> "resampled_to_60fps"
+                              (spec: true = ต้นทาง <60fps แล้ว resample ขึ้น 60)
+    """
+    from loeuf_cv.config import PipelineConfig
+    from loeuf_cv.schema_builder.builder import build_loeuf_schema
+
+    n = 120
+    track = _fake_player_track(n_frames=n)
+    hit_events = [{"frame": 40, "player_id": 1, "confidence": 0.9},
+                  {"frame": 90, "player_id": 1, "confidence": 0.9}]
+    video_meta = {"width": 1920, "height": 1080, "total_frames": n}
+    out = build_loeuf_schema([track], hit_events, 29.973518362654733,
+                             video_meta, PipelineConfig())
+    mt = out["session_metadata"]
+
+    assert "pose_model_version" in mt                      # MT0-3
+    assert isinstance(mt["fps"], int) and mt["fps"] == 30  # MT4
+    assert mt["camera_angle"] in ("single_view", "multi_view")   # MT5
+    assert mt["total_strokes_detected"] == len(hit_events)       # MT8
+
+    # MT9 — นับเฉพาะ valid + clean ไม่ใช่จำนวน hit ทั้งหมด
+    expected = sum(1 for s in out["strokes"]
+                   if s["stroke_root"]["detection_status"] == "valid"
+                   and s["stroke_root"]["is_clean_stroke"])
+    assert mt["usable_strokes"] == expected
+    assert mt["usable_strokes"] <= mt["total_strokes_detected"]
+
+    for s in out["strokes"]:
+        m = s["stroke_metadata"]
+        # M3 เป็น enum คนละชุดกับ MT5 — ห้ามสลับกัน
+        assert m["camera_angle"] in ("behind_baseline", "side_view")
+        # path นี้ไม่ได้ resample -> ต้องรายงานตามจริง ห้ามอ้าง resampled_to_60fps
+        assert m["velocity_normalized"] is False
+        assert m["normalization_method"] == "none"
+        # ...และ KN ที่ต้องการ fps>=60 ต้องไม่ถูกตีเป็น visible
+        assert s["visibility_flag"]["hip_rotation_velocity_deg_s"] != "visible"
+
+
 # ===========================================================================
 # Keyframe benchmark (loeuf_cv/benchmark_keyframes.py) — วัดเกณฑ์ TOR >= 0.80
 # ทั้งหมด pure ไม่ต้องใช้วิดีโอ/YOLO

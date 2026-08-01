@@ -107,6 +107,20 @@ def _inference_clean(pose, start_frame: int, end_frame: int, config) -> bool:
     return bool(max_jump < config.inference_jump_ratio * height_norm)
 
 
+def _pose_model_version() -> str:
+    """MT0-3 — เวอร์ชันจริงของ mediapipe ที่รันอยู่ (spec: value-example 0.10.3)
+
+    mediapipe เป็น optional dependency ของ schema_builder (ทั้งโมดูลนี้ไม่ได้
+    import mediapipe เลย — pose มาจาก track ที่คำนวณไว้แล้ว) จึงห้าม import
+    ระดับโมดูล ถ้าไม่มีให้คืน "unknown" ไม่ใช่ปล่อย ImportError
+    """
+    try:
+        from importlib.metadata import version
+        return version("mediapipe")
+    except Exception:
+        return "unknown"
+
+
 def _recommended_action(detection_status: str, cf1: float, is_clean: bool, config,
                         stroke_type_confidence: float = 1.0) -> str:
     """A9 — priority logic ตรงตาม schema doc (031-043 field definition, A9 row)
@@ -272,15 +286,25 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
     mt = {
         "cv_model_version": "0.2.0",
         "pose_model": "mediapipe_blazepose",
+        # MT0-3 — spec แยก pose_model (MT0-2) กับ pose_model_version (MT0-3)
+        # เป็นคนละ field ("For debug: not to compare over model version")
+        "pose_model_version": _pose_model_version(),
         "schema_version": "1.0",
         "session_id": session_id,
         "session_date": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-        "fps": fps,
-        "camera_angle": "behind_baseline",
+        # MT4 — spec ให้เป็นเลขจำนวนเต็ม (value-example: 60) ไม่ใช่ float ดิบ
+        # 29.973518... ที่ cv2 อ่านได้ · ⚠️ spec เขียนว่า "≥ 60 required for KN"
+        # ต้นทาง 29.97fps จึงได้ KN visibility = low_confidence (metrics.py:513)
+        "fps": int(round(fps)) if fps else 0,
+        # MT5 — enum ของ session คือ single_view / multi_view (คนละตัวกับ M3
+        # ที่เป็น behind_baseline / side_view) เดิมใส่ค่าของ M3 ผิด block
+        "camera_angle": "single_view",
         "total_duration_sec": round(video_meta.get("total_frames", 0) / fps, 1) if fps else 0,
         "total_session_frame": video_meta.get("total_frames", 0),
         "total_strokes_detected": len(hit_events),
-        "usable_strokes": len(hit_events),
+        # MT9 — spec: นับเฉพาะ detection_status=valid และ is_clean_stroke=true
+        # (ไม่ใช่จำนวน hit ทั้งหมด) — เติมค่าจริงหลังลูป
+        "usable_strokes": 0,
         "stroke_type_distribution": {} # Will calculate at the end
     }
     
@@ -387,8 +411,19 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
             "processed_at": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
             "resolution": f"{video_meta.get('width', 1920)}x{video_meta.get('height', 1080)}",
             "camera_angle": "behind_baseline",
-            "velocity_normalized": fps >= 60,
-            "normalization_method": "resampled_to_60fps" if fps >= 60 else "native_fps_no_resample"
+            # M4/M5 — spec: true = ต้นทาง <60fps แล้ว "CV ทำการ resample ขึ้นเป็น
+            # 60fps" / false = ต้นทาง >=60fps อยู่แล้ว ไม่ต้อง resample
+            # ⚠️ path นี้ (build_loeuf_schema) ไม่ได้ resample เลย — hit_events,
+            # keyframe, ball_traj, racket_keypoints ทั้งหมดอยู่บน index space ของ
+            # เฟรมต้นฉบับ การ resample ต้อง remap ทุกตัวพร้อมกัน (ทำที่ชั้น
+            # tracking ก่อน detect_hit_events ไม่ใช่ที่นี่) — ดู
+            # loeuf_cv/resample.py::resample_to_target_fps ที่ StrokePipeline ใช้
+            # ตราบใดที่ยังไม่ resample ต้องรายงานตามจริง: เดิมโค้ดนี้กลับตรรกะ
+            # (fps>=60 -> "resampled_to_60fps") ซึ่งบอกลูกค้าว่า resample แล้ว
+            # ทั้งที่ไม่เคยทำ ส่วน "native_fps_no_resample" ก็ไม่ใช่ค่าใน spec
+            # KN ที่ได้รับผลกระทบถูกตีเป็น low_confidence อยู่แล้ว (metrics.py)
+            "velocity_normalized": False,
+            "normalization_method": "none",
         }
 
         # 022-VQ: video_quality — ใช้ loeuf_cv/video_quality.py เดิม (ของ StrokePipeline)
@@ -545,6 +580,13 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
 
         strokes.append(stroke)
         
+    # MT9 — spec: usable_strokes = detection_status "valid" + is_clean_stroke true
+    # (เดิมใส่ len(hit_events) = นับทุก stroke ที่ detect ได้ ซึ่งเป็นค่าของ MT8)
+    mt["usable_strokes"] = sum(
+        1 for s in strokes
+        if s["stroke_root"]["detection_status"] == "valid"
+        and s["stroke_root"]["is_clean_stroke"])
+
     # MT10 — ต้องมีครบทุก stroke type เสมอ (ห้าม omit key ที่นับได้ 0)
     mt["stroke_type_distribution"] = {k: stroke_counts.get(k, 0) for k in STROKE_TYPES}
     
