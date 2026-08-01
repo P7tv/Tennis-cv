@@ -108,6 +108,65 @@ def _rule_based_classify(lm, wrist_idx, dominant_side):
         return "FH" if wrist_x < spine_x else "BH"
 
 
+CLASSIFY_VIS_THRESHOLD = 0.3
+CLASSIFY_VIS_SEARCH_FRAMES = 5
+
+
+def _nearest_visible_frame(pose_series, impact_frame: int, wrist_idx: int):
+    """หาเฟรมใกล้ impact ที่สุดที่ landmark สำคัญมองเห็นพอ (คืน None ถ้าไม่มี)
+
+    ท่าที่หมุนตัวมาก (แบ็คแฮนด์/วอลเลย์) มักบัง landmark ตรงจังหวะปะทะพอดี
+    แต่เฟรมก่อน/หลังไม่กี่เฟรมมักเห็นชัด — ประเภทของท่าไม่เปลี่ยนใน 5 เฟรม
+    """
+    n = len(pose_series.visibility)
+    need = (NOSE, R_SHOULDER, L_SHOULDER, wrist_idx)
+    for d in range(CLASSIFY_VIS_SEARCH_FRAMES + 1):
+        for f in (impact_frame - d, impact_frame + d):
+            if 0 <= f < n:
+                v = pose_series.visibility[f]
+                if all(v[i] >= CLASSIFY_VIS_THRESHOLD for i in need):
+                    return f
+    return None
+
+
+def build_stroke_features(pose_series, impact_frame, dominant_side="right",
+                          keyframe_metrics: dict | None = None,
+                          keyframes: dict | None = None) -> dict:
+    """สร้าง feature ให้ stroke classifier — **แหล่งเดียว** ที่ทั้งตอนเทรนและ
+    ตอนใช้งานต้องเรียก
+
+    ⚠️ ห้ามคำนวณ feature ซ้ำที่อื่นเด็ดขาด — ของเดิม train_model/
+    build_training_data.py คำนวณเองด้วย get_body_metrics() ส่วน production
+    ป้อนค่าจาก MetricsEngine ทำให้ค่าไม่ตรงกันทั้งสเกลและเครื่องหมาย เช่น
+    arm_backswing_depth_deg เฉลี่ย 125.3 ตอนเทรน แต่ -12.8 ตอนใช้งาน
+    -> โมเดลเจอข้อมูลคนละแบบกับที่เรียนมา BH recall เหลือ 0.115 ทั้งที่กฎ
+    เรขาคณิตล้วน ๆ ยังได้ 0.577
+    """
+    lm = pose_series.landmarks[impact_frame]
+    wrist_idx = R_WRIST if dominant_side == "right" else L_WRIST
+    spine_x = (lm[L_SHOULDER][0] + lm[R_SHOULDER][0]) / 2.0
+    raw_dx = lm[wrist_idx][0] - spine_x
+    feats = {
+        "wrist_minus_head_y": float(lm[wrist_idx][1] - lm[NOSE][1]),
+        "wrist_minus_spine_x_dominant_relative":
+            float(raw_dx if dominant_side == "right" else -raw_dx),
+    }
+    feats.update(swing_window_features(
+        pose_series.landmarks, pose_series.visibility, wrist_idx, dominant_side,
+        keyframes, impact_frame))
+    if keyframe_metrics:
+        feats.update({
+            "body_shoulder_rotation_at_impact_deg": keyframe_metrics.get("body", {}).get("shoulder_rotation_at_impact_deg"),
+            "body_hip_rotation_at_impact_deg": keyframe_metrics.get("body", {}).get("hip_rotation_at_impact_deg"),
+            "body_shoulder_hip_separation_at_impact_deg": keyframe_metrics.get("body", {}).get("shoulder_hip_separation_at_impact_deg"),
+            "arm_follow_through_angle_deg": keyframe_metrics.get("arm", {}).get("follow_through_angle_deg"),
+            "arm_backswing_depth_deg": keyframe_metrics.get("arm", {}).get("backswing_depth_deg"),
+            "contact_height_cm": keyframe_metrics.get("contact", {}).get("contact_height_cm"),
+            "contact_distance_from_body_cm": keyframe_metrics.get("contact", {}).get("contact_distance_from_body_cm"),
+        })
+    return feats
+
+
 def classify_stroke(pose_series, impact_frame, dominant_side="right", keyframe_metrics: dict | None = None,
                     keyframes: dict | None = None):
     """
@@ -128,18 +187,26 @@ def classify_stroke(pose_series, impact_frame, dominant_side="right", keyframe_m
     (fallback เป็น ±WINDOW_FALLBACK_FRAMES รอบ impact)
     """
     if impact_frame is None or impact_frame >= len(pose_series.landmarks):
-        return "FH"  # Default fallback
-
-    lm = pose_series.landmarks[impact_frame]
-    vis = pose_series.visibility[impact_frame]
-
-    # Check if necessary landmarks are visible
-    if vis[NOSE] < 0.3 or vis[R_SHOULDER] < 0.3 or vis[L_SHOULDER] < 0.3:
-        return "FH"
+        return "FH"  # ไม่มีเฟรมให้ดูจริง ๆ
 
     wrist_idx = R_WRIST if dominant_side == "right" else L_WRIST
-    if vis[wrist_idx] < 0.3:
-        return "FH"
+
+    # ⚠️ เดิมตรงนี้ `return "FH"` เมื่อ visibility ของ nose/ไหล่/ข้อมือ < 0.3
+    # ซึ่งเป็นบั๊กร้ายแรง: ตอนตีแบ็คแฮนด์ผู้เล่นหมุนตัว ข้อมือข้างถนัดไปอยู่
+    # หลังลำตัว MediaPipe จึงให้ visibility ต่ำเป็นปกติ -> **แบ็คแฮนด์ 88%
+    # (23/26) ถูกปัดเป็นโฟร์แฮนด์โดยไม่ได้ถาม classifier เลย** ทั้งที่โมเดล
+    # ตอบ BH ถูกด้วยความมั่นใจ 0.90-0.96 (VL 22% · SV 16% ก็โดนด้วย
+    # รวม 24.4% ของทั้งชุด)
+    # แก้เป็น: หาเฟรมใกล้เคียงที่มองเห็นพอ ถ้าไม่เจอก็ยังเดินต่อด้วยเฟรมเดิม
+    # ดีกว่าเดาว่าเป็น FH แบบไม่ดูอะไรเลย
+    frame = _nearest_visible_frame(pose_series, impact_frame, wrist_idx)
+    if frame is None:
+        frame = impact_frame
+    lm = pose_series.landmarks[frame]
+
+    if np.isnan(lm[wrist_idx][0]) or np.isnan(lm[NOSE][0]) \
+            or np.isnan(lm[R_SHOULDER][0]) or np.isnan(lm[L_SHOULDER][0]):
+        return "FH"   # ไม่มีพิกัดให้คำนวณจริง ๆ
 
     rule_result = _rule_based_classify(lm, wrist_idx, dominant_side)
 
@@ -160,25 +227,8 @@ def classify_stroke(pose_series, impact_frame, dominant_side="right", keyframe_m
     if ml_supported_classes is not None and rule_result not in ml_supported_classes:
         return rule_result
 
-    spine_x = (lm[L_SHOULDER][0] + lm[R_SHOULDER][0]) / 2.0
-    raw_dx = lm[wrist_idx][0] - spine_x
-    feats = {
-        "wrist_minus_head_y": float(lm[wrist_idx][1] - lm[NOSE][1]),
-        "wrist_minus_spine_x_dominant_relative": float(raw_dx if dominant_side == "right" else -raw_dx),
-    }
-    feats.update(swing_window_features(
-        pose_series.landmarks, pose_series.visibility, wrist_idx, dominant_side,
-        keyframes, impact_frame))
-    if keyframe_metrics:
-        feats.update({
-            "body_shoulder_rotation_at_impact_deg": keyframe_metrics.get("body", {}).get("shoulder_rotation_at_impact_deg"),
-            "body_hip_rotation_at_impact_deg": keyframe_metrics.get("body", {}).get("hip_rotation_at_impact_deg"),
-            "body_shoulder_hip_separation_at_impact_deg": keyframe_metrics.get("body", {}).get("shoulder_hip_separation_at_impact_deg"),
-            "arm_follow_through_angle_deg": keyframe_metrics.get("arm", {}).get("follow_through_angle_deg"),
-            "arm_backswing_depth_deg": keyframe_metrics.get("arm", {}).get("backswing_depth_deg"),
-            "contact_height_cm": keyframe_metrics.get("contact", {}).get("contact_height_cm"),
-            "contact_distance_from_body_cm": keyframe_metrics.get("contact", {}).get("contact_distance_from_body_cm"),
-        })
+    feats = build_stroke_features(pose_series, impact_frame, dominant_side,
+                                  keyframe_metrics, keyframes)
 
     try:
         import pandas as pd

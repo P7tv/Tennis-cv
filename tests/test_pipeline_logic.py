@@ -2140,3 +2140,73 @@ def test_unit_turn_offset_left_alone():
     head = _straight_wrist_path(y=0.2)
     kf = extract_keyframes(100, wrist, 30.0, 200, head_path=head)
     assert kf["backswing_peak"] - kf["unit_turn"] == 15
+
+
+# ─────────────────────────────────────────────────────────
+# stroke classifier — ด่าน visibility เคยปัดทุกอย่างเป็น FH
+# ─────────────────────────────────────────────────────────
+
+def _pose_with_visibility(vis_at_impact, n=60, impact=30):
+    """สร้าง PoseTimeseries ปลอมที่ข้อมือขวาอยู่ซ้ายของลำตัว (= แบ็คแฮนด์)"""
+    from loeuf_cv.config import (L_SHOULDER, L_WRIST, NOSE, R_SHOULDER,
+                                 R_WRIST)
+    from loeuf_cv.pose_extractor import PoseTimeseries, VideoMeta
+    lm = np.zeros((n, 33, 3), dtype=float)
+    lm[:, NOSE, :2] = (0.50, 0.30)
+    lm[:, R_SHOULDER, :2] = (0.55, 0.40)
+    lm[:, L_SHOULDER, :2] = (0.45, 0.40)
+    lm[:, R_WRIST, :2] = (0.35, 0.50)   # ซ้ายของ spine(0.50) -> BH
+    lm[:, L_WRIST, :2] = (0.40, 0.50)
+    vis = np.full((n, 33), 0.9)
+    vis[impact, :] = vis_at_impact
+    return PoseTimeseries(
+        landmarks=lm, world_landmarks=np.zeros((n, 33, 3)), visibility=vis,
+        timestamps_ms=np.arange(n) * (1000 / 30.0),
+        meta=VideoMeta(path="fake.mp4", fps=30.0, frame_count=n,
+                       width=1920, height=1080))
+
+
+def test_low_visibility_at_impact_no_longer_forces_forehand():
+    """regression: เดิม visibility < 0.3 ที่เฟรม impact -> return "FH" ทันที
+    โดยไม่ดูอะไรเลย
+
+    ท่าแบ็คแฮนด์หมุนตัวจนข้อมือข้างถนัดถูกบัง MediaPipe จึงให้ visibility ต่ำ
+    เป็นปกติ -> วัดจริงแล้วแบ็คแฮนด์ 23/26 (88%) ถูกปัดเป็นโฟร์แฮนด์
+    (VL 22% · SV 16% ก็โดน รวม 24.4% ของทั้งชุด)
+    """
+    from loeuf_cv.schema_builder.classifier import classify_stroke
+    ts = _pose_with_visibility(0.05)      # เฟรม impact มองไม่เห็น
+    assert classify_stroke(ts, 30, "right") == "BH"
+
+
+def test_nearest_visible_frame_falls_back_within_window():
+    from loeuf_cv.config import R_WRIST
+    from loeuf_cv.schema_builder.classifier import (
+        CLASSIFY_VIS_SEARCH_FRAMES, _nearest_visible_frame)
+    ts = _pose_with_visibility(0.05)
+    f = _nearest_visible_frame(ts, 30, R_WRIST)
+    assert f is not None and f != 30
+    assert abs(f - 30) <= CLASSIFY_VIS_SEARCH_FRAMES
+
+
+def test_nearest_visible_frame_returns_none_when_all_hidden():
+    from loeuf_cv.config import R_WRIST
+    from loeuf_cv.schema_builder.classifier import _nearest_visible_frame
+    ts = _pose_with_visibility(0.9)
+    ts.visibility[:, :] = 0.05
+    assert _nearest_visible_frame(ts, 30, R_WRIST) is None
+
+
+def test_stroke_features_single_source_of_truth():
+    """guard: ตอนเทรนกับตอนใช้งานต้องเรียก build_stroke_features ตัวเดียวกัน
+
+    เคยแยกกันแล้วเกิด train/serve skew (get_body_metrics vs MetricsEngine)
+    ค่าเฉลี่ย arm_backswing_depth_deg 125.3 ตอนเทรน แต่ -12.8 ตอนใช้งาน
+    """
+    from loeuf_cv.schema_builder.classifier import build_stroke_features
+    ts = _pose_with_visibility(0.9)
+    f = build_stroke_features(ts, 30, "right")
+    assert "wrist_minus_head_y" in f
+    assert "wrist_minus_spine_x_dominant_relative" in f
+    # ข้อมือขวาอยู่ซ้ายของ spine -> ค่าติดลบสำหรับคนถนัดขวา
+    assert f["wrist_minus_spine_x_dominant_relative"] < 0
