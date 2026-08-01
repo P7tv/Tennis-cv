@@ -323,12 +323,23 @@ def _build_for_mode(cached: dict, session, mode: str):
     config = PipelineConfig(dominant_side=cached["dominant_side"],
                             subject_height_cm=cached["subject_height_cm"])
 
+    # คำนวณ ball trajectory ใหม่จาก bbox ดิบทุกครั้ง ไม่ใช้ cached["ball_traj"]
+    # — นี่คือเหตุผลที่ cache v2 เก็บ ball_bboxes ไว้: เปลี่ยนอัลกอริทึม ball
+    # tracking แล้ววัดผลได้ทันทีโดยไม่ต้องรัน YOLO ใหม่ 2 ชั่วโมง
+    # (cached["ball_traj"] เก็บไว้เพื่อ backward-compat กับ cache v1 เท่านั้น)
+    if cached.get("ball_bboxes") is not None:
+        ball_traj, ball_measured = extract_ball_trajectory_kalman(
+            cached["ball_bboxes"], len(track.pose.landmarks),
+            return_measured=True)
+    else:
+        ball_traj, ball_measured = cached["ball_traj"], None
+
     if mode == "a":
         with scratch_cwd():
             hit_events = detect_hit_events(
-                cached["ball_traj"], [track], fps, vm["width"], vm["height"],
+                ball_traj, [track], fps, vm["width"], vm["height"],
                 racket_bboxes=cached["racket_bboxes"],
-                ball_measured=cached.get("ball_measured"))
+                ball_measured=ball_measured)
     else:
         gt = sorted((s for s in session.strokes
                      if s.keyframes.get("impact") is not None),
@@ -341,7 +352,7 @@ def _build_for_mode(cached: dict, session, mode: str):
     schema = build_loeuf_schema(
         [track], hit_events, fps, vm, config,
         racket_keypoints=cached["racket_keypoints"],
-        ball_traj=cached["ball_traj"])
+        ball_traj=ball_traj)
     return schema, hit_events
 
 

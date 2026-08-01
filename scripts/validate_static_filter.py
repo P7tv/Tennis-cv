@@ -36,19 +36,31 @@ def to_bboxes(per_frame):
     return out
 
 
-def accel_median(traj):
+def accel_median(traj, real_frames=None):
+    """ความเร่งแนวดิ่งกลาง
+
+    real_frames: ถ้าให้มา จะนับเฉพาะช่วงที่ 3 เฟรมติดกัน 'มี detection จริง'
+    ทั้งหมด — จำเป็น เพราะถ้านับทุกเฟรม ช่วงที่ Kalman เดาต่อ (เส้นตรง
+    ความเร่ง = 0) จะกลบค่ากลางจนอ่านอะไรไม่ได้
+    """
     y = traj[:, 1]
     ok = ~np.isnan(y)
     a = []
     for i in range(1, len(y) - 1):
-        if ok[i - 1] and ok[i] and ok[i + 1]:
-            a.append(abs(y[i + 1] - 2 * y[i] + y[i - 1]))
-    return float(np.median(a)) if a else float("nan")
+        if not (ok[i - 1] and ok[i] and ok[i + 1]):
+            continue
+        if real_frames is not None and not all(
+                j in real_frames for j in (i - 1, i, i + 1)):
+            continue
+        a.append(abs(y[i + 1] - 2 * y[i] + y[i - 1]))
+    return (float(np.median(a)), len(a)) if a else (float("nan"), 0)
 
 
-print(f"{'คลิป':26s} {'det ก่อน':>9s} {'det หลัง':>9s} {'เหลือ':>7s} "
-      f"{'|a| ก่อน':>9s} {'|a| หลัง':>9s} {'จริง ก่อน':>10s} {'จริง หลัง':>10s}")
-print("-" * 100)
+hdr = (f"{'คลิป':24s} {'det ก่อน':>8s} {'det หลัง':>8s} {'เหลือ':>6s} "
+       f"{'เฟรมจริง ก่อน':>13s} {'เฟรมจริง หลัง':>13s} "
+       f"{'|a| ของจริง ก่อน':>17s} {'|a| ของจริง หลัง':>17s}")
+print(hdr)
+print("-" * len(hdr))
 for name, per_frame in dets.items():
     n = len(per_frame)
     bb = to_bboxes(per_frame)
@@ -58,14 +70,18 @@ for name, per_frame in dets.items():
 
     t0 = extract_ball_trajectory_kalman(bb, n, drop_static=False)
     t1 = extract_ball_trajectory_kalman(bb, n, drop_static=True)
-    # สัดส่วนเฟรมที่ trajectory มีค่า *และ* เฟรมนั้นมี detection จริง
-    real0 = sum(1 for i in range(n) if i in bb and not np.isnan(t0[i, 0])) / n
-    real1 = sum(1 for i in range(n) if i in bb_f and not np.isnan(t1[i, 0])) / n
+    # เฟรมที่ค่ามาจาก detection จริง ไม่ใช่ Kalman เดาต่อ
+    r0 = {i for i in range(n) if i in bb and not np.isnan(t0[i, 0])}
+    r1 = {i for i in range(n) if i in bb_f and not np.isnan(t1[i, 0])}
+    a0, c0 = accel_median(t0, r0)
+    a1, c1 = accel_median(t1, r1)
 
-    print(f"{name:26s} {n0:9d} {n1:9d} {n1/max(1,n0):6.1%} "
-          f"{accel_median(t0):9.2f} {accel_median(t1):9.2f} "
-          f"{real0:9.1%} {real1:9.1%}")
+    print(f"{name:24s} {n0:8d} {n1:8d} {n1/max(1,n0):5.1%} "
+          f"{len(r0)/n:12.1%} {len(r1)/n:12.1%} "
+          f"{a0:11.2f} (n={c0:4d}) {a1:11.2f} (n={c1:4d})")
 
-print("\n|a| = ความเร่งแนวดิ่งกลางของ trajectory (px/frame²)")
-print("     ลูกที่ลอยจริงควรใกล้ ~4.4 ที่ 30fps · 0.00 = เส้นตรง = ของปลอม")
-print("จริง = สัดส่วนเฟรมที่ค่ามาจาก detection จริง ไม่ใช่ Kalman เดาต่อ")
+print("\n|a| ของจริง = ความเร่งแนวดิ่งกลาง นับเฉพาะช่วง 3 เฟรมติดที่มี")
+print("             detection จริงครบ (ตัดช่วงที่ Kalman เดาต่อออก)")
+print("             ลูกที่ลอยจริงควรใกล้ ~4.4 px/frame² ที่ 30fps")
+print("เฟรมจริง   = สัดส่วนเฟรมที่ค่ามาจาก detection ไม่ใช่การเดา")
+print("             (ก่อนกรอง ตัวเลขนี้รวมลูกที่นอนนิ่งด้วย จึงดูสูงเกินจริง)")
