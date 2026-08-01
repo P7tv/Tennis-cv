@@ -1534,6 +1534,110 @@ def test_build_loeuf_schema_never_omits_keys():
         assert set(a[block]) == set(b[block]), f"{block} key set ต่างกันสองโหมด"
 
 
+def _phase_row(**kf):
+    """label row สำหรับเทสต์เกณฑ์ช่วงเดียวกัน"""
+    row = {"clip_path": "s__c__s01", "stroke_type": kf.pop("stroke_type", "FH"),
+           "fps": 29.97, "usable": True, "anomalies": []}
+    for name in ("unit_turn", "backswing_peak", "trophy_position", "impact",
+                 "follow_through_peak", "recovery_position"):
+        row[name] = kf.get(name)
+    return row
+
+
+def _phase_pred(**kf):
+    from loeuf_cv.benchmark_keyframes import BENCH_KEYFRAME_COLS
+    return {"keyframes": {
+        name: ({"frame_index": kf[name], "timestamp_ms": kf[name] / 29.97 * 1000,
+                "detected": True} if kf.get(name) is not None
+               else {"frame_index": None, "timestamp_ms": None, "detected": False})
+        for name in BENCH_KEYFRAME_COLS.values()}}
+
+
+def test_phase_windows_are_midpoints_between_gt_keyframes():
+    """ขอบของ "ช่วงเดียวกัน" = จุดกึ่งกลางไปยัง keyframe ที่ติดกันใน GT"""
+    from loeuf_cv.benchmark_keyframes import phase_windows
+
+    w = phase_windows({"backswing_peak": 100, "impact": 120,
+                       "follow_through_peak": 140})
+    assert w["impact"] == (110.0, 130.0)          # กึ่งกลางทั้งสองข้าง
+    # ตัวหัว/ตัวท้ายไม่มีเพื่อนบ้านข้างหนึ่ง -> สะท้อนความกว้างของอีกข้าง
+    assert w["backswing_peak"] == (90.0, 110.0)
+    assert w["follow_through_peak"] == (130.0, 150.0)
+
+    # หน้าต่างต้องกว้างแคบตามจังหวะจริง ไม่ใช่ค่าคงที่:
+    # เสิร์ฟ backswing ยาว -> ช่วงกว้าง · วอลเลย์สวิงสั้น -> ช่วงแคบ
+    serve = phase_windows({"backswing_peak": 0, "impact": 30,
+                           "follow_through_peak": 45})
+    volley = phase_windows({"backswing_peak": 24, "impact": 30,
+                            "follow_through_peak": 38})
+    assert (serve["impact"][1] - serve["impact"][0]) > \
+           (volley["impact"][1] - volley["impact"][0])
+
+
+def test_phase_windows_survive_degenerate_and_out_of_order_gt():
+    """GT จริงมี 4 จุดที่ลำดับเวลาผิดปกติ (backswing == impact / หลัง impact)
+
+    ต้องไม่คืนช่วงติดลบ และการทายตรงเป๊ะต้องยังนับว่าถูกเสมอ
+    """
+    from loeuf_cv.benchmark_keyframes import phase_windows
+
+    for gt in ({"backswing_peak": 100, "impact": 100},          # ซ้อนเฟรมเดียวกัน
+               {"backswing_peak": 130, "impact": 120,           # backswing หลัง impact
+                "follow_through_peak": 140},
+               {"impact": 50}):                                 # มี keyframe เดียว
+        w = phase_windows(gt)
+        for name, (lo, hi) in w.items():
+            assert lo <= hi, (gt, name)
+            assert lo <= gt[name] <= hi, f"{gt}/{name}: ทายตรงเป๊ะต้องผ่านเสมอ"
+
+    assert phase_windows({}) == {}
+
+
+def test_phase_criterion_accepts_near_miss_but_rejects_wrong_phase():
+    """หัวใจของเกณฑ์: เพี้ยนไม่กี่เฟรม = ผ่าน · เลยไปอีกช่วง = ไม่ผ่าน"""
+    from loeuf_cv.benchmark_keyframes import score_phase_mode
+
+    gt = _phase_row(backswing_peak=100, impact=120, follow_through_peak=140)
+
+    # เพี้ยน 5 เฟรม — ±1 เฟรมตก แต่ยังอยู่ในช่วง impact (110-130)
+    near = score_phase_mode([gt], {"s__c__s01": _phase_pred(
+        backswing_peak=100, impact=125, follow_through_peak=140)})
+    assert near["per_stroke"]["FH"]["impact"]["accuracy"] == 1.0
+
+    # เลยจุดกึ่งกลางไปทาง follow_through แล้ว = คนละช่วง
+    far = score_phase_mode([gt], {"s__c__s01": _phase_pred(
+        backswing_peak=100, impact=131, follow_through_peak=140)})
+    assert far["per_stroke"]["FH"]["impact"]["accuracy"] == 0.0
+    assert any(f["reason"] == "outside_phase" for f in far["failures"])
+
+    # ไม่ได้ detect = ผิด และต้องยังอยู่ในตัวหาร
+    miss = score_phase_mode([gt], {"s__c__s01": _phase_pred(impact=None)})
+    assert miss["per_stroke"]["FH"]["impact"]["n"] == 1
+    assert miss["per_stroke"]["FH"]["impact"]["accuracy"] == 0.0
+
+
+def test_phase_criterion_is_never_stricter_than_one_frame():
+    """เกณฑ์ช่วงเดียวกันต้องหลวมกว่าหรือเท่ากับ ±1 เฟรมเสมอ
+
+    ถ้าเข้มกว่าแปลว่า window ยุบผิด — จะทำให้รายงานตัวเลขต่ำกว่าความจริง
+    """
+    from loeuf_cv.benchmark_keyframes import score_mode, score_phase_mode
+
+    rows, preds = [], {}
+    for i, (imp_pred, bp_pred) in enumerate(
+            [(120, 100), (121, 101), (119, 99), (125, 95), (135, 100)]):
+        r = _phase_row(backswing_peak=100, impact=120, follow_through_peak=140)
+        r["clip_path"] = f"s__c__s{i:02d}"
+        rows.append(r)
+        preds[r["clip_path"]] = _phase_pred(
+            backswing_peak=bp_pred, impact=imp_pred, follow_through_peak=140)
+
+    strict = score_mode(rows, preds, tolerance_frames=1)
+    phase = score_phase_mode(rows, preds)
+    assert phase["acceptance_accuracy"] >= strict["acceptance_accuracy"]
+    assert phase["acceptance_n"] == strict["acceptance_n"]
+
+
 def test_keyframe_offsets_scale_with_fps():
     """ค่า offset ใน schema_builder/keyframes.py คาลิเบรตที่ 29.97fps
 

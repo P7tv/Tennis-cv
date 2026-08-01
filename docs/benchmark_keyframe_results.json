@@ -8573,6 +8573,4617 @@
       }
     }
   },
+  "mode_a_phase": {
+    "criterion": "phase_membership",
+    "tolerance_frames": null,
+    "per_stroke": {
+      "BH": {
+        "backswing_peak": {
+          "n": 26,
+          "accuracy": 0.654,
+          "mae_ms": null,
+          "mae_frames": 3.36,
+          "median_frames": 1.0,
+          "window_frames": 4.5
+        },
+        "follow_through_peak": {
+          "n": 25,
+          "accuracy": 0.84,
+          "mae_ms": null,
+          "mae_frames": 3.25,
+          "median_frames": 3.0,
+          "window_frames": 10.5
+        },
+        "impact": {
+          "n": 26,
+          "accuracy": 0.846,
+          "mae_ms": null,
+          "mae_frames": 2.0,
+          "median_frames": 1.0,
+          "window_frames": 4.3
+        },
+        "recovery_position": {
+          "n": 19,
+          "accuracy": 0.526,
+          "mae_ms": null,
+          "mae_frames": 14.44,
+          "median_frames": 12.0,
+          "window_frames": 17.5
+        },
+        "unit_turn": {
+          "n": 26,
+          "accuracy": 0.808,
+          "mae_ms": null,
+          "mae_frames": 3.48,
+          "median_frames": 2.0,
+          "window_frames": 7.2
+        }
+      },
+      "FH": {
+        "backswing_peak": {
+          "n": 21,
+          "accuracy": 0.667,
+          "mae_ms": null,
+          "mae_frames": 3.29,
+          "median_frames": 1.0,
+          "window_frames": 6.3
+        },
+        "follow_through_peak": {
+          "n": 21,
+          "accuracy": 1.0,
+          "mae_ms": null,
+          "mae_frames": 2.62,
+          "median_frames": 2.0,
+          "window_frames": 9.9
+        },
+        "impact": {
+          "n": 21,
+          "accuracy": 0.905,
+          "mae_ms": null,
+          "mae_frames": 2.38,
+          "median_frames": 1.0,
+          "window_frames": 4.6
+        },
+        "recovery_position": {
+          "n": 16,
+          "accuracy": 0.812,
+          "mae_ms": null,
+          "mae_frames": 11.12,
+          "median_frames": 8.0,
+          "window_frames": 13.7
+        },
+        "unit_turn": {
+          "n": 21,
+          "accuracy": 0.81,
+          "mae_ms": null,
+          "mae_frames": 9.1,
+          "median_frames": 9.0,
+          "window_frames": 11.0
+        }
+      },
+      "SL": {
+        "backswing_peak": {
+          "n": 21,
+          "accuracy": 0.333,
+          "mae_ms": null,
+          "mae_frames": 5.53,
+          "median_frames": 4.0,
+          "window_frames": 3.6
+        },
+        "follow_through_peak": {
+          "n": 21,
+          "accuracy": 0.667,
+          "mae_ms": null,
+          "mae_frames": 5.06,
+          "median_frames": 4.0,
+          "window_frames": 7.0
+        },
+        "impact": {
+          "n": 21,
+          "accuracy": 0.571,
+          "mae_ms": null,
+          "mae_frames": 3.65,
+          "median_frames": 3.0,
+          "window_frames": 4.7
+        },
+        "recovery_position": {
+          "n": 4,
+          "accuracy": 0.75,
+          "mae_ms": null,
+          "mae_frames": 2.67,
+          "median_frames": 4.0,
+          "window_frames": 10.4
+        },
+        "unit_turn": {
+          "n": 21,
+          "accuracy": 0.286,
+          "mae_ms": null,
+          "mae_frames": 6.47,
+          "median_frames": 5.0,
+          "window_frames": 4.4
+        }
+      },
+      "SV": {
+        "backswing_peak": {
+          "n": 64,
+          "accuracy": 0.109,
+          "mae_ms": null,
+          "mae_frames": 12.57,
+          "median_frames": 10.0,
+          "window_frames": 5.4
+        },
+        "follow_through_peak": {
+          "n": 64,
+          "accuracy": 0.469,
+          "mae_ms": null,
+          "mae_frames": 5.18,
+          "median_frames": 4.0,
+          "window_frames": 3.9
+        },
+        "impact": {
+          "n": 64,
+          "accuracy": 0.641,
+          "mae_ms": null,
+          "mae_frames": 2.59,
+          "median_frames": 3.0,
+          "window_frames": 5.2
+        },
+        "trophy_position": {
+          "n": 64,
+          "accuracy": 0.359,
+          "mae_ms": null,
+          "mae_frames": 4.76,
+          "median_frames": 3.0,
+          "window_frames": 6.0
+        }
+      },
+      "VL": {
+        "backswing_peak": {
+          "n": 40,
+          "accuracy": 0.3,
+          "mae_ms": null,
+          "mae_frames": 3.92,
+          "median_frames": 3.0,
+          "window_frames": 5.7
+        },
+        "follow_through_peak": {
+          "n": 40,
+          "accuracy": 0.65,
+          "mae_ms": null,
+          "mae_frames": 19.05,
+          "median_frames": 3.0,
+          "window_frames": 11.6
+        },
+        "impact": {
+          "n": 40,
+          "accuracy": 0.575,
+          "mae_ms": null,
+          "mae_frames": 2.7,
+          "median_frames": 2.0,
+          "window_frames": 3.2
+        },
+        "recovery_position": {
+          "n": 4,
+          "accuracy": 0.5,
+          "mae_ms": null,
+          "mae_frames": 15.5,
+          "median_frames": 16.5,
+          "window_frames": 13.0
+        },
+        "unit_turn": {
+          "n": 1,
+          "accuracy": 0.0,
+          "mae_ms": null,
+          "mae_frames": 14.0,
+          "median_frames": 14.0,
+          "window_frames": 0.5
+        }
+      }
+    },
+    "acceptance_accuracy": 0.506,
+    "acceptance_n": 344,
+    "missing_predictions": 0,
+    "failures": [
+      {
+        "clip": "set2__IMG_0284__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 111,
+        "gt": 83,
+        "window": [
+          74.5,
+          91.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0284__s01",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0284__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 129,
+        "gt": 120,
+        "window": [
+          117.5,
+          122.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0284__s02",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0284__s02",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0284__s02",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0284__s02",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0300B1__s01",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 114,
+        "gt": 96,
+        "window": [
+          82.5,
+          109.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 129,
+        "gt": 123,
+        "window": [
+          109.5,
+          128.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s02",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 272,
+        "gt": 296,
+        "window": [
+          274.5,
+          317.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 298,
+        "gt": 315,
+        "window": [
+          310.5,
+          319.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 313,
+        "gt": 324,
+        "window": [
+          319.5,
+          325.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 318,
+        "gt": 326,
+        "window": [
+          325.0,
+          331.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 331,
+        "gt": 337,
+        "window": [
+          331.5,
+          359.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s04",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 431,
+        "gt": 434,
+        "window": [
+          432.0,
+          440.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s04",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 465,
+        "gt": 485,
+        "window": [
+          465.5,
+          504.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s06",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 672,
+        "gt": 721,
+        "window": [
+          690.0,
+          752.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s07",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 923,
+        "gt": 944,
+        "window": [
+          924.0,
+          964.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s08",
+        "keyframe": "unit_turn",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0300B1__s08",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0300B1__s08",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0300B1__s08",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0300B1__s08",
+        "keyframe": "recovery_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0300B1__s09",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 1143,
+        "gt": 1126,
+        "window": [
+          1112.5,
+          1139.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1158,
+        "gt": 1153,
+        "window": [
+          1139.5,
+          1155.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s14",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 2607,
+        "gt": 2591,
+        "window": [
+          2575.5,
+          2606.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s19",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3133,
+        "gt": 3143,
+        "window": [
+          3133.5,
+          3144.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s19",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 3138,
+        "gt": 3146,
+        "window": [
+          3144.5,
+          3151.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s20",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3282,
+        "gt": 3300,
+        "window": [
+          3288.5,
+          3301.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s21",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3410,
+        "gt": 3407,
+        "window": [
+          3395.0,
+          3408.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s23",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3986,
+        "gt": 3982,
+        "window": [
+          3974.5,
+          3983.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s01",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s01",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s02",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 97,
+        "gt": 101,
+        "window": [
+          98.5,
+          104.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s03",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 164,
+        "gt": 170,
+        "window": [
+          169.0,
+          171.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s03",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 167,
+        "gt": 172,
+        "window": [
+          171.0,
+          175.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 336,
+        "gt": 339,
+        "window": [
+          337.5,
+          340.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s04",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 339,
+        "gt": 342,
+        "window": [
+          340.5,
+          345.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s08",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 635,
+        "gt": 638,
+        "window": [
+          636.5,
+          639.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 703,
+        "gt": 719,
+        "window": [
+          714.5,
+          719.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s09",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 714,
+        "gt": 719,
+        "window": [
+          718.5,
+          719.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s10",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 256,
+        "gt": 260,
+        "window": [
+          257.5,
+          262.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s10",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 259,
+        "gt": 265,
+        "window": [
+          262.5,
+          269.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s10",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 267,
+        "gt": 273,
+        "window": [
+          269.0,
+          277.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 95,
+        "gt": 88,
+        "window": [
+          82.0,
+          94.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s02",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 308,
+        "gt": 300,
+        "window": [
+          295.5,
+          304.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s03",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 400,
+        "gt": 403,
+        "window": [
+          400.5,
+          406.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s05",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 618,
+        "gt": 621,
+        "window": [
+          618.5,
+          623.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s05",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 621,
+        "gt": 626,
+        "window": [
+          623.5,
+          629.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s05",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 629,
+        "gt": 633,
+        "window": [
+          629.5,
+          636.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s06",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 690,
+        "gt": 686,
+        "window": [
+          682.5,
+          689.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s07",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 768,
+        "gt": 764,
+        "window": [
+          762.0,
+          766.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s08",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 823,
+        "gt": 820,
+        "window": [
+          817.5,
+          822.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s10",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 955,
+        "gt": 946,
+        "window": [
+          942.5,
+          949.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s10",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 958,
+        "gt": 953,
+        "window": [
+          949.5,
+          956.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s10",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 966,
+        "gt": 960,
+        "window": [
+          956.5,
+          963.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 243,
+        "gt": 232,
+        "window": [
+          227.5,
+          236.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s01",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 246,
+        "gt": 241,
+        "window": [
+          236.5,
+          245.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s02",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 320,
+        "gt": 315,
+        "window": [
+          313.0,
+          317.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s06",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 932,
+        "gt": 929,
+        "window": [
+          927.5,
+          930.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s07",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1137,
+        "gt": 1133,
+        "window": [
+          1132.0,
+          1134.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s07",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 1178,
+        "gt": 1162,
+        "window": [
+          1155.5,
+          1168.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s08",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1192,
+        "gt": 1195,
+        "window": [
+          1192.5,
+          1197.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s08",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 1195,
+        "gt": 1200,
+        "window": [
+          1197.5,
+          1204.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s08",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1203,
+        "gt": 1208,
+        "window": [
+          1204.0,
+          1212.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s01",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 18,
+        "gt": 24,
+        "window": [
+          19.5,
+          28.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s03",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 276,
+        "gt": 263,
+        "window": [
+          254.5,
+          271.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 327,
+        "gt": 361,
+        "window": [
+          352.5,
+          361.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s04",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 372,
+        "gt": 361,
+        "window": [
+          360.5,
+          361.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s05",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 408,
+        "gt": 414,
+        "window": [
+          411.0,
+          417.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s05",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 423,
+        "gt": 420,
+        "window": [
+          417.0,
+          421.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s06",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 614,
+        "gt": 623,
+        "window": [
+          614.5,
+          631.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s06",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 629,
+        "gt": 640,
+        "window": [
+          631.5,
+          642.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s06",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 634,
+        "gt": 644,
+        "window": [
+          642.0,
+          649.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s07",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 723,
+        "gt": 712,
+        "window": [
+          702.0,
+          722.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s07",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 738,
+        "gt": 732,
+        "window": [
+          722.0,
+          734.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 190,
+        "gt": 188,
+        "window": [
+          187.0,
+          189.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s01",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 179,
+        "gt": 190,
+        "window": [
+          189.0,
+          193.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s01",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 193,
+        "gt": 197,
+        "window": [
+          193.5,
+          201.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s02",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 352,
+        "gt": 356,
+        "window": [
+          355.0,
+          357.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s02",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 348,
+        "gt": 358,
+        "window": [
+          357.0,
+          361.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s03",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 604,
+        "gt": 606,
+        "window": [
+          604.5,
+          607.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s03",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 600,
+        "gt": 609,
+        "window": [
+          607.5,
+          613.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 834,
+        "gt": 837,
+        "window": [
+          835.5,
+          838.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s04",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 830,
+        "gt": 840,
+        "window": [
+          838.5,
+          843.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s05",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1032,
+        "gt": 1035,
+        "window": [
+          1033.5,
+          1036.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s05",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 1028,
+        "gt": 1038,
+        "window": [
+          1036.5,
+          1041.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s06",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1394,
+        "gt": 1397,
+        "window": [
+          1395.5,
+          1398.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s06",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 1390,
+        "gt": 1400,
+        "window": [
+          1398.5,
+          1403.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s07",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1628,
+        "gt": 1631,
+        "window": [
+          1630.0,
+          1632.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s07",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 1624,
+        "gt": 1633,
+        "window": [
+          1632.0,
+          1637.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s08",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1868,
+        "gt": 1871,
+        "window": [
+          1869.5,
+          1872.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s08",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 1864,
+        "gt": 1874,
+        "window": [
+          1872.5,
+          1878.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s09",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s09",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 2229,
+        "gt": 2234,
+        "window": [
+          2230.5,
+          2240.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s01",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 437,
+        "gt": 443,
+        "window": [
+          439.5,
+          446.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s02",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 547,
+        "gt": 559,
+        "window": [
+          556.0,
+          562.0
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s02",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 565,
+        "gt": 568,
+        "window": [
+          566.5,
+          576.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s03",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 658,
+        "gt": 668,
+        "window": [
+          666.5,
+          669.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s04",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 823,
+        "gt": 827,
+        "window": [
+          825.5,
+          828.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 838,
+        "gt": 830,
+        "window": [
+          828.5,
+          833.0
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s04",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 856,
+        "gt": 849,
+        "window": [
+          842.5,
+          855.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s05",
+        "keyframe": "unit_turn",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s05",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s05",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s05",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s06",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 1038,
+        "gt": 1044,
+        "window": [
+          1041.5,
+          1046.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s06",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1053,
+        "gt": 1049,
+        "window": [
+          1046.5,
+          1051.0
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s06",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1071,
+        "gt": 1061,
+        "window": [
+          1057.0,
+          1065.0
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s07",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1152,
+        "gt": 1147,
+        "window": [
+          1143.0,
+          1149.0
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s08",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 1309,
+        "gt": 1314,
+        "window": [
+          1312.0,
+          1316.0
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s08",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1324,
+        "gt": 1318,
+        "window": [
+          1316.0,
+          1320.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1427,
+        "gt": 1423,
+        "window": [
+          1419.0,
+          1425.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s10",
+        "keyframe": "unit_turn",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s10",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s10",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s10",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s01",
+        "keyframe": "unit_turn",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s01",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s01",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s01",
+        "keyframe": "recovery_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s02",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 170,
+        "gt": 188,
+        "window": [
+          182.0,
+          194.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s02",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 185,
+        "gt": 200,
+        "window": [
+          194.0,
+          202.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s02",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 196,
+        "gt": 205,
+        "window": [
+          202.5,
+          210.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s03",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 385,
+        "gt": 388,
+        "window": [
+          385.5,
+          392.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s04",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 492,
+        "gt": 508,
+        "window": [
+          504.5,
+          511.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 507,
+        "gt": 515,
+        "window": [
+          511.5,
+          518.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s04",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 512,
+        "gt": 521,
+        "window": [
+          518.0,
+          528.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s04",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 520,
+        "gt": 535,
+        "window": [
+          528.0,
+          542.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s05",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 918,
+        "gt": 910,
+        "window": [
+          903.5,
+          914.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s06",
+        "keyframe": "unit_turn",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s06",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s06",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s06",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s09",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 1652,
+        "gt": 1647,
+        "window": [
+          1642.5,
+          1651.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1667,
+        "gt": 1656,
+        "window": [
+          1651.5,
+          1661.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s10",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 1929,
+        "gt": 1924,
+        "window": [
+          1920.0,
+          1928.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s10",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1944,
+        "gt": 1932,
+        "window": [
+          1928.0,
+          1936.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s10",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 1949,
+        "gt": 1941,
+        "window": [
+          1936.5,
+          1947.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s11",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 2189,
+        "gt": 2195,
+        "window": [
+          2190.5,
+          2199.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 185,
+        "gt": 162,
+        "window": [
+          154.5,
+          169.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s01",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 205,
+        "gt": 194,
+        "window": [
+          193.5,
+          194.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s02",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s02",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s02",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s02",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s03",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 649,
+        "gt": 625,
+        "window": [
+          616.5,
+          633.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s03",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 669,
+        "gt": 658,
+        "window": [
+          657.0,
+          659.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 831,
+        "gt": 803,
+        "window": [
+          794.5,
+          811.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s04",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 843,
+        "gt": 836,
+        "window": [
+          835.5,
+          836.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s05",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1128,
+        "gt": 1101,
+        "window": [
+          1091.5,
+          1110.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s05",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s05",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1146,
+        "gt": 1135,
+        "window": [
+          1134.0,
+          1136.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s06",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1328,
+        "gt": 1297,
+        "window": [
+          1286.5,
+          1307.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s06",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s06",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1346,
+        "gt": 1334,
+        "window": [
+          1333.0,
+          1335.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s07",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1514,
+        "gt": 1487,
+        "window": [
+          1478.5,
+          1495.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s07",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s07",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1532,
+        "gt": 1520,
+        "window": [
+          1519.5,
+          1520.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s08",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s08",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s08",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s08",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2227,
+        "gt": 2191,
+        "window": [
+          2182.5,
+          2199.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s09",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s09",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 2230,
+        "gt": 2223,
+        "window": [
+          2215.5,
+          2223.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s09",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2245,
+        "gt": 2224,
+        "window": [
+          2223.5,
+          2224.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s10",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s10",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s10",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s10",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s01",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s01",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s01",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s02",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 547,
+        "gt": 526,
+        "window": [
+          517.5,
+          534.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s02",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 557,
+        "gt": 554,
+        "window": [
+          548.5,
+          555.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s02",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 566,
+        "gt": 557,
+        "window": [
+          555.5,
+          558.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s03",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 832,
+        "gt": 814,
+        "window": [
+          805.5,
+          822.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s03",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s03",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 835,
+        "gt": 843,
+        "window": [
+          837.0,
+          844.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 848,
+        "gt": 845,
+        "window": [
+          844.0,
+          846.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s04",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s04",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s04",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s05",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 1447,
+        "gt": 1463,
+        "window": [
+          1449.0,
+          1463.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s05",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 1461,
+        "gt": 1464,
+        "window": [
+          1463.5,
+          1465.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s05",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1470,
+        "gt": 1466,
+        "window": [
+          1465.0,
+          1467.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s06",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1744,
+        "gt": 1740,
+        "window": [
+          1738.5,
+          1741.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s07",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2099,
+        "gt": 2071,
+        "window": [
+          2064.0,
+          2078.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s07",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s07",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 2104,
+        "gt": 2101,
+        "window": [
+          2093.0,
+          2102.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s07",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2119,
+        "gt": 2103,
+        "window": [
+          2102.0,
+          2104.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s08",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2970,
+        "gt": 2966,
+        "window": [
+          2965.0,
+          2967.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3221,
+        "gt": 3201,
+        "window": [
+          3196.5,
+          3205.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s09",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s09",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 3226,
+        "gt": 3223,
+        "window": [
+          3216.5,
+          3224.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s09",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 3241,
+        "gt": 3226,
+        "window": [
+          3224.5,
+          3227.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s10",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3406,
+        "gt": 3415,
+        "window": [
+          3411.0,
+          3419.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s10",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 3443,
+        "gt": 3439,
+        "window": [
+          3437.5,
+          3440.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s11",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 4082,
+        "gt": 4088,
+        "window": [
+          4083.5,
+          4092.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s11",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 4118,
+        "gt": 4113,
+        "window": [
+          4112.0,
+          4114.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 140,
+        "gt": 132,
+        "window": [
+          128.0,
+          136.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s03",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 478,
+        "gt": 483,
+        "window": [
+          481.0,
+          488.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s03",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 520,
+        "gt": 548,
+        "window": [
+          521.0,
+          575.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s05",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 858,
+        "gt": 886,
+        "window": [
+          859.0,
+          913.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s06",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 1018,
+        "gt": 1066,
+        "window": [
+          1029.5,
+          1102.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s08",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 1395,
+        "gt": 1381,
+        "window": [
+          1373.5,
+          1388.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1505,
+        "gt": 1502,
+        "window": [
+          1495.0,
+          1503.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s13",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2164,
+        "gt": 2161,
+        "window": [
+          2154.0,
+          2162.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s14",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2323,
+        "gt": 2320,
+        "window": [
+          2313.0,
+          2321.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s15",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2475,
+        "gt": 2471,
+        "window": [
+          2465.5,
+          2473.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s15",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2493,
+        "gt": 2484,
+        "window": [
+          2479.5,
+          2488.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s16",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 2704,
+        "gt": 2689,
+        "window": [
+          2680.0,
+          2698.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 304,
+        "gt": 314,
+        "window": [
+          311.5,
+          316.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s01",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 314,
+        "gt": 319,
+        "window": [
+          316.5,
+          323.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s01",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 356,
+        "gt": 338,
+        "window": [
+          333.0,
+          343.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s02",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 381,
+        "gt": 384,
+        "window": [
+          383.0,
+          385.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s02",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 384,
+        "gt": 386,
+        "window": [
+          385.0,
+          389.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s03",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1045,
+        "gt": 1043,
+        "window": [
+          1042.0,
+          1044.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1056,
+        "gt": 1052,
+        "window": [
+          1048.5,
+          1055.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1367,
+        "gt": 1371,
+        "window": [
+          1370.5,
+          1371.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s04",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 1370,
+        "gt": 1371,
+        "window": [
+          1370.5,
+          1375.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s05",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 1429,
+        "gt": 1443,
+        "window": [
+          1442.5,
+          1443.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s05",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1444,
+        "gt": 1443,
+        "window": [
+          1442.5,
+          1443.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s06",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s06",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s06",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s07",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2148,
+        "gt": 2144,
+        "window": [
+          1856.5,
+          2147.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s07",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2159,
+        "gt": 1569,
+        "window": [
+          1281.5,
+          1856.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s08",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2222,
+        "gt": 2215,
+        "window": [
+          2213.0,
+          2217.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s08",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 2225,
+        "gt": 2219,
+        "window": [
+          2217.0,
+          2222.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s08",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2233,
+        "gt": 2225,
+        "window": [
+          2222.0,
+          2228.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2338,
+        "gt": 2340,
+        "window": [
+          2339.0,
+          2341.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s10",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s10",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s10",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s11",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2590,
+        "gt": 2583,
+        "window": [
+          2582.0,
+          2584.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s11",
+        "keyframe": "impact",
+        "reason": "outside_phase",
+        "pred": 2593,
+        "gt": 2585,
+        "window": [
+          2584.0,
+          2587.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s11",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2601,
+        "gt": 2589,
+        "window": [
+          2587.0,
+          2591.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s12",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2661,
+        "gt": 2668,
+        "window": [
+          2661.5,
+          2674.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 121,
+        "gt": 112,
+        "window": [
+          106.0,
+          118.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s02",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 353,
+        "gt": 344,
+        "window": [
+          337.5,
+          350.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s03",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 619,
+        "gt": 611,
+        "window": [
+          605.5,
+          616.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 647,
+        "gt": 643,
+        "window": [
+          639.5,
+          646.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 907,
+        "gt": 901,
+        "window": [
+          896.5,
+          905.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s05",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1229,
+        "gt": 1221,
+        "window": [
+          1215.5,
+          1226.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s06",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1570,
+        "gt": 1560,
+        "window": [
+          1554.5,
+          1565.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s07",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1923,
+        "gt": 1914,
+        "window": [
+          1908.5,
+          1919.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s08",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2230,
+        "gt": 2220,
+        "window": [
+          2216.5,
+          2223.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3014,
+        "gt": 3004,
+        "window": [
+          3000.0,
+          3008.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s10",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3260,
+        "gt": 3250,
+        "window": [
+          3245.0,
+          3255.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s11",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3538,
+        "gt": 3525,
+        "window": [
+          3520.0,
+          3530.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 367,
+        "gt": 352,
+        "window": [
+          346.5,
+          357.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s02",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s02",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s02",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s02",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1512,
+        "gt": 1496,
+        "window": [
+          1490.5,
+          1501.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s04",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s05",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2006,
+        "gt": 1991,
+        "window": [
+          1986.5,
+          1995.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s05",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 1995,
+        "gt": 2000,
+        "window": [
+          1995.5,
+          2006.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s06",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2188,
+        "gt": 2175,
+        "window": [
+          2172.0,
+          2178.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s06",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s07",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s07",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s07",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s07",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s08",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3063,
+        "gt": 3046,
+        "window": [
+          3042.0,
+          3050.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3278,
+        "gt": 3266,
+        "window": [
+          3262.5,
+          3269.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s09",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s10",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3521,
+        "gt": 3505,
+        "window": [
+          3500.0,
+          3510.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s10",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s11",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3813,
+        "gt": 3794,
+        "window": [
+          3789.5,
+          3798.5
+        ]
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s02",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1048,
+        "gt": 1024,
+        "window": [
+          1017.5,
+          1030.5
+        ]
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s02",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s02",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1068,
+        "gt": 1061,
+        "window": [
+          1056.0,
+          1066.0
+        ]
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s03",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s03",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s03",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s04",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s04",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s04",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s05",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s05",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s05",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s05",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s07",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s07",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s07",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s07",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s08",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s08",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s08",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s08",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s09",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s09",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s09",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s09",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s10",
+        "keyframe": "backswing_peak",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s10",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s10",
+        "keyframe": "impact",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s10",
+        "keyframe": "follow_through_peak",
+        "reason": "not_detected"
+      }
+    ],
+    "coverage": {
+      "SV": {
+        "backswing_peak": 64,
+        "trophy_position": 64,
+        "impact": 64,
+        "follow_through_peak": 64
+      },
+      "FH": {
+        "unit_turn": 21,
+        "backswing_peak": 21,
+        "impact": 21,
+        "follow_through_peak": 21,
+        "recovery_position": 16
+      },
+      "BH": {
+        "unit_turn": 26,
+        "backswing_peak": 26,
+        "impact": 26,
+        "follow_through_peak": 25,
+        "recovery_position": 19
+      },
+      "VL": {
+        "backswing_peak": 40,
+        "impact": 40,
+        "follow_through_peak": 40,
+        "recovery_position": 4,
+        "unit_turn": 1
+      },
+      "SL": {
+        "unit_turn": 21,
+        "backswing_peak": 21,
+        "impact": 21,
+        "follow_through_peak": 21,
+        "recovery_position": 4
+      }
+    }
+  },
+  "mode_b_phase": {
+    "criterion": "phase_membership",
+    "tolerance_frames": null,
+    "per_stroke": {
+      "BH": {
+        "backswing_peak": {
+          "n": 26,
+          "accuracy": 0.923,
+          "mae_ms": null,
+          "mae_frames": 2.23,
+          "median_frames": 1.0,
+          "window_frames": 4.5
+        },
+        "follow_through_peak": {
+          "n": 25,
+          "accuracy": 0.96,
+          "mae_ms": null,
+          "mae_frames": 1.96,
+          "median_frames": 2.0,
+          "window_frames": 10.5
+        },
+        "impact": {
+          "n": 26,
+          "accuracy": 1.0,
+          "mae_ms": null,
+          "mae_frames": 0.0,
+          "median_frames": 0.0,
+          "window_frames": 4.3
+        },
+        "recovery_position": {
+          "n": 19,
+          "accuracy": 0.737,
+          "mae_ms": null,
+          "mae_frames": 13.58,
+          "median_frames": 11.0,
+          "window_frames": 17.5
+        },
+        "unit_turn": {
+          "n": 26,
+          "accuracy": 0.923,
+          "mae_ms": null,
+          "mae_frames": 3.15,
+          "median_frames": 3.0,
+          "window_frames": 7.2
+        }
+      },
+      "FH": {
+        "backswing_peak": {
+          "n": 21,
+          "accuracy": 0.952,
+          "mae_ms": null,
+          "mae_frames": 0.76,
+          "median_frames": 0.0,
+          "window_frames": 6.3
+        },
+        "follow_through_peak": {
+          "n": 21,
+          "accuracy": 1.0,
+          "mae_ms": null,
+          "mae_frames": 2.52,
+          "median_frames": 2.0,
+          "window_frames": 9.9
+        },
+        "impact": {
+          "n": 21,
+          "accuracy": 1.0,
+          "mae_ms": null,
+          "mae_frames": 0.0,
+          "median_frames": 0.0,
+          "window_frames": 4.6
+        },
+        "recovery_position": {
+          "n": 16,
+          "accuracy": 0.875,
+          "mae_ms": null,
+          "mae_frames": 9.94,
+          "median_frames": 3.5,
+          "window_frames": 13.7
+        },
+        "unit_turn": {
+          "n": 21,
+          "accuracy": 0.905,
+          "mae_ms": null,
+          "mae_frames": 7.71,
+          "median_frames": 7.0,
+          "window_frames": 11.0
+        }
+      },
+      "SL": {
+        "backswing_peak": {
+          "n": 21,
+          "accuracy": 0.81,
+          "mae_ms": null,
+          "mae_frames": 1.86,
+          "median_frames": 1.0,
+          "window_frames": 3.6
+        },
+        "follow_through_peak": {
+          "n": 21,
+          "accuracy": 1.0,
+          "mae_ms": null,
+          "mae_frames": 2.71,
+          "median_frames": 3.0,
+          "window_frames": 7.0
+        },
+        "impact": {
+          "n": 21,
+          "accuracy": 1.0,
+          "mae_ms": null,
+          "mae_frames": 0.0,
+          "median_frames": 0.0,
+          "window_frames": 4.7
+        },
+        "recovery_position": {
+          "n": 4,
+          "accuracy": 1.0,
+          "mae_ms": null,
+          "mae_frames": 4.0,
+          "median_frames": 3.5,
+          "window_frames": 10.4
+        },
+        "unit_turn": {
+          "n": 21,
+          "accuracy": 0.429,
+          "mae_ms": null,
+          "mae_frames": 4.81,
+          "median_frames": 5.0,
+          "window_frames": 4.4
+        }
+      },
+      "SV": {
+        "backswing_peak": {
+          "n": 64,
+          "accuracy": 0.438,
+          "mae_ms": null,
+          "mae_frames": 10.42,
+          "median_frames": 7.0,
+          "window_frames": 5.4
+        },
+        "follow_through_peak": {
+          "n": 64,
+          "accuracy": 0.656,
+          "mae_ms": null,
+          "mae_frames": 4.39,
+          "median_frames": 4.0,
+          "window_frames": 3.9
+        },
+        "impact": {
+          "n": 64,
+          "accuracy": 1.0,
+          "mae_ms": null,
+          "mae_frames": 0.0,
+          "median_frames": 0.0,
+          "window_frames": 5.2
+        },
+        "trophy_position": {
+          "n": 64,
+          "accuracy": 0.766,
+          "mae_ms": null,
+          "mae_frames": 2.41,
+          "median_frames": 2.0,
+          "window_frames": 6.0
+        }
+      },
+      "VL": {
+        "backswing_peak": {
+          "n": 40,
+          "accuracy": 0.7,
+          "mae_ms": null,
+          "mae_frames": 2.48,
+          "median_frames": 1.0,
+          "window_frames": 5.7
+        },
+        "follow_through_peak": {
+          "n": 40,
+          "accuracy": 0.875,
+          "mae_ms": null,
+          "mae_frames": 16.8,
+          "median_frames": 1.0,
+          "window_frames": 11.6
+        },
+        "impact": {
+          "n": 40,
+          "accuracy": 1.0,
+          "mae_ms": null,
+          "mae_frames": 0.0,
+          "median_frames": 0.0,
+          "window_frames": 3.2
+        },
+        "recovery_position": {
+          "n": 4,
+          "accuracy": 0.25,
+          "mae_ms": null,
+          "mae_frames": 15.25,
+          "median_frames": 15.0,
+          "window_frames": 13.0
+        },
+        "unit_turn": {
+          "n": 1,
+          "accuracy": 0.0,
+          "mae_ms": null,
+          "mae_frames": 17.0,
+          "median_frames": 17.0,
+          "window_frames": 0.5
+        }
+      }
+    },
+    "acceptance_accuracy": 0.84,
+    "acceptance_n": 344,
+    "missing_predictions": 0,
+    "failures": [
+      {
+        "clip": "set2__IMG_0284__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 112,
+        "gt": 83,
+        "window": [
+          74.5,
+          91.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0284__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 124,
+        "gt": 120,
+        "window": [
+          117.5,
+          122.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0284__s02",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 290,
+        "gt": 261,
+        "window": [
+          251.5,
+          270.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0284__s02",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0284__s02",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 310,
+        "gt": 296,
+        "window": [
+          295.5,
+          296.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s01",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 115,
+        "gt": 96,
+        "window": [
+          82.5,
+          109.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 130,
+        "gt": 123,
+        "window": [
+          109.5,
+          128.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s02",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 271,
+        "gt": 296,
+        "window": [
+          274.5,
+          317.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 308,
+        "gt": 315,
+        "window": [
+          310.5,
+          319.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s06",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 671,
+        "gt": 721,
+        "window": [
+          690.0,
+          752.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s07",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 872,
+        "gt": 855,
+        "window": [
+          839.0,
+          871.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0300B1__s08",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1025,
+        "gt": 1021,
+        "window": [
+          1014.0,
+          1024.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 707,
+        "gt": 719,
+        "window": [
+          714.5,
+          719.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s09",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 718,
+        "gt": 719,
+        "window": [
+          718.5,
+          719.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 97,
+        "gt": 88,
+        "window": [
+          82.0,
+          94.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s02",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 306,
+        "gt": 300,
+        "window": [
+          295.5,
+          304.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 567,
+        "gt": 563,
+        "window": [
+          559.5,
+          566.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s06",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 690,
+        "gt": 686,
+        "window": [
+          682.5,
+          689.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s07",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 768,
+        "gt": 764,
+        "window": [
+          762.0,
+          766.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0283A-VLfh__s10",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 950,
+        "gt": 946,
+        "window": [
+          942.5,
+          949.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 238,
+        "gt": 232,
+        "window": [
+          227.5,
+          236.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s02",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 327,
+        "gt": 337,
+        "window": [
+          328.0,
+          357.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s02",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 357,
+        "gt": 378,
+        "window": [
+          357.5,
+          398.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s06",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 927,
+        "gt": 929,
+        "window": [
+          927.5,
+          930.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s07",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 1173,
+        "gt": 1162,
+        "window": [
+          1155.5,
+          1168.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s08",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1180,
+        "gt": 1195,
+        "window": [
+          1192.5,
+          1197.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s03",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 276,
+        "gt": 263,
+        "window": [
+          254.5,
+          271.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 327,
+        "gt": 361,
+        "window": [
+          352.5,
+          361.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s04",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 372,
+        "gt": 361,
+        "window": [
+          360.5,
+          361.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s05",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 405,
+        "gt": 414,
+        "window": [
+          411.0,
+          417.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s01",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 183,
+        "gt": 190,
+        "window": [
+          189.0,
+          193.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s02",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 351,
+        "gt": 358,
+        "window": [
+          357.0,
+          361.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s03",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 603,
+        "gt": 609,
+        "window": [
+          607.5,
+          613.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s04",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 833,
+        "gt": 840,
+        "window": [
+          838.5,
+          843.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s05",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 1031,
+        "gt": 1038,
+        "window": [
+          1036.5,
+          1041.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s06",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 1393,
+        "gt": 1400,
+        "window": [
+          1398.5,
+          1403.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s07",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 1627,
+        "gt": 1633,
+        "window": [
+          1632.0,
+          1637.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s08",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 1868,
+        "gt": 1874,
+        "window": [
+          1872.5,
+          1878.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s09",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 2220,
+        "gt": 2227,
+        "window": [
+          2226.0,
+          2230.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s01",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 436,
+        "gt": 443,
+        "window": [
+          439.5,
+          446.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s02",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 550,
+        "gt": 559,
+        "window": [
+          556.0,
+          562.0
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s03",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 660,
+        "gt": 668,
+        "window": [
+          666.5,
+          669.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s03",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 675,
+        "gt": 671,
+        "window": [
+          669.5,
+          674.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s04",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 818,
+        "gt": 827,
+        "window": [
+          825.5,
+          828.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s05",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 915,
+        "gt": 925,
+        "window": [
+          923.0,
+          927.0
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s06",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 1035,
+        "gt": 1044,
+        "window": [
+          1041.5,
+          1046.5
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s07",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 1133,
+        "gt": 1139,
+        "window": [
+          1135.0,
+          1143.0
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s08",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 1305,
+        "gt": 1314,
+        "window": [
+          1312.0,
+          1316.0
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s09",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 1410,
+        "gt": 1415,
+        "window": [
+          1411.0,
+          1419.0
+        ]
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s10",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 1526,
+        "gt": 1531,
+        "window": [
+          1527.0,
+          1535.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s04",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 501,
+        "gt": 508,
+        "window": [
+          504.5,
+          511.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s05",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 916,
+        "gt": 910,
+        "window": [
+          903.5,
+          914.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1662,
+        "gt": 1656,
+        "window": [
+          1651.5,
+          1661.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s10",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1938,
+        "gt": 1932,
+        "window": [
+          1928.0,
+          1936.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0282(SL)__s11",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 2189,
+        "gt": 2195,
+        "window": [
+          2190.5,
+          2199.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 188,
+        "gt": 162,
+        "window": [
+          154.5,
+          169.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s01",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 208,
+        "gt": 194,
+        "window": [
+          193.5,
+          194.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s02",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 363,
+        "gt": 336,
+        "window": [
+          327.0,
+          345.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s03",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 653,
+        "gt": 625,
+        "window": [
+          616.5,
+          633.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 665,
+        "gt": 658,
+        "window": [
+          657.0,
+          659.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 830,
+        "gt": 803,
+        "window": [
+          794.5,
+          811.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s04",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 844,
+        "gt": 836,
+        "window": [
+          835.5,
+          836.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s05",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1128,
+        "gt": 1101,
+        "window": [
+          1091.5,
+          1110.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s05",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1142,
+        "gt": 1135,
+        "window": [
+          1134.0,
+          1136.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s06",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1327,
+        "gt": 1297,
+        "window": [
+          1286.5,
+          1307.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s06",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s06",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1345,
+        "gt": 1334,
+        "window": [
+          1333.0,
+          1335.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s07",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1514,
+        "gt": 1487,
+        "window": [
+          1478.5,
+          1495.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s07",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s07",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1532,
+        "gt": 1520,
+        "window": [
+          1519.5,
+          1520.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s08",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2057,
+        "gt": 2029,
+        "window": [
+          2021.0,
+          2037.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s08",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2071,
+        "gt": 2064,
+        "window": [
+          2063.0,
+          2065.0
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2218,
+        "gt": 2191,
+        "window": [
+          2182.5,
+          2199.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s09",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2232,
+        "gt": 2224,
+        "window": [
+          2223.5,
+          2224.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s10",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2439,
+        "gt": 2410,
+        "window": [
+          2401.5,
+          2418.5
+        ]
+      },
+      {
+        "clip": "set2__IMG_0285A__s10",
+        "keyframe": "trophy_position",
+        "reason": "not_detected"
+      },
+      {
+        "clip": "set2__IMG_0285A__s10",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2457,
+        "gt": 2443,
+        "window": [
+          2442.5,
+          2443.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 380,
+        "gt": 374,
+        "window": [
+          372.5,
+          375.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s02",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 543,
+        "gt": 526,
+        "window": [
+          517.5,
+          534.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s02",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 563,
+        "gt": 557,
+        "window": [
+          555.5,
+          558.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s03",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 832,
+        "gt": 814,
+        "window": [
+          805.5,
+          822.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 852,
+        "gt": 845,
+        "window": [
+          844.0,
+          846.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1044,
+        "gt": 1060,
+        "window": [
+          1059.5,
+          1060.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s04",
+        "keyframe": "trophy_position",
+        "reason": "outside_phase",
+        "pred": 1059,
+        "gt": 1060,
+        "window": [
+          1059.5,
+          1066.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s04",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1082,
+        "gt": 1075,
+        "window": [
+          1074.0,
+          1076.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s05",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1452,
+        "gt": 1435,
+        "window": [
+          1421.0,
+          1449.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s05",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1473,
+        "gt": 1466,
+        "window": [
+          1465.0,
+          1467.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s06",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 1746,
+        "gt": 1740,
+        "window": [
+          1738.5,
+          1741.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s07",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2110,
+        "gt": 2103,
+        "window": [
+          2102.0,
+          2104.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s08",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2973,
+        "gt": 2966,
+        "window": [
+          2965.0,
+          2967.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3192,
+        "gt": 3201,
+        "window": [
+          3196.5,
+          3205.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s09",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 3232,
+        "gt": 3226,
+        "window": [
+          3224.5,
+          3227.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s10",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3406,
+        "gt": 3415,
+        "window": [
+          3411.0,
+          3419.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s10",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 3445,
+        "gt": 3439,
+        "window": [
+          3437.5,
+          3440.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s11",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 4082,
+        "gt": 4088,
+        "window": [
+          4083.5,
+          4092.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s11",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 4120,
+        "gt": 4113,
+        "window": [
+          4112.0,
+          4114.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 137,
+        "gt": 132,
+        "window": [
+          128.0,
+          136.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s06",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 1018,
+        "gt": 1066,
+        "window": [
+          1029.5,
+          1102.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s08",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 1394,
+        "gt": 1381,
+        "window": [
+          1373.5,
+          1388.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s16",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 2703,
+        "gt": 2689,
+        "window": [
+          2680.0,
+          2698.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 309,
+        "gt": 314,
+        "window": [
+          311.5,
+          316.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s01",
+        "keyframe": "recovery_position",
+        "reason": "outside_phase",
+        "pred": 357,
+        "gt": 338,
+        "window": [
+          333.0,
+          343.0
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1368,
+        "gt": 1371,
+        "window": [
+          1370.5,
+          1371.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s05",
+        "keyframe": "unit_turn",
+        "reason": "outside_phase",
+        "pred": 1426,
+        "gt": 1443,
+        "window": [
+          1442.5,
+          1443.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s05",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1441,
+        "gt": 1443,
+        "window": [
+          1442.5,
+          1443.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s07",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2158,
+        "gt": 1569,
+        "window": [
+          1281.5,
+          1856.5
+        ]
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s11",
+        "keyframe": "follow_through_peak",
+        "reason": "outside_phase",
+        "pred": 2593,
+        "gt": 2589,
+        "window": [
+          2587.0,
+          2591.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s01",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 121,
+        "gt": 112,
+        "window": [
+          106.0,
+          118.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s02",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 353,
+        "gt": 344,
+        "window": [
+          337.5,
+          350.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s03",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 619,
+        "gt": 611,
+        "window": [
+          605.5,
+          616.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s04",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 907,
+        "gt": 901,
+        "window": [
+          896.5,
+          905.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s05",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1229,
+        "gt": 1221,
+        "window": [
+          1215.5,
+          1226.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s06",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1570,
+        "gt": 1560,
+        "window": [
+          1554.5,
+          1565.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s07",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 1923,
+        "gt": 1914,
+        "window": [
+          1908.5,
+          1919.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s08",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2230,
+        "gt": 2220,
+        "window": [
+          2216.5,
+          2223.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s09",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3014,
+        "gt": 3004,
+        "window": [
+          3000.0,
+          3008.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s10",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3260,
+        "gt": 3250,
+        "window": [
+          3245.0,
+          3255.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B7-SV1__s11",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3538,
+        "gt": 3525,
+        "window": [
+          3520.0,
+          3530.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s02",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 791,
+        "gt": 777,
+        "window": [
+          770.5,
+          783.5
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s06",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2169,
+        "gt": 2175,
+        "window": [
+          2172.0,
+          2178.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s07",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 2416,
+        "gt": 2410,
+        "window": [
+          2407.0,
+          2413.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s08",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3063,
+        "gt": 3046,
+        "window": [
+          3042.0,
+          3050.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s10",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3524,
+        "gt": 3505,
+        "window": [
+          3500.0,
+          3510.0
+        ]
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s11",
+        "keyframe": "backswing_peak",
+        "reason": "outside_phase",
+        "pred": 3813,
+        "gt": 3794,
+        "window": [
+          3789.5,
+          3798.5
+        ]
+      }
+    ],
+    "coverage": {
+      "SV": {
+        "backswing_peak": 64,
+        "trophy_position": 64,
+        "impact": 64,
+        "follow_through_peak": 64
+      },
+      "FH": {
+        "unit_turn": 21,
+        "backswing_peak": 21,
+        "impact": 21,
+        "follow_through_peak": 21,
+        "recovery_position": 16
+      },
+      "BH": {
+        "unit_turn": 26,
+        "backswing_peak": 26,
+        "impact": 26,
+        "follow_through_peak": 25,
+        "recovery_position": 19
+      },
+      "VL": {
+        "backswing_peak": 40,
+        "impact": 40,
+        "follow_through_peak": 40,
+        "recovery_position": 4,
+        "unit_turn": 1
+      },
+      "SL": {
+        "unit_turn": 21,
+        "backswing_peak": 21,
+        "impact": 21,
+        "follow_through_peak": 21,
+        "recovery_position": 4
+      }
+    }
+  },
   "detection": {
     "tp": 149,
     "fn": 23,
@@ -12383,8 +16994,8 @@
     "fps": "29.97",
     "total_minutes": 31.3,
     "checkpoint": "runs/pose/tennis_ball_racket_pose_finetune_best.pt",
-    "git_sha": "c6fb0af",
-    "run_date": "2026-08-01 20:45",
+    "git_sha": "6285903",
+    "run_date": "2026-08-02 02:55",
     "accuracy_tolerance": 1,
     "match_tolerance": 10
   }

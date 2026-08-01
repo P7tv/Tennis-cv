@@ -55,7 +55,7 @@ from loeuf_cv.benchmark_keyframes import (
     BENCH_KEYFRAME_COLS, MATCH_TOLERANCE_FRAMES, NOT_DETECTED_PRED,
     detection_metrics, label_rows_from_session, match_strokes,
     pred_strokes_from_schema, render_keyframe_markdown, score_mode,
-    sensitivity_without_anomalies,
+    score_phase_mode, sensitivity_without_anomalies,
 )
 from loeuf_cv.config import PipelineConfig
 from loeuf_cv.hit_detection import detect_hit_events, extract_ball_trajectory_kalman
@@ -504,11 +504,16 @@ def stage_score(args, sessions, manifest: Manifest):
     mode_b = score_mode(all_rows, preds_b, args.accuracy_tolerance) if preds_b else None
     sensitivity = sensitivity_without_anomalies(all_rows, preds_a,
                                                 args.accuracy_tolerance)
+    # เกณฑ์ที่ลูกค้าเขียนไว้เอง — "อยู่ในช่วงการเคลื่อนไหวเดียวกันถือว่าใช้ได้"
+    # (cv_schema_table_loeuf > Keyframe selection) ดู score_phase_mode()
+    mode_a_phase = score_phase_mode(all_rows, preds_a)
+    mode_b_phase = score_phase_mode(all_rows, preds_b) if preds_b else None
     det = detection_metrics(per_clip)
 
     total_min = round(sum(c.get("duration_sec", 0.0) for c in per_clip) / 60.0, 1)
     results = {
         "mode_a": mode_a, "mode_a_matched": mode_a_matched, "mode_b": mode_b,
+        "mode_a_phase": mode_a_phase, "mode_b_phase": mode_b_phase,
         "detection": det, "sensitivity": sensitivity,
         "n_anomalies": n_anomalies, "quirks": KNOWN_QUIRKS,
         "errored_clips": errored_clips,
@@ -533,6 +538,9 @@ def stage_score(args, sessions, manifest: Manifest):
     acc = mode_a["acceptance_accuracy"]
     tag = ("✅ ≥0.80" if acc is not None and acc >= 0.80
            else "⚠️ ต่ำกว่าเป้า 0.80" if acc is not None else "")
+    pacc = mode_a_phase["acceptance_accuracy"]
+    ptag = ("✅ ≥0.80" if pacc is not None and pacc >= 0.80
+            else "⚠️ ต่ำกว่าเป้า 0.80" if pacc is not None else "")
     print(f"\nGT {len(all_rows)} stroke / {len(sessions)} คลิป")
     if errored_clips:
         print(f"⚠️ {len(errored_clips)} คลิป/stage ล้ม — GT ของคลิปนั้นถูกนับเป็น FN:")
@@ -540,7 +548,12 @@ def stage_score(args, sessions, manifest: Manifest):
             print(f"   {e['clip']} [{e['stage']}]: {e['error']}")
     print(f"detection: recall {det['recall']} precision {det['precision']} "
           f"(TP {det['tp']} FN {det['fn']} FP {det['fp']})")
-    print(f"acceptance accuracy (impact+backswing, Mode A end-to-end): {acc} {tag}")
+    print("acceptance accuracy (impact+backswing) — เกณฑ์ลูกค้า "
+          f"\"ช่วงเดียวกัน\", Mode A end-to-end: {pacc} {ptag}")
+    if mode_b_phase:
+        print(f"  Mode B oracle: {mode_b_phase['acceptance_accuracy']}")
+    print(f"เกณฑ์ ±{args.accuracy_tolerance} เฟรม (เข้มกว่าที่ลูกค้าขอ), "
+          f"Mode A end-to-end: {acc} {tag}")
     if mode_a_matched:
         print(f"  matched-only: {mode_a_matched['acceptance_accuracy']}")
     if mode_b:

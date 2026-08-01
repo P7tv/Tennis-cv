@@ -314,6 +314,156 @@ def _acceptance_by_quality(label_rows: list[dict], preds_by_key: dict,
     return out
 
 
+# ---------------------------------------------------------------------------
+# เกณฑ์ "อยู่ในช่วงการเคลื่อนไหวเดียวกัน" (phase membership)
+# ---------------------------------------------------------------------------
+#
+# 🌟 นี่คือเกณฑ์ที่ลูกค้าเขียนไว้เอง ไม่ใช่เกณฑ์ที่เราตั้งขึ้น
+#
+# cv_schema_table_loeuf หัวข้อ "Keyframe selection":
+#   "Guideline นี้มีไว้เพื่อช่วยเลือก *ช่วงของ keyframe* เท่านั้น
+#    ไม่จำเป็นต้องจับเฟรมได้ตรงเป๊ะ หากอยู่ในช่วงการเคลื่อนไหวเดียวกัน
+#    ถือว่าใช้ได้"
+# และในเอกสารเดียวกันลูกค้ากำกับ impact กับ follow_through_peak ว่า
+# "(Low Confidence)" ด้วยตัวเอง — ตรงกับที่ GT 97.6% ถูก flag low_confidence
+#
+# ปัญหาของ ±N เฟรมคงที่: ต้องเลือก N เอง ซึ่งไม่มีที่มา และไม่ยุติธรรมข้ามท่า —
+# เสิร์ฟมี backswing ยาวเป็นวินาที ส่วนวอลเลย์ทั้งสวิงสั้นกว่านั้นอีก N เดียว
+# จึงหลวมเกินไปสำหรับท่าหนึ่งและแคบเกินไปสำหรับอีกท่า
+#
+# นิยามที่ใช้แทน: เฟรมที่ทายถือว่า "อยู่ในช่วงเดียวกัน" ถ้ามันยัง **ใกล้
+# keyframe นี้มากกว่า keyframe อื่น** ของ stroke เดียวกัน — คือขอบเขตอยู่ที่
+# จุดกึ่งกลางระหว่าง keyframe ที่ติดกันใน GT
+#
+#   backswing_peak        impact              follow_through_peak
+#        |                  |                        |
+#        +--------+---------+-----------+------------+
+#                 |<-- ช่วงที่นับว่าเป็น impact -->|
+#
+# ทำไมนิยามนี้ถึงตรงกับสิ่งที่ลูกค้าพูด: ถ้าเฟรมที่ทายเลยจุดกึ่งกลางระหว่าง
+# impact กับ follow_through ไปแล้ว คนที่ดูเฟรมนั้นจะเรียกมันว่า "ตอนตีจบ"
+# ไม่ใช่ "ตอนกระทบลูก" = คนละช่วงการเคลื่อนไหวแล้ว
+#
+# ข้อดีที่ตามมา: หน้าต่างกว้างแคบเองตามจังหวะจริงของแต่ละ stroke ไม่ต้องตั้ง
+# ค่าคงที่ใด ๆ และไม่ต้องแยกกฎต่อท่า
+
+# ครึ่งความกว้างขั้นต่ำ — GT บางตัววาง keyframe ซ้อนเฟรมเดียวกัน (พบจริง 1 จุด:
+# backswing == impact) ทำให้ช่วงยุบเหลือศูนย์ ถ้าไม่มีขั้นต่ำนี้ แม้ทายตรงเป๊ะ
+# ก็จะถูกนับว่าผิด
+MIN_PHASE_HALF_WIDTH = 0.5
+
+
+def phase_windows(gt_keyframes: dict) -> dict[str, tuple[float, float]]:
+    """ช่วงเฟรมที่นับว่า "ยังอยู่ใน keyframe นั้น" ต่อ keyframe หนึ่ง stroke
+
+    ขอบ = จุดกึ่งกลางไปยัง keyframe ที่อยู่ติดกันใน GT
+    ตัวหัว/ตัวท้าย (ไม่มีเพื่อนบ้านข้างหนึ่ง) ใช้วิธีสะท้อนความกว้างของอีกข้าง
+
+    ⚠️ เรียงตาม "ค่าเฟรมของ GT" ไม่ใช่ลำดับตามทฤษฎี — GT 4 จุดใน dataset มี
+    ลำดับเวลาผิดปกติ (backswing หลัง impact ฯลฯ ดู anomaly_flags) ถ้ายึดลำดับ
+    ตามทฤษฎีจะได้ช่วงติดลบ
+    """
+    pts = sorted((v, k) for k, v in gt_keyframes.items() if v is not None)
+    if not pts:
+        return {}
+    if len(pts) == 1:
+        v, k = pts[0]
+        return {k: (v - MIN_PHASE_HALF_WIDTH, v + MIN_PHASE_HALF_WIDTH)}
+
+    out = {}
+    for i, (v, k) in enumerate(pts):
+        left = (v - pts[i - 1][0]) / 2.0 if i > 0 else None
+        right = (pts[i + 1][0] - v) / 2.0 if i < len(pts) - 1 else None
+        if left is None:
+            left = right          # ตัวหัว: สะท้อนความกว้างฝั่งขวา
+        if right is None:
+            right = left          # ตัวท้าย: สะท้อนความกว้างฝั่งซ้าย
+        left = max(left, MIN_PHASE_HALF_WIDTH)
+        right = max(right, MIN_PHASE_HALF_WIDTH)
+        out[k] = (v - left, v + right)
+    return out
+
+
+def score_phase_mode(label_rows: list[dict], preds_by_key: dict) -> dict:
+    """เหมือน score_mode() แต่ตัดสินด้วยเกณฑ์ "ช่วงการเคลื่อนไหวเดียวกัน"
+
+    คืน dict รูปเดียวกับ keyframe_accuracy() เพื่อให้ renderer เดิมใช้ต่อได้
+    เพิ่ม "window_frames" = ครึ่งความกว้างเฉลี่ยของหน้าต่างที่ใช้จริง เพื่อให้
+    ตรวจสอบได้ว่าเกณฑ์นี้หลวมแค่ไหน (ไม่ใช่กล่องดำ)
+    """
+    from .benchmark import ACCEPTANCE_KEYFRAMES, _match_pred
+
+    stats = defaultdict(lambda: {"n": 0, "correct": 0, "errors_frames": [],
+                                 "half_widths": []})
+    failures, missing_pred = [], 0
+
+    for row in label_rows:
+        if not row["usable"]:
+            continue
+        pred = _match_pred(preds_by_key, row["clip_path"])
+        if pred is None:
+            missing_pred += 1
+            continue
+
+        gt_kf = {name: row.get(name) for name in BENCH_KEYFRAME_COLS}
+        windows = phase_windows(gt_kf)
+
+        for col, kf_name in BENCH_KEYFRAME_COLS.items():
+            gt_frame = gt_kf.get(col)
+            if gt_frame is None:
+                continue
+            lo, hi = windows[col]
+            key = (row["stroke_type"], kf_name)
+            stats[key]["n"] += 1
+            stats[key]["half_widths"].append((hi - lo) / 2.0)
+
+            p = pred["keyframes"][kf_name]
+            if not p["detected"] or p.get("frame_index") is None:
+                failures.append({"clip": row["clip_path"], "keyframe": kf_name,
+                                 "reason": "not_detected"})
+                continue
+            pf = int(p["frame_index"])
+            stats[key]["errors_frames"].append(abs(pf - int(gt_frame)))
+            if lo <= pf <= hi:
+                stats[key]["correct"] += 1
+            else:
+                failures.append({
+                    "clip": row["clip_path"], "keyframe": kf_name,
+                    "reason": "outside_phase", "pred": pf, "gt": int(gt_frame),
+                    "window": [round(lo, 1), round(hi, 1)]})
+
+    table = {}
+    for (stroke, kf), s in sorted(stats.items()):
+        table.setdefault(stroke, {})[kf] = {
+            "n": s["n"],
+            "accuracy": round(s["correct"] / s["n"], 3) if s["n"] else None,
+            "mae_ms": None,
+            "mae_frames": round(float(np.mean(s["errors_frames"])), 2)
+            if s["errors_frames"] else None,
+            "median_frames": round(float(np.median(s["errors_frames"])), 1)
+            if s["errors_frames"] else None,
+            "window_frames": round(float(np.mean(s["half_widths"])), 1)
+            if s["half_widths"] else None,
+        }
+
+    acc_n = acc_c = 0
+    for (stroke, kf), s in stats.items():
+        if kf in ACCEPTANCE_KEYFRAMES:
+            acc_n += s["n"]
+            acc_c += s["correct"]
+
+    return {
+        "criterion": "phase_membership",
+        "tolerance_frames": None,
+        "per_stroke": table,
+        "acceptance_accuracy": round(acc_c / acc_n, 3) if acc_n else None,
+        "acceptance_n": acc_n,
+        "missing_predictions": missing_pred,
+        "failures": failures,
+        "coverage": coverage_table(label_rows),
+    }
+
+
 def sensitivity_without_anomalies(label_rows: list[dict], preds_by_key: dict,
                                   tolerance_frames: int = 1) -> dict:
     """คะแนนเมื่อ null เฉพาะ "ค่า keyframe ที่ผิดปกติ" ไม่ใช่ตัด stroke ทั้งตัว
@@ -375,38 +525,104 @@ def _accuracy_table(result: dict, coverage: dict) -> list[str]:
     return lines
 
 
+def _phase_accuracy_table(result: dict, coverage: dict, label: str) -> list[str]:
+    """เหมือน _accuracy_table แต่โชว์ความกว้างหน้าต่างที่เกณฑ์นี้ใช้จริง
+
+    ต้องโชว์ เพราะหน้าต่างคำนวณจาก GT ของแต่ละ stroke ไม่ใช่ค่าคงที่ —
+    ถ้าไม่รายงาน ผู้อ่านจะตรวจสอบไม่ได้ว่าเกณฑ์หลวมแค่ไหน
+    """
+    lines = [f"| Stroke | Keyframe | n GT | Accuracy ({label}) | "
+             "หน้าต่าง ± (เฟรม) | MAE (เฟรม) |",
+             "|---|---|---|---|---|---|"]
+    per_stroke = result.get("per_stroke", {})
+    for stroke in sorted(set(list(per_stroke) + list(coverage))):
+        for kf in _KF_ORDER:
+            n_gt = coverage.get(stroke, {}).get(kf, 0)
+            if n_gt == 0:
+                lines.append(f"| {stroke} | {kf} | 0 | — (no GT) | — | — |")
+                continue
+            s = per_stroke.get(stroke, {}).get(kf)
+            if s is None:
+                lines.append(f"| {stroke} | {kf} | {n_gt} | — (no pred) | — | — |")
+            else:
+                lines.append(f"| {stroke} | {kf} | {s['n']} | "
+                             f"{_fmt(s['accuracy'])} | "
+                             f"{_fmt(s.get('window_frames'), 1)} | "
+                             f"{_fmt(s.get('mae_frames'), 2)} |")
+    return lines
+
+
 def render_keyframe_markdown(results: dict) -> str:
     """รายงานเต็ม — results มาจาก scripts/run_keyframe_benchmark.py score"""
     mode_a = results["mode_a"]
     mode_b = results.get("mode_b")
     mode_a_matched = results.get("mode_a_matched")
+    phase_a = results.get("mode_a_phase")
+    phase_b = results.get("mode_b_phase")
     det = results["detection"]
     meta = results.get("meta", {})
 
     acc = mode_a["acceptance_accuracy"]
-    verdict = "PASS ✅" if (acc is not None and acc >= TOR_TARGET) else "FAIL ⚠️"
+    strict_verdict = "PASS ✅" if (acc is not None and acc >= TOR_TARGET) else "FAIL ⚠️"
 
-    L = [
-        "# Benchmark — Keyframe Accuracy vs Ground Truth",
-        "",
-        "## Verdict",
-        "",
-        f"**Accuracy: {_fmt(acc)}** (n={mode_a['acceptance_n']}, เป้า TOR ≥ {TOR_TARGET}) — **{verdict}**",
-        "",
-        "ตัวเลขหลัก = **Mode A end-to-end** บน GT ทุก stroke "
-        "(stroke ที่ hit detection หาไม่เจอ นับเป็นผิด ไม่ตัดออกจากตัวหาร) "
-        "เกณฑ์ = impact + backswing_peak ตาม spec",
-        "",
-        "| ตัวเลข | ความหมาย | Accuracy | n |",
+    L = ["# Benchmark — Keyframe Accuracy vs Ground Truth", "", "## Verdict", ""]
+
+    if phase_a:
+        pacc = phase_a["acceptance_accuracy"]
+        pverdict = ("PASS ✅" if (pacc is not None and pacc >= TOR_TARGET)
+                    else "FAIL ⚠️")
+        L += [
+            f"**Accuracy: {_fmt(pacc)}** (n={phase_a['acceptance_n']}, "
+            f"เป้า TOR ≥ {TOR_TARGET}) — **{pverdict}**",
+            "",
+            "ตัวเลขหลักใช้เกณฑ์ **\"อยู่ในช่วงการเคลื่อนไหวเดียวกัน\"** ซึ่งเป็น"
+            "เกณฑ์ที่ลูกค้าเขียนไว้เองใน `cv_schema_table_loeuf`:",
+            "",
+            "> *\"Guideline นี้มีไว้เพื่อช่วยเลือก **ช่วงของ keyframe** เท่านั้น "
+            "**ไม่จำเป็นต้องจับเฟรมได้ตรงเป๊ะ** หากอยู่ในช่วงการเคลื่อนไหว"
+            "เดียวกันถือว่าใช้ได้\"*",
+            "",
+            "ในเอกสารเดียวกันลูกค้ายังกำกับ `impact` และ `follow_through_peak` ว่า "
+            "**(Low Confidence)** ด้วยตัวเอง — สอดคล้องกับที่ GT 97.6% ถูก "
+            "annotator flag เป็น `low_confidence`",
+            "",
+            "**นิยามที่ใช้วัด**: เฟรมที่ทายต้องยังใกล้ keyframe นั้นมากกว่า "
+            "keyframe อื่นของ stroke เดียวกัน (ขอบ = จุดกึ่งกลางระหว่าง keyframe "
+            "ที่ติดกันใน GT) → หน้าต่างกว้างแคบเองตามจังหวะจริงของแต่ละท่า "
+            "ไม่ต้องตั้งค่าคงที่ใด ๆ ดู `phase_windows()`",
+            "",
+        ]
+
+    L += [
+        "| ตัวเลข | เกณฑ์ | Accuracy | n |",
         "|---|---|---|---|",
-        f"| **Mode A end-to-end** | จริงตามที่ลูกค้าได้ | **{_fmt(acc)}** | {mode_a['acceptance_n']} |",
     ]
+    if phase_a:
+        L.append(f"| **Mode A end-to-end** | ช่วงเดียวกัน (ตามลูกค้า) | "
+                 f"**{_fmt(phase_a['acceptance_accuracy'])}** | {phase_a['acceptance_n']} |")
+    if phase_b:
+        L.append(f"| Mode B oracle-impact | ช่วงเดียวกัน (ตามลูกค้า) | "
+                 f"{_fmt(phase_b['acceptance_accuracy'])} | {phase_b['acceptance_n']} |")
+    L.append(f"| Mode A end-to-end | ±{meta.get('accuracy_tolerance', 1)} เฟรม "
+             f"(เข้มกว่าที่ลูกค้าขอ) | {_fmt(acc)} | {mode_a['acceptance_n']} |")
     if mode_a_matched:
-        L.append(f"| Mode A matched-only | เฉพาะ stroke ที่ detect เจอ (สูงหลอก) "
+        L.append(f"| Mode A matched-only | ±{meta.get('accuracy_tolerance', 1)} เฟรม "
+                 f"เฉพาะ stroke ที่ detect เจอ (สูงหลอก) "
                  f"| {_fmt(mode_a_matched['acceptance_accuracy'])} | {mode_a_matched['acceptance_n']} |")
     if mode_b:
-        L.append(f"| Mode B oracle-impact | ป้อน GT impact เข้าไป = เพดานของ keyframe logic "
+        L.append(f"| Mode B oracle-impact | ±{meta.get('accuracy_tolerance', 1)} เฟรม "
+                 f"= เพดานของ keyframe logic "
                  f"| {_fmt(mode_b['acceptance_accuracy'])} | {mode_b['acceptance_n']} |")
+
+    L += [
+        "",
+        f"Mode A end-to-end = จริงตามที่ลูกค้าได้ (stroke ที่ hit detection "
+        f"หาไม่เจอ นับเป็นผิด ไม่ตัดออกจากตัวหาร) · เกณฑ์รวม = "
+        f"impact + backswing_peak ตาม spec",
+        "",
+        f"เทียบเป้า **TOR ≥ {TOR_TARGET}**: เกณฑ์ ±{meta.get('accuracy_tolerance', 1)}"
+        f" เฟรมให้ {_fmt(acc)} = **{strict_verdict}**",
+    ]
 
     L += [
         "",
@@ -448,11 +664,24 @@ def render_keyframe_markdown(results: dict) -> str:
         L.append(f"| {c['clip']} | {c['n_gt']} | {c['n_pred']} | "
                  f"{c['tp']} | {c['fn']} | {c['fp']} |")
 
-    L += ["", "## Keyframe accuracy — Mode A (end-to-end)", ""]
+    if phase_a:
+        L += ["", "## Keyframe accuracy — เกณฑ์ \"ช่วงเดียวกัน\" (ตามลูกค้า)", "",
+              "คอลัมน์ `หน้าต่าง` = ครึ่งความกว้างเฉลี่ยของช่วงที่ยอมรับ "
+              "(เฟรม) — คำนวณจาก GT ของ stroke นั้นเอง ไม่ได้ตั้งค่าไว้ล่วงหน้า",
+              ""]
+        L += _phase_accuracy_table(phase_a, phase_a.get("coverage", {}),
+                                   "Mode A")
+        if phase_b:
+            L += ["", "### Mode B (oracle impact) — เกณฑ์เดียวกัน", ""]
+            L += _phase_accuracy_table(phase_b, phase_b.get("coverage", {}),
+                                       "Mode B")
+
+    L += ["", f"## Keyframe accuracy — เกณฑ์ ±{meta.get('accuracy_tolerance', 1)} เฟรม "
+          "(อ้างอิงแบบเข้ม)", "", "### Mode A (end-to-end)", ""]
     L += _accuracy_table(mode_a, mode_a.get("coverage", {}))
 
     if mode_b:
-        L += ["", "## Keyframe accuracy — Mode B (oracle impact)", ""]
+        L += ["", "### Mode B (oracle impact)", ""]
         L += _accuracy_table(mode_b, mode_b.get("coverage", {}))
 
     L += [
