@@ -4,7 +4,7 @@ import numpy as np
 from .keyframes import (extract_keyframes, refine_keyframes_for_type,
                         trophy_position_frame)
 from .metrics import calculate_cm_per_px, get_racket_metrics, _pick_racket_detection, _racket_tip_center_px
-from .classifier import classify_stroke
+from .classifier import classify_stroke_with_confidence
 from .aggregator import build_phase2_aggregations
 from ..ball import BallObservations, build_ball_block
 from ..config import CORE_LANDMARKS, STROKE_TYPES
@@ -107,8 +107,16 @@ def _inference_clean(pose, start_frame: int, end_frame: int, config) -> bool:
     return bool(max_jump < config.inference_jump_ratio * height_norm)
 
 
-def _recommended_action(detection_status: str, cf1: float, is_clean: bool, config) -> str:
-    """A9 — priority logic ตรงตาม schema doc (031-043 field definition, A9 row)"""
+def _recommended_action(detection_status: str, cf1: float, is_clean: bool, config,
+                        stroke_type_confidence: float = 1.0) -> str:
+    """A9 — priority logic ตรงตาม schema doc (031-043 field definition, A9 row)
+
+    stroke_type_confidence: ความมั่นใจของการแยกประเภทท่า — ถ้าต่ำ ต้องส่งให้
+    โค้ชดูเอง ไม่ใช่ปล่อยผ่านพร้อมชื่อท่าที่อาจผิด
+    เหตุผล: ชุดข้อมูลปัจจุบันถ่ายแบบ "หนึ่งคลิปหนึ่งท่า" ทุกคลิป และ SL กับ VL
+    ไม่เคยอยู่คลิปเดียวกันเลย -> ยืนยันไม่ได้ว่าโมเดลแยกสองท่านี้ได้จริง
+    (LOPO: SL recall 0.000 ไปปนกับ VL หมด) ดู docs/STROKE_CLASSIFICATION.md
+    """
     if detection_status == "failed":
         return "discard"
     if cf1 < config.coach_review_threshold:
@@ -116,6 +124,8 @@ def _recommended_action(detection_status: str, cf1: float, is_clean: bool, confi
     if detection_status == "partial":
         return "coach_review"
     if not is_clean:
+        return "coach_review"
+    if stroke_type_confidence < config.stroke_type_review_threshold:
         return "coach_review"
     if cf1 < config.auto_accept_threshold:
         return "coach_review"
@@ -329,8 +339,9 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
         c_metric = blocks
 
         # Stroke Type (A)
-        stype = classify_stroke(track.pose, impact_frame, dominant_side, keyframe_metrics=c_metric,
-                                keyframes=kf)
+        stype, stype_conf = classify_stroke_with_confidence(
+            track.pose, impact_frame, dominant_side, keyframe_metrics=c_metric,
+            keyframes=kf)
         if stype in stroke_counts:
             stroke_counts[stype] += 1
 
@@ -440,7 +451,8 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
         is_clean = all(b_keyframe[n]["detected"] for n in A8_KEYFRAME_NAMES) and not vq["issues"]
 
         cf2 = _inference_clean(track.pose, stroke_start_frame, stroke_end_frame, config)
-        recommended_action = _recommended_action(detection_status, cf1, is_clean, config)
+        recommended_action = _recommended_action(detection_status, cf1, is_clean,
+                                                 config, stype_conf)
 
         # 024-A: stroke_root
         a_root = {

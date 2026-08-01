@@ -71,6 +71,9 @@ class PipelineConfig:
     # --- confidence thresholds (CF1 → A9, ตาม schema doc) ---
     auto_accept_threshold: float = 0.85
     coach_review_threshold: float = 0.60
+    # ความมั่นใจของการ "แยกประเภทท่า" ต่ำกว่านี้ -> ส่งให้โค้ชตรวจเอง
+    # ไม่ปล่อยผ่านพร้อมชื่อท่าที่อาจผิด (ดู schema_builder/builder.py:_recommended_action)
+    stroke_type_review_threshold: float = 0.60
 
     # --- visibility flag thresholds ---
     visible_threshold: float = 0.80

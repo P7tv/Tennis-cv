@@ -108,6 +108,10 @@ def _rule_based_classify(lm, wrist_idx, dominant_side):
         return "FH" if wrist_x < spine_x else "BH"
 
 
+# ความมั่นใจที่ให้เมื่อไม่ได้ใช้ ML (กฎเรขาคณิตล้วน) — วัดแล้วกฎอย่างเดียวได้
+# ความแม่นรวม 0.465 จึงถือว่า "ไม่มั่นใจ" ให้ไปเข้าคิว coach_review
+RULE_ONLY_CONFIDENCE = 0.4
+
 CLASSIFY_VIS_THRESHOLD = 0.3
 CLASSIFY_VIS_SEARCH_FRAMES = 5
 
@@ -167,8 +171,17 @@ def build_stroke_features(pose_series, impact_frame, dominant_side="right",
     return feats
 
 
-def classify_stroke(pose_series, impact_frame, dominant_side="right", keyframe_metrics: dict | None = None,
+def classify_stroke(pose_series, impact_frame, dominant_side="right",
+                    keyframe_metrics: dict | None = None,
                     keyframes: dict | None = None):
+    """คืน stroke type อย่างเดียว (ตัวห่อของ classify_stroke_with_confidence)"""
+    return classify_stroke_with_confidence(
+        pose_series, impact_frame, dominant_side, keyframe_metrics, keyframes)[0]
+
+
+def classify_stroke_with_confidence(pose_series, impact_frame, dominant_side="right",
+                                    keyframe_metrics: dict | None = None,
+                                    keyframes: dict | None = None):
     """
     Classify the stroke type (FH, BH, SV) based on pose at impact.
 
@@ -187,7 +200,7 @@ def classify_stroke(pose_series, impact_frame, dominant_side="right", keyframe_m
     (fallback เป็น ±WINDOW_FALLBACK_FRAMES รอบ impact)
     """
     if impact_frame is None or impact_frame >= len(pose_series.landmarks):
-        return "FH"  # ไม่มีเฟรมให้ดูจริง ๆ
+        return "FH", 0.0  # ไม่มีเฟรมให้ดูจริง ๆ
 
     wrist_idx = R_WRIST if dominant_side == "right" else L_WRIST
 
@@ -206,13 +219,13 @@ def classify_stroke(pose_series, impact_frame, dominant_side="right", keyframe_m
 
     if np.isnan(lm[wrist_idx][0]) or np.isnan(lm[NOSE][0]) \
             or np.isnan(lm[R_SHOULDER][0]) or np.isnan(lm[L_SHOULDER][0]):
-        return "FH"   # ไม่มีพิกัดให้คำนวณจริง ๆ
+        return "FH", 0.0   # ไม่มีพิกัดให้คำนวณจริง ๆ
 
     rule_result = _rule_based_classify(lm, wrist_idx, dominant_side)
 
     model_bundle = _load_stroke_model()
     if model_bundle is None:
-        return rule_result
+        return rule_result, RULE_ONLY_CONFIDENCE
 
     if len(model_bundle) == 3:
         clf, feature_cols, ml_supported_classes = model_bundle
@@ -225,7 +238,7 @@ def classify_stroke(pose_series, impact_frame, dominant_side="right", keyframe_m
     # class ที่ตัวเองไม่เคยเรียนรู้ decision boundary จริงจัง (ดูเหตุผลใน
     # train_model/train_stroke_classifier.py: MIN_CLASS_SAMPLES)
     if ml_supported_classes is not None and rule_result not in ml_supported_classes:
-        return rule_result
+        return rule_result, RULE_ONLY_CONFIDENCE
 
     feats = build_stroke_features(pose_series, impact_frame, dominant_side,
                                   keyframe_metrics, keyframes)
@@ -237,8 +250,8 @@ def classify_stroke(pose_series, impact_frame, dominant_side="right", keyframe_m
         best_idx = int(np.argmax(proba))
         best_prob = float(proba[best_idx])
         if best_prob < ML_CONFIDENCE_THRESHOLD:
-            return rule_result
-        return str(clf.classes_[best_idx])
+            return rule_result, best_prob
+        return str(clf.classes_[best_idx]), best_prob
     except Exception as e:
         print(f"Stroke ML predict failed, falling back to rule-based: {e}")
-        return rule_result
+        return rule_result, RULE_ONLY_CONFIDENCE

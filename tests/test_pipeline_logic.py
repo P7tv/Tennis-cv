@@ -2210,3 +2210,37 @@ def test_stroke_features_single_source_of_truth():
     assert "wrist_minus_spine_x_dominant_relative" in f
     # ข้อมือขวาอยู่ซ้ายของ spine -> ค่าติดลบสำหรับคนถนัดขวา
     assert f["wrist_minus_spine_x_dominant_relative"] < 0
+
+
+def test_low_stroke_type_confidence_routes_to_coach_review():
+    """ไม่มั่นใจว่าเป็นท่าอะไร -> ต้องส่งให้โค้ชตรวจ ไม่ปล่อยผ่านพร้อมชื่อท่าที่อาจผิด
+
+    เหตุผล: ชุดข้อมูลถ่ายแบบ 'หนึ่งคลิปหนึ่งท่า' ทุกคลิป และ SL/VL ไม่เคยอยู่
+    คลิปเดียวกัน -> ยืนยันไม่ได้ว่าโมเดลแยกสองท่านี้ได้จริง (LOPO SL = 0.000)
+    ดู docs/STROKE_CLASSIFICATION.md
+    """
+    from loeuf_cv.config import PipelineConfig
+    from loeuf_cv.schema_builder.builder import _recommended_action
+    cfg = PipelineConfig()
+    ok = dict(detection_status="valid", cf1=0.99, is_clean=True, config=cfg)
+    assert _recommended_action(**ok, stroke_type_confidence=0.95) == "auto_accept"
+    assert _recommended_action(**ok, stroke_type_confidence=0.30) == "coach_review"
+
+
+def test_recommended_action_defaults_stay_backward_compatible():
+    """ไม่ส่ง stroke_type_confidence มา = พฤติกรรมเดิมทุกประการ"""
+    from loeuf_cv.config import PipelineConfig
+    from loeuf_cv.schema_builder.builder import _recommended_action
+    cfg = PipelineConfig()
+    assert _recommended_action("valid", 0.99, True, cfg) == "auto_accept"
+    assert _recommended_action("failed", 0.99, True, cfg) == "discard"
+    assert _recommended_action("partial", 0.99, True, cfg) == "coach_review"
+
+
+def test_classify_stroke_with_confidence_returns_pair():
+    from loeuf_cv.schema_builder.classifier import (
+        classify_stroke, classify_stroke_with_confidence)
+    ts = _pose_with_visibility(0.9)
+    t, c = classify_stroke_with_confidence(ts, 30, "right")
+    assert isinstance(t, str) and 0.0 <= c <= 1.0
+    assert classify_stroke(ts, 30, "right") == t
