@@ -13475,8 +13475,8 @@
     "fps": "29.97",
     "total_minutes": 31.3,
     "checkpoint": "runs/pose/tennis_ball_racket_pose_finetune_best.pt",
-    "git_sha": "c147169",
-    "run_date": "2026-08-01 16:02",
+    "git_sha": "527126d",
+    "run_date": "2026-08-01 16:23",
     "accuracy_tolerance": 1,
     "match_tolerance": 10
   }

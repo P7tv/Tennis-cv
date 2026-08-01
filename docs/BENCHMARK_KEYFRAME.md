@@ -17,7 +17,7 @@
 - Ground truth: 16 ไฟล์ / 172 stroke / annotator: atikan
 - fps ต้นทาง: 29.97 · ความยาวรวม ~31.3 นาที
 - Checkpoint: `runs/pose/tennis_ball_racket_pose_finetune_best.pt`
-- git: `c147169` · วันที่รัน: 2026-08-01 16:02
+- git: `527126d` · วันที่รัน: 2026-08-01 16:23
 - Accuracy tolerance: ±1 เฟรม · Match tolerance: ±10 เฟรม
 
 ## Detection (Mode A)
