@@ -337,10 +337,17 @@ def _find_ball_inflections(ball_traj: np.ndarray) -> set[int]:
 HIT_WINDOW = 8  # เฟรม — เท่ากับ window ที่ _find_wrist_peaks ใช้หา local max อยู่แล้ว
 
 # ค่า probability ต่ำกว่านี้จาก hit_classifier → ทิ้ง candidate
-# ⚠️ 0.4 เป็นค่าที่ permissive มาก วัด end-to-end แล้วได้ precision 0.101
-# (FP 762 ตัวจาก GT 142) — ปรับผ่าน param ml_prob_threshold ของ
-# detect_hit_events() ได้ ดู scripts/tune_hit_detection.py สำหรับผลการ sweep
-ML_PROB_THRESHOLD = 0.4
+#
+# 0.6 มาจาก 2 หลักฐานที่ตรงกัน (2026-08-01):
+#   - Leave-One-Person-Out: F1 สูงสุดที่ 0.6 (0.461) — ตัวเลขที่เชื่อถือได้
+#   - benchmark 16 คลิป: 0.4→0.6 ทำให้ precision 0.443→0.674 (FP 196→72)
+#     โดย recall ลดแค่ 0.907→0.866 และ acceptance ไม่เปลี่ยนเลย (0.267)
+# เดิมเป็น 0.4 ซึ่ง permissive เกินไป
+#
+# ปรับผ่าน param ml_prob_threshold ของ detect_hit_events() ได้
+# ⚠️ การแก้ตัวแปรนี้ตอน runtime ไม่มีผล — มันถูกผูกเป็น default argument
+# ตั้งแต่ตอนนิยามฟังก์ชัน ต้องส่งเป็น argument เท่านั้น
+ML_PROB_THRESHOLD = 0.6
 
 # prob เกินนี้ → ยก confidence เป็น HIGH (มีผลต่อ tie-break ตอน de-dup)
 ML_CONFIDENT_PROB = 0.8
@@ -444,7 +451,7 @@ def _hit_window_features(f: int, speed: np.ndarray, window: int = HIT_WINDOW) ->
     return out
 
 
-def _extract_hit_features(f: int, ball_traj: np.ndarray, speed: np.ndarray, d_px: float, width: int, height: int, racket_bboxes: dict | None) -> dict:
+def _extract_hit_features(f: int, ball_traj: np.ndarray, speed: np.ndarray, d_px: float, width: int, height: int, racket_bboxes: dict | None, scale_ctx=None) -> dict:
     total_frames = len(ball_traj)
     features = {
         "wrist_speed": 0.0,
@@ -498,7 +505,84 @@ def _extract_hit_features(f: int, ball_traj: np.ndarray, speed: np.ndarray, d_px
             best_r_dist = min(best_r_dist, ((ball_pos[0] - rcx)**2 + (ball_pos[1] - rcy)**2)**0.5)
         features["racket_dist"] = float(best_r_dist)
 
+    if scale_ctx is not None:
+        features.update(_scaled_features(f, features, scale_ctx))
+
     return features
+
+
+# ─────────────────────────────────────────────────────────
+# ฟีเจอร์ที่ normalize ด้วยขนาดตัว (ข้ามคน/ข้ามระยะกล้องได้)
+# ─────────────────────────────────────────────────────────
+#
+# ทำไมต้องมี: wrist_speed ดิบเป็น px/frame ซึ่งขึ้นกับระยะกล้องและขนาดตัวคน
+# คนที่ยืนไกลกล้องได้ค่าต่ำกว่าคนที่ยืนใกล้ทั้งที่ตีแรงเท่ากัน -> โมเดลเรียน
+# "ระยะกล้อง" แทน "การตี" แล้วย้ายข้ามคนไม่ได้
+#
+# วัดด้วย Leave-One-Person-Out: F1 0.365 -> 0.461 · precision 29.6% -> 39.8%
+# และฟีเจอร์ 4 อันดับแรกกลายเป็นตัวที่ normalize แล้วทั้งหมด
+# ดู scripts/train_hit_classifier_from_cache.py
+
+SCALED_FEATURE_COLS = [
+    "wrist_speed_bw", "ball_dist_bw", "racket_dist_bw",
+    "speed_pre_bw", "speed_post_bw", "speed_std_bw",
+    "wrist_dir_change", "wrist_y_rel", "wrist_x_rel",
+]
+
+
+def body_scale_context(pose, width: int, height: int):
+    """คำนวณไม้บรรทัด (ความกว้างไหล่ px) + สัญญาณต่อเฟรมที่ไม่มีหน่วย px
+
+    เรียกครั้งเดียวต่อ track แล้วส่งต่อให้ _extract_hit_features ทุก candidate
+    """
+    from .config import L_SHOULDER, L_WRIST, R_SHOULDER, R_WRIST
+
+    lm = pose.landmarks
+    n = len(lm)
+    sw = np.abs(lm[:, R_SHOULDER, 0] - lm[:, L_SHOULDER, 0]) * width
+    bw = float(np.nanmedian(sw)) if not np.isnan(sw).all() else 0.0
+    if not np.isfinite(bw) or bw < 1.0:
+        bw = max(1.0, height * 0.1)   # fallback กันหารศูนย์
+
+    sh_x = (lm[:, R_SHOULDER, 0] + lm[:, L_SHOULDER, 0]) / 2.0 * width
+    sh_y = (lm[:, R_SHOULDER, 1] + lm[:, L_SHOULDER, 1]) / 2.0 * height
+
+    dir_change = np.full(n, 1.0)
+    y_rel = np.zeros(n)
+    x_rel = np.zeros(n)
+    for widx in (R_WRIST, L_WRIST):
+        wx, wy = lm[:, widx, 0] * width, lm[:, widx, 1] * height
+        for f in range(2, n - 2):
+            if np.isnan([wx[f - 2], wx[f], wx[f + 2]]).any():
+                continue
+            v1 = np.array([wx[f] - wx[f - 2], wy[f] - wy[f - 2]])
+            v2 = np.array([wx[f + 2] - wx[f], wy[f + 2] - wy[f]])
+            n1, n2 = np.linalg.norm(v1), np.linalg.norm(v2)
+            if n1 <= 0 or n2 <= 0:
+                continue
+            c = float(np.dot(v1, v2) / (n1 * n2))
+            # เก็บข้อมือข้างที่หักเหมากกว่า (ข้างที่กำลังตี)
+            if c < dir_change[f]:
+                dir_change[f] = c
+                y_rel[f] = (wy[f] - sh_y[f]) / bw
+                x_rel[f] = abs(wx[f] - sh_x[f]) / bw
+    return bw, {"wrist_dir_change": dir_change,
+                "wrist_y_rel": y_rel, "wrist_x_rel": x_rel}
+
+
+def _scaled_features(f: int, features: dict, scale_ctx) -> dict:
+    bw, extra = scale_ctx
+    out = {
+        "wrist_speed_bw": features.get("wrist_speed", 0.0) / bw,
+        "ball_dist_bw": min(features.get("ball_dist", 9999.0), 9999.0) / bw,
+        "racket_dist_bw": min(features.get("racket_dist", 9999.0), 9999.0) / bw,
+        "speed_pre_bw": features.get("speed_pre_mean", 0.0) / bw,
+        "speed_post_bw": features.get("speed_post_mean", 0.0) / bw,
+        "speed_std_bw": features.get("speed_std_window", 0.0) / bw,
+    }
+    for k, v in extra.items():
+        out[k] = float(v[f]) if f < len(v) and not np.isnan(v[f]) else 0.0
+    return out
 
 # ─────────────────────────────────────────────────────────
 # FUSION: Primary Wrist + Secondary Ball + Fallback Racket
@@ -539,6 +623,10 @@ def detect_hit_events(
     ball_inflections = _find_ball_inflections(ball_traj)
 
     all_candidates: list[dict] = []
+
+    # ไม้บรรทัดขนาดตัวต่อ track — คำนวณครั้งเดียว ใช้ซ้ำทุก candidate
+    scale_by_track = {t.track_id: body_scale_context(t.pose, width, height)
+                      for t in tracks}
 
     # ─── Primary: Wrist Peaks per Track ───
     for t in tracks:
@@ -584,7 +672,9 @@ def detect_hit_events(
                         continue
 
                 d_val = float(d) if ball_nearby else None
-                feats = _extract_hit_features(f, ball_traj, speed, d_val, width, height, racket_bboxes)
+                feats = _extract_hit_features(f, ball_traj, speed, d_val, width,
+                                              height, racket_bboxes,
+                                              scale_ctx=scale_by_track[t.track_id])
 
                 all_candidates.append({
                     "frame": f,
@@ -655,7 +745,9 @@ def detect_hit_events(
                             best_track = t
 
             if best_dist < px_thresh and best_track is not None:
-                feats = _extract_hit_features(f, ball_traj, None, best_dist, width, height, racket_bboxes)
+                feats = _extract_hit_features(
+                    f, ball_traj, None, best_dist, width, height, racket_bboxes,
+                    scale_ctx=scale_by_track.get(best_track.track_id))
                 all_candidates.append({
                     "frame": f,
                     "timestamp_sec": round(f / fps, 2),

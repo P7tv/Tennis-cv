@@ -310,7 +310,7 @@ def stage_track(args, sessions, manifest: Manifest):
 # stage 2: predict
 # ---------------------------------------------------------------------------
 
-def _build_for_mode(cached: dict, session, mode: str):
+def _build_for_mode(cached: dict, session, mode: str, ml_threshold=None):
     """คืน (schema, hit_events) — โหมด A ให้ pipeline หา impact เอง,
     โหมด B ป้อน GT impact เข้าไป (oracle)
 
@@ -339,7 +339,9 @@ def _build_for_mode(cached: dict, session, mode: str):
             hit_events = detect_hit_events(
                 ball_traj, [track], fps, vm["width"], vm["height"],
                 racket_bboxes=cached["racket_bboxes"],
-                ball_measured=ball_measured)
+                ball_measured=ball_measured,
+                **({"ml_prob_threshold": ml_threshold}
+                   if ml_threshold is not None else {}))
     else:
         gt = sorted((s for s in session.strokes
                      if s.keyframes.get("impact") is not None),
@@ -381,7 +383,8 @@ def stage_predict(args, sessions, manifest: Manifest):
 
             t0 = time.time()
             try:
-                schema, hit_events = _build_for_mode(cached, session, mode)
+                schema, hit_events = _build_for_mode(cached, session, mode,
+                                                    ml_threshold=getattr(args, "ml_threshold", None))
                 slim = _slim_schema(schema)
                 out.parent.mkdir(parents=True, exist_ok=True)
                 out.write_text(json.dumps(slim, ensure_ascii=False, indent=1),
@@ -604,6 +607,10 @@ def main():
     ap.add_argument("--accuracy-tolerance", type=int, default=1,
                     help="±N เฟรม สำหรับตัดสินว่า keyframe ถูก")
     ap.add_argument("--report", default="docs/BENCHMARK_KEYFRAME.md")
+    ap.add_argument("--ml-threshold", type=float, default=None,
+                    help="ทับ ML_PROB_THRESHOLD (ต้องส่งเป็น argument — "
+                         "การแก้ตัวแปรโมดูลไม่มีผลเพราะเป็น default argument "
+                         "ที่ผูกค่าตอนนิยามฟังก์ชัน)")
     args = ap.parse_args()
 
     dataset_root = Path(args.dataset_root)
