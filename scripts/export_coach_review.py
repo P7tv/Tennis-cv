@@ -72,7 +72,8 @@ def main():
     cfg = PipelineConfig(dominant_side=c["dominant_side"],
                          subject_height_cm=c["subject_height_cm"])
     traj, meas = extract_ball_trajectory_kalman(
-        c["ball_bboxes"], len(track.pose.landmarks), return_measured=True)
+        c["ball_bboxes"], len(track.pose.landmarks), return_measured=True,
+        fps=fps)
     hits = detect_hit_events(traj, [track], fps, vm["width"], vm["height"],
                              racket_bboxes=c.get("racket_bboxes"),
                              ball_measured=meas)

@@ -1,6 +1,42 @@
 import numpy as np
 
 # ---------------------------------------------------------------------------
+# 🔴 หน่วยของค่าคงที่ในไฟล์นี้ — อ่านก่อนแก้
+# ---------------------------------------------------------------------------
+# ตัวเลข offset ทุกตัวด้านล่างคาลิเบรตจาก GT ของลูกค้าซึ่งถ่ายที่ 29.97fps
+# ทั้งชุด ค่าที่เขียนไว้จึงเป็น "จำนวนเฟรมที่ 29.97fps" ไม่ใช่จำนวนเฟรมสัมบูรณ์
+#
+# ⚠️ ถ้าใช้ค่าเหล่านี้เป็นเฟรมตรง ๆ กับคลิป 60fps จะได้ระยะเวลาเหลือครึ่งเดียว
+# เงียบ ๆ (เช่น follow_through ของ FH ที่ตั้งใจให้เป็น 500 ms จะกลายเป็น 250 ms)
+# — ไม่ error ไม่มีอะไรเตือน แค่ accuracy ตกทั้งกระดาน  ลูกค้าแจ้งว่าชุดคลิป
+# รอบหน้าจะถ่ายที่ >= 60fps ตาม spec (MT4 "fps >= 60 required for KN")
+#
+# ทุกจุดที่ใช้ค่าพวกนี้จึงต้องผ่าน _f() เพื่อสเกลตาม fps จริงของคลิป
+# ที่ fps == CALIBRATION_FPS ผลลัพธ์เท่าเดิมเป๊ะ (สเกล = 1.0) → ตัวเลข
+# benchmark ที่วัดไว้ทั้งหมดไม่เปลี่ยน
+CALIBRATION_FPS = 29.97
+
+# fps ที่ต่างจากค่าคาลิเบรตน้อยกว่านี้ ให้ถือว่า "เท่ากัน" — cv2 อ่าน fps ของ
+# คลิปชุดนี้ได้ 29.9735 ไม่ใช่ 29.97 เป๊ะ ไม่ควรให้ความต่าง 0.01% ไปขยับผล
+# (นิยามเดียวกับ hit_detection.FPS_EQUAL_TOLERANCE — ดูเหตุผลเต็มที่นั่น)
+FPS_EQUAL_TOLERANCE = 0.02
+
+
+def _f(frames_at_calib: float, fps: float | None) -> int:
+    """แปลง 'จำนวนเฟรมที่ 29.97fps' → จำนวนเฟรมที่ fps จริงของคลิป
+
+    fps ที่เป็น None/0 → ถือว่าเป็นคลิปคาลิเบรต (คืนค่าเดิม) เพื่อไม่ให้
+    caller เก่าที่ยังไม่ส่ง fps พังแบบเงียบ ๆ เป็น 0 เฟรม
+    """
+    if not fps or fps <= 0:
+        return int(round(frames_at_calib))
+    r = float(fps) / CALIBRATION_FPS
+    if abs(r - 1.0) < FPS_EQUAL_TOLERANCE:
+        return int(round(frames_at_calib))
+    return int(round(frames_at_calib * r))
+
+
+# ---------------------------------------------------------------------------
 # Backswing peak (B2) — ค่าคงที่ที่คาลิเบรตกับ ground truth ของลูกค้า
 # ---------------------------------------------------------------------------
 # ⚠️ อ่านก่อนแก้ตัวเลขพวกนี้ — มันไม่ใช่ค่าที่เดามา และไม่ใช่ "การตรวจจับ" ด้วย
@@ -83,19 +119,20 @@ def _is_serve_pose(wrist_path, head_path, impact_frame: int) -> bool:
     return bool(wy < hy)
 
 
-def _serve_backswing(wrist_path, impact_frame: int) -> int:
+def _serve_backswing(wrist_path, impact_frame: int, fps: float | None) -> int:
     """เฟรมที่ข้อมืออยู่สูงสุด (min y) ในช่วง trophy ที่เป็นไปได้"""
-    ws = max(0, impact_frame - SERVE_SEARCH_MAX)
-    we = max(0, impact_frame - SERVE_SEARCH_MIN)
+    ws = max(0, impact_frame - _f(SERVE_SEARCH_MAX, fps))
+    we = max(0, impact_frame - _f(SERVE_SEARCH_MIN, fps))
     if we > ws:
         seg = wrist_path[ws:we, 1]
         if not np.isnan(seg).all():
             return ws + int(np.nanargmin(seg))
-    return max(0, impact_frame - SERVE_FALLBACK_OFFSET)
+    return max(0, impact_frame - _f(SERVE_FALLBACK_OFFSET, fps))
 
 
 def _is_volley_swing(wrist_path, impact_frame: int,
-                     shoulder_width: float | None) -> bool:
+                     shoulder_width: float | None,
+                     fps: float | None = None) -> bool:
     """volley = ข้อมือกวาดในแนวนอนสั้น ๆ (บล็อกลูก ไม่เหวี่ยงเต็มวง)
 
     หาร amplitude ด้วยความกว้างไหล่เพื่อให้เทียบข้ามขนาดคน/ระยะกล้องได้
@@ -103,7 +140,7 @@ def _is_volley_swing(wrist_path, impact_frame: int,
     """
     if not shoulder_width or shoulder_width <= 1e-6:
         return False
-    a = max(0, impact_frame - VOLLEY_AMP_WINDOW)
+    a = max(0, impact_frame - _f(VOLLEY_AMP_WINDOW, fps))
     seg = wrist_path[a:impact_frame + 1, 0]
     if len(seg) < 3 or np.isnan(seg).all():
         return False
@@ -111,9 +148,15 @@ def _is_volley_swing(wrist_path, impact_frame: int,
     return bool(amp < VOLLEY_AMP_THRESHOLD)
 
 
-def _wrist_vy(wrist_path, impact_frame: int) -> float:
-    """ความเร็วแนวดิ่งของข้อมือตอน impact (บวก = สับลง)"""
-    i0 = impact_frame - SLICE_VY_LOOKBACK
+def _wrist_vy(wrist_path, impact_frame: int, fps: float | None) -> float:
+    """ความเร็วแนวดิ่งของข้อมือตอน impact (บวก = สับลง)
+
+    lookback สเกลตาม fps ด้วย เพราะ SLICE_VY_THRESHOLD เป็น "ระยะที่ข้อมือ
+    เลื่อนลงภายในช่วงเวลานั้น" — ถ้าคงจำนวนเฟรมไว้ ช่วงเวลาจะสั้นลงครึ่งหนึ่ง
+    ที่ 60fps ระยะที่วัดได้ก็หดตาม แล้ว threshold เดิมจะแทบไม่ trigger เลย
+    (SL จะถูกจัดเป็น groundstroke หมด) — สเกลแล้วเทียบเวลาเท่ากันทั้งสอง fps
+    """
+    i0 = impact_frame - max(1, _f(SLICE_VY_LOOKBACK, fps))
     if i0 < 0 or impact_frame >= len(wrist_path):
         return 0.0
     v = wrist_path[impact_frame, 1] - wrist_path[i0, 1]
@@ -149,11 +192,11 @@ def extract_keyframes(impact_frame: int, wrist_path: np.ndarray, fps: float,
 
     # 1. Backswing Peak (B2) — ดูคอมเมนต์บล็อกค่าคงที่ด้านบนก่อนแก้
     if _is_serve_pose(wrist_path, head_path, impact_frame):
-        keyframes["backswing_peak"] = _serve_backswing(wrist_path, impact_frame)
-    elif _wrist_vy(wrist_path, impact_frame) > SLICE_VY_THRESHOLD:
-        keyframes["backswing_peak"] = max(0, impact_frame - SLICE_BACKSWING_OFFSET)
+        keyframes["backswing_peak"] = _serve_backswing(wrist_path, impact_frame, fps)
+    elif _wrist_vy(wrist_path, impact_frame, fps) > SLICE_VY_THRESHOLD:
+        keyframes["backswing_peak"] = max(0, impact_frame - _f(SLICE_BACKSWING_OFFSET, fps))
     else:
-        keyframes["backswing_peak"] = max(0, impact_frame - GROUND_BACKSWING_OFFSET)
+        keyframes["backswing_peak"] = max(0, impact_frame - _f(GROUND_BACKSWING_OFFSET, fps))
 
     # 2. Unit Turn (B1):
     # เกิดก่อน backswing peak ประมาณ 0.5-1 วิ
@@ -168,7 +211,7 @@ def extract_keyframes(impact_frame: int, wrist_path: np.ndarray, fps: float,
     # 3. Follow Through Peak (B4) + 4. Recovery Position (B5)
     # ค่าเริ่มต้นก่อนรู้ stroke_type — builder จะเรียก refine_keyframes_for_type()
     # ทับอีกทีหลังจำแนกท่าได้ (ดูคอมเมนต์ที่ฟังก์ชันนั้น)
-    _apply_type_offsets(keyframes, None, impact_frame, N)
+    _apply_type_offsets(keyframes, None, impact_frame, N, fps)
 
     return keyframes
 
@@ -199,29 +242,33 @@ RECOVERY_OFFSET_DEFAULT = 38
 TROPHY_OFFSET = -14          # SV เท่านั้น (trophy − impact)
 
 
-def _apply_type_offsets(keyframes: dict, stroke_type, impact_frame: int, n: int):
+def _apply_type_offsets(keyframes: dict, stroke_type, impact_frame: int, n: int,
+                        fps: float | None):
     ft = FOLLOW_THROUGH_OFFSET.get(stroke_type, FOLLOW_THROUGH_OFFSET_DEFAULT)
-    keyframes["follow_through_peak"] = min(n - 1, impact_frame + ft)
+    keyframes["follow_through_peak"] = min(n - 1, impact_frame + _f(ft, fps))
     rc = RECOVERY_OFFSET.get(stroke_type, RECOVERY_OFFSET_DEFAULT)
-    keyframes["recovery_position"] = min(n - 1, impact_frame + rc)
+    keyframes["recovery_position"] = min(n - 1, impact_frame + _f(rc, fps))
 
 
 def refine_keyframes_for_type(keyframes: dict, stroke_type: str,
-                              impact_frame: int, max_frames: int) -> dict:
+                              impact_frame: int, max_frames: int,
+                              fps: float | None = None) -> dict:
     """ปรับ B4/B5 ให้ตรงกับ stroke_type หลังจำแนกท่าได้แล้ว
 
     extract_keyframes() ถูกเรียกก่อน classify_stroke() (classifier ต้องใช้
     metric ที่คำนวณจาก keyframe ก่อน) จึงยังไม่รู้ท่าตอนนั้น — builder เรียก
     ฟังก์ชันนี้ทับอีกรอบเมื่อรู้ท่าแล้ว
+
+    fps: ไม่ส่ง = ถือว่าเป็นคลิป 29.97fps (ค่าคาลิเบรต) — ดู _f()
     """
     if impact_frame is None or max_frames <= 0:
         return keyframes
-    _apply_type_offsets(keyframes, stroke_type, impact_frame, max_frames)
+    _apply_type_offsets(keyframes, stroke_type, impact_frame, max_frames, fps)
     return keyframes
 
 
 def trophy_position_frame(stroke_type: str, impact_frame: int,
-                          max_frames: int) -> int | None:
+                          max_frames: int, fps: float | None = None) -> int | None:
     """B6 — serve เท่านั้น
 
     เดิมใช้ค่าเดียวกับ backswing_peak ของ SV ซึ่งวัดได้แค่ 0.094 เพราะ
@@ -229,4 +276,4 @@ def trophy_position_frame(stroke_type: str, impact_frame: int,
     """
     if stroke_type != "SV" or impact_frame is None:
         return None
-    return max(0, min(max_frames - 1, impact_frame + TROPHY_OFFSET))
+    return max(0, min(max_frames - 1, impact_frame + _f(TROPHY_OFFSET, fps)))

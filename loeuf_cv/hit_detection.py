@@ -30,13 +30,54 @@ STATIC_BALL_MIN_HITS = 6   # และต้องเจอซ้ำอย่า
 PROCESS_NOISE = 1.0        # Q — เผื่อให้ลูกเร่ง/เปลี่ยนทิศได้ (แรงโน้มถ่วง ฯลฯ)
 MEASUREMENT_NOISE = 1.0    # R — จุดกึ่งกลาง bbox ลูกแม่นราว ±1px
 
+# ---------------------------------------------------------------------------
+# 🔴 หน่วยเวลา — ค่าคงที่ "จำนวนเฟรม" และ "px ต่อเฟรม" ในไฟล์นี้
+# ---------------------------------------------------------------------------
+# dataset ที่ใช้จูนทุกอย่าง (รวมทั้ง hit_classifier.pkl ที่เทรนไว้) ถ่ายที่
+# 29.97fps ทั้งชุด ค่าที่เป็น "เฟรม" หรือ "px ต่อเฟรม" จึงผูกกับ fps นั้น
+#
+# ⚠️ ลูกค้าแจ้งว่าคลิปชุดหน้าจะถ่าย >= 60fps ตาม spec — ถ้าไม่สเกล:
+#   · หน้าต่างฟีเจอร์ 8 เฟรม จะครอบเวลาแค่ครึ่งเดียว
+#   · wrist speed (px/เฟรม) จะเหลือครึ่งหนึ่งที่การเคลื่อนไหวเท่ากัน
+#     -> ฟีเจอร์หลุดออกนอกช่วงที่ hit_classifier เคยเห็น = train/serve skew
+#     -> hit detection พังทั้งกระดานโดยไม่มี error ใด ๆ
+#
+# วิธีรับมือ: แปลงทุกอย่างกลับไปอยู่ในหน่วย "เทียบเท่า 29.97fps" ก่อนป้อน
+# โมเดล แทนที่จะเทรนโมเดลใหม่ (ยังไม่มีข้อมูล 60fps ให้เทรน)
+# ที่ fps == CALIBRATION_FPS ตัวคูณเป็น 1.0 พอดี -> พฤติกรรมเดิมไม่เปลี่ยน
+CALIBRATION_FPS = 29.97
+
+# fps ที่ต่างจากค่าคาลิเบรตน้อยกว่านี้ ให้ถือว่า "เท่ากัน"
+#
+# ทำไมต้องมี: cv2 อ่าน fps ของคลิปชุดนี้ได้ 29.973518362654733 ไม่ใช่ 29.97
+# เป๊ะ ตัวคูณ 1.000117 ทำให้ฟีเจอร์ speed ขยับ 0.01% ซึ่งพอจะพลิก candidate
+# ที่อยู่ติดขอบ threshold ของ ML ได้ -> ตัวเลข benchmark เปลี่ยนโดยไม่มีเหตุผล
+# เชิงเนื้อหา (วัดจริงแล้ว: recall 0.866 -> 0.860)
+# ±2% ปลอดภัย: offset ที่ยาวสุดคือ 42 เฟรม -> คลาดไม่ถึง 1 เฟรม
+# และยังห่างจาก 60fps (ratio 2.0) มากพอที่จะไม่กลืนกัน
+FPS_EQUAL_TOLERANCE = 0.02
+
+
+def _fps_ratio(fps: float | None) -> float:
+    """fps จริง / fps ที่คาลิเบรต — 1.0 เมื่อไม่รู้ fps หรือใกล้ค่าคาลิเบรต"""
+    if not fps or fps <= 0:
+        return 1.0
+    r = float(fps) / CALIBRATION_FPS
+    return 1.0 if abs(r - 1.0) < FPS_EQUAL_TOLERANCE else r
+
+
+def _f(frames_at_calib: float, fps: float | None) -> int:
+    """'จำนวนเฟรมที่ 29.97fps' -> จำนวนเฟรมที่ fps จริง (อย่างน้อย 1)"""
+    return max(1, int(round(frames_at_calib * _fps_ratio(fps))))
+
 
 def filter_static_ball_bboxes(
     ball_bboxes: dict,
     total_frames: int,
     radius: float = STATIC_BALL_RADIUS,
-    span_frames: int = STATIC_BALL_SPAN,
+    span_frames: int | None = None,
     min_hits: int = STATIC_BALL_MIN_HITS,
+    fps: float | None = None,
 ) -> dict:
     """ตัด detection ที่อยู่กับที่ออก คืน dict รูปเดิม (frame -> list[bbox])
 
@@ -54,7 +95,13 @@ def filter_static_ball_bboxes(
 
     ⚠️ ใช้ไม่ได้ถ้ากล้องขยับ (pan/handheld) เพราะลูกนิ่งจะเลื่อนในภาพ —
     ในกรณีนั้นฟังก์ชันนี้แค่ไม่ตัดอะไรเลย ไม่ได้ทำให้แย่ลง
+
+    span_frames: ไม่ส่ง = คิดจาก STATIC_BALL_SPAN (1 วินาที) สเกลตาม fps —
+    เกณฑ์นี้เป็น "เวลา" ไม่ใช่จำนวนเฟรม ถ้าคงไว้ 30 เฟรมที่คลิป 60fps จะ
+    กลายเป็น 0.5 วิ แล้วไปตัดลูกที่เล่นจริงซึ่งค้างจุดเดิมนานหน่อยทิ้ง
     """
+    if span_frames is None:
+        span_frames = _f(STATIC_BALL_SPAN, fps)
     # ปักหมุด detection ลงตาราง cell ขนาด radius เพื่อไม่ต้องเทียบทุกคู่
     grid: dict[tuple[int, int], list[tuple[int, float, float]]] = {}
     for i in range(total_frames):
@@ -145,9 +192,10 @@ def extract_ball_trajectory(ball_bboxes: dict, total_frames: int, max_gap: int =
 def extract_ball_trajectory_kalman(
     ball_bboxes: dict,
     total_frames: int,
-    max_gap: int = 30,
+    max_gap: int | None = None,
     drop_static: bool = True,
     return_measured: bool = False,
+    fps: float | None = None,
 ):
     """
     Ball Trajectory ด้วย Kalman Filter (ดีกว่า Linear Interpolation):
@@ -166,8 +214,12 @@ def extract_ball_trajectory_kalman(
     """
     import cv2
 
+    # max_gap เป็น "เวลาที่ยอมให้ลูกหายก่อนตัดสายพาน" = 1 วินาที ไม่ใช่ 30 เฟรม
+    if max_gap is None:
+        max_gap = _f(30, fps)
     if drop_static:
-        ball_bboxes = filter_static_ball_bboxes(ball_bboxes, total_frames)
+        ball_bboxes = filter_static_ball_bboxes(ball_bboxes, total_frames,
+                                                fps=fps)
 
     # ─── Kalman Filter Setup ───
     kf = cv2.KalmanFilter(4, 2)
@@ -451,7 +503,7 @@ def _hit_window_features(f: int, speed: np.ndarray, window: int = HIT_WINDOW) ->
     return out
 
 
-def _extract_hit_features(f: int, ball_traj: np.ndarray, speed: np.ndarray, d_px: float, width: int, height: int, racket_bboxes: dict | None, scale_ctx=None) -> dict:
+def _extract_hit_features(f: int, ball_traj: np.ndarray, speed: np.ndarray, d_px: float, width: int, height: int, racket_bboxes: dict | None, scale_ctx=None, fps: float | None = None) -> dict:
     total_frames = len(ball_traj)
     features = {
         "wrist_speed": 0.0,
@@ -461,7 +513,7 @@ def _extract_hit_features(f: int, ball_traj: np.ndarray, speed: np.ndarray, d_px
         "ball_vel_change": 0.0,
         "ball_angle_change": 1.0,
         "racket_dist": 9999.0,
-        **_hit_window_features(f, speed),
+        **_hit_window_features(f, speed, _f(HIT_WINDOW, fps)),
     }
 
     # Wrist Speed
@@ -472,8 +524,8 @@ def _extract_hit_features(f: int, ball_traj: np.ndarray, speed: np.ndarray, d_px
     if d_px is not None:
         features["ball_dist"] = float(d_px)
         
-    # Ball Velocity (before and after)
-    W = 3
+    # Ball Velocity (before and after) — W เป็นระยะเวลา ไม่ใช่จำนวนเฟรม
+    W = _f(3, fps)
     if f >= W and f < total_frames - W:
         b_before = ball_traj[f - W]
         b_curr = ball_traj[f]
@@ -506,7 +558,7 @@ def _extract_hit_features(f: int, ball_traj: np.ndarray, speed: np.ndarray, d_px
         features["racket_dist"] = float(best_r_dist)
 
     if scale_ctx is not None:
-        features.update(_scaled_features(f, features, scale_ctx))
+        features.update(_scaled_features(f, features, scale_ctx, fps))
 
     return features
 
@@ -530,11 +582,16 @@ SCALED_FEATURE_COLS = [
 ]
 
 
-def body_scale_context(pose, width: int, height: int):
+def body_scale_context(pose, width: int, height: int, fps: float | None = None):
     """คำนวณไม้บรรทัด (ความกว้างไหล่ px) + สัญญาณต่อเฟรมที่ไม่มีหน่วย px
 
     เรียกครั้งเดียวต่อ track แล้วส่งต่อให้ _extract_hit_features ทุก candidate
+
+    stencil ของ wrist_dir_change (เดิม +-2 เฟรมตายตัว) สเกลตาม fps ด้วย —
+    มุมหักเหที่วัดได้ขึ้นกับ "ช่วงเวลา" ที่คร่อม ไม่ใช่จำนวนเฟรม ถ้าคงไว้ 2
+    เฟรมที่ 60fps จะคร่อมเวลาแค่ครึ่งเดียว มุมที่ได้ตื้นกว่าเดิมทุกจุด
     """
+    d = _f(2, fps)
     from .config import L_SHOULDER, L_WRIST, R_SHOULDER, R_WRIST
 
     lm = pose.landmarks
@@ -552,11 +609,11 @@ def body_scale_context(pose, width: int, height: int):
     x_rel = np.zeros(n)
     for widx in (R_WRIST, L_WRIST):
         wx, wy = lm[:, widx, 0] * width, lm[:, widx, 1] * height
-        for f in range(2, n - 2):
-            if np.isnan([wx[f - 2], wx[f], wx[f + 2]]).any():
+        for f in range(d, n - d):
+            if np.isnan([wx[f - d], wx[f], wx[f + d]]).any():
                 continue
-            v1 = np.array([wx[f] - wx[f - 2], wy[f] - wy[f - 2]])
-            v2 = np.array([wx[f + 2] - wx[f], wy[f + 2] - wy[f]])
+            v1 = np.array([wx[f] - wx[f - d], wy[f] - wy[f - d]])
+            v2 = np.array([wx[f + d] - wx[f], wy[f + d] - wy[f]])
             n1, n2 = np.linalg.norm(v1), np.linalg.norm(v2)
             if n1 <= 0 or n2 <= 0:
                 continue
@@ -570,15 +627,25 @@ def body_scale_context(pose, width: int, height: int):
                 "wrist_y_rel": y_rel, "wrist_x_rel": x_rel}
 
 
-def _scaled_features(f: int, features: dict, scale_ctx) -> dict:
+def _scaled_features(f: int, features: dict, scale_ctx, fps: float | None = None) -> dict:
+    """แปลงฟีเจอร์ดิบ -> หน่วยที่ hit_classifier เคยเห็นตอนเทรน
+
+    หาร bw (ความกว้างไหล่) = ตัดผลของขนาดคน/ระยะกล้อง
+    หาร fps_ratio = ตัดผลของเฟรมเรต — ฟีเจอร์กลุ่ม speed_* เป็น "px ต่อเฟรม"
+    การเคลื่อนไหวเดียวกันที่ 60fps จะให้ค่าครึ่งเดียวของที่ 29.97fps ซึ่งเป็น
+    คนละ distribution กับที่โมเดลเทรนมา (โมเดลเทรนจากคลิป 29.97fps ล้วน)
+    ตัวคูณกลับให้เป็น "px ต่อเฟรมเทียบเท่า 29.97fps" -> โมเดลเดิมใช้ต่อได้
+    ระยะทาง (ball_dist / racket_dist) ไม่ขึ้นกับ fps จึงไม่ต้องแตะ
+    """
     bw, extra = scale_ctx
+    r = _fps_ratio(fps)          # 1.0 ที่ 29.97fps -> ไม่เปลี่ยนพฤติกรรมเดิม
     out = {
-        "wrist_speed_bw": features.get("wrist_speed", 0.0) / bw,
+        "wrist_speed_bw": features.get("wrist_speed", 0.0) / bw * r,
         "ball_dist_bw": min(features.get("ball_dist", 9999.0), 9999.0) / bw,
         "racket_dist_bw": min(features.get("racket_dist", 9999.0), 9999.0) / bw,
-        "speed_pre_bw": features.get("speed_pre_mean", 0.0) / bw,
-        "speed_post_bw": features.get("speed_post_mean", 0.0) / bw,
-        "speed_std_bw": features.get("speed_std_window", 0.0) / bw,
+        "speed_pre_bw": features.get("speed_pre_mean", 0.0) / bw * r,
+        "speed_post_bw": features.get("speed_post_mean", 0.0) / bw * r,
+        "speed_std_bw": features.get("speed_std_window", 0.0) / bw * r,
     }
     for k, v in extra.items():
         out[k] = float(v[f]) if f < len(v) and not np.isnan(v[f]) else 0.0
@@ -617,7 +684,11 @@ def detect_hit_events(
 
     total_frames = ball_traj.shape[0]
     px_thresh = height * proximity_thresh
-    CONFIRM_WINDOW = 5  # เฟรม
+    CONFIRM_WINDOW = _f(5, fps)  # ~0.17 วิ (สเกลตาม fps ดูหัวไฟล์)
+
+    # min_wrist_speed_px เป็น "px ต่อเฟรม" — การเคลื่อนไหวเดียวกันที่ 60fps
+    # ให้ค่าครึ่งเดียว ถ้าไม่หารตามจะกรอง candidate ที่ควรผ่านทิ้งเกือบหมด
+    min_wrist_speed_px = min_wrist_speed_px / _fps_ratio(fps)
 
     # ─── Secondary: Ball Inflections ───
     ball_inflections = _find_ball_inflections(ball_traj)
@@ -625,7 +696,7 @@ def detect_hit_events(
     all_candidates: list[dict] = []
 
     # ไม้บรรทัดขนาดตัวต่อ track — คำนวณครั้งเดียว ใช้ซ้ำทุก candidate
-    scale_by_track = {t.track_id: body_scale_context(t.pose, width, height)
+    scale_by_track = {t.track_id: body_scale_context(t.pose, width, height, fps)
                       for t in tracks}
 
     # ─── Primary: Wrist Peaks per Track ───
@@ -633,7 +704,8 @@ def detect_hit_events(
         n_pose = len(t.pose.landmarks)
         for wrist_idx, side in [(R_WRIST, "right"), (L_WRIST, "left")]:
             speed = _compute_wrist_speed(t.pose, wrist_idx, width, height)
-            peaks = _find_wrist_peaks(speed, min_speed_px=min_wrist_speed_px)
+            peaks = _find_wrist_peaks(speed, min_speed_px=min_wrist_speed_px,
+                                      window=_f(8, fps))
 
             for f in peaks:
                 if f >= n_pose:
@@ -674,7 +746,8 @@ def detect_hit_events(
                 d_val = float(d) if ball_nearby else None
                 feats = _extract_hit_features(f, ball_traj, speed, d_val, width,
                                               height, racket_bboxes,
-                                              scale_ctx=scale_by_track[t.track_id])
+                                              scale_ctx=scale_by_track[t.track_id],
+                                              fps=fps)
 
                 all_candidates.append({
                     "frame": f,
@@ -747,7 +820,7 @@ def detect_hit_events(
             if best_dist < px_thresh and best_track is not None:
                 feats = _extract_hit_features(
                     f, ball_traj, None, best_dist, width, height, racket_bboxes,
-                    scale_ctx=scale_by_track.get(best_track.track_id))
+                    scale_ctx=scale_by_track.get(best_track.track_id), fps=fps)
                 all_candidates.append({
                     "frame": f,
                     "timestamp_sec": round(f / fps, 2),

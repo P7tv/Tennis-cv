@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import cv2
 import numpy as np
+import pytest
 
 from loeuf_cv import PipelineConfig, StrokePipeline
 from loeuf_cv.action_spotting import spot_strokes
@@ -1531,6 +1532,79 @@ def test_build_loeuf_schema_never_omits_keys():
     assert set(a) == set(b)
     for block in ("keyframe", "ball", "visualization"):
         assert set(a[block]) == set(b[block]), f"{block} key set ต่างกันสองโหมด"
+
+
+def test_keyframe_offsets_scale_with_fps():
+    """ค่า offset ใน schema_builder/keyframes.py คาลิเบรตที่ 29.97fps
+
+    ลูกค้าจะส่งคลิปชุดหน้าที่ >= 60fps (spec MT4) — ถ้าค่าพวกนี้ยังเป็น
+    "จำนวนเฟรม" ตายตัว ระยะเวลาจริงจะเหลือครึ่งเดียวโดยไม่มี error ใด ๆ
+    เทสต์นี้ยึดสองอย่างพร้อมกัน:
+      1) ที่ 29.97fps ต้องได้ค่าเดิมเป๊ะ (benchmark ที่วัดไว้ไม่เป็นโมฆะ)
+      2) ที่ 60fps ระยะห่างต้องเป็น "เวลาเท่ากัน" ไม่ใช่ "เฟรมเท่ากัน"
+    """
+    from loeuf_cv.schema_builder.keyframes import (
+        CALIBRATION_FPS, FOLLOW_THROUGH_OFFSET, RECOVERY_OFFSET, TROPHY_OFFSET,
+        refine_keyframes_for_type, trophy_position_frame)
+
+    imp, n = 300, 900
+    for stype in ("FH", "BH", "SL", "SV", "VL"):
+        base = refine_keyframes_for_type({}, stype, imp, n, CALIBRATION_FPS)
+        # 1) fps คาลิเบรต -> ตรงกับค่าคงที่ที่ประกาศไว้เป๊ะ
+        assert base["follow_through_peak"] - imp == FOLLOW_THROUGH_OFFSET.get(
+            stype, 10), stype
+
+        fast = refine_keyframes_for_type({}, stype, imp, n, 60.0)
+        for key in ("follow_through_peak", "recovery_position"):
+            slow_ms = (base[key] - imp) / CALIBRATION_FPS
+            fast_ms = (fast[key] - imp) / 60.0
+            # 2) ระยะเวลาต้องเท่ากัน (คลาดได้ 1 เฟรมจากการปัดเศษ)
+            assert abs(slow_ms - fast_ms) < 1.0 / 60.0 + 1e-9, \
+                f"{stype}/{key}: {slow_ms*1000:.1f}ms vs {fast_ms*1000:.1f}ms"
+        assert fast["recovery_position"] - imp == pytest.approx(
+            RECOVERY_OFFSET.get(stype, 38) * 2, abs=1)
+
+    assert trophy_position_frame("SV", imp, n, CALIBRATION_FPS) - imp == TROPHY_OFFSET
+    assert trophy_position_frame("SV", imp, n, 60.0) - imp == pytest.approx(
+        TROPHY_OFFSET * 2, abs=1)
+
+    # ไม่ส่ง fps = ถือว่าเป็นคลิปคาลิเบรต (caller เก่าต้องไม่พฤติกรรมเปลี่ยน)
+    assert refine_keyframes_for_type({}, "FH", imp, n) == \
+        refine_keyframes_for_type({}, "FH", imp, n, CALIBRATION_FPS)
+
+
+def test_hit_feature_units_are_fps_invariant():
+    """ฟีเจอร์ที่ป้อน hit_classifier ต้องเป็นหน่วยเดียวกับตอนเทรน (29.97fps)
+
+    speed_* เป็น "px ต่อเฟรม" — การเคลื่อนไหวเดียวกันที่ 60fps ให้ค่าครึ่งเดียว
+    ถ้าไม่ชดเชย โมเดลที่เทรนจากคลิป 29.97fps ล้วนจะเจอ distribution คนละชุด
+    (train/serve skew) แล้ว hit detection พังเงียบ ๆ ตอนคลิป 60fps มาถึง
+    """
+    from loeuf_cv.hit_detection import CALIBRATION_FPS, _scaled_features
+
+    ctx = (100.0, {})   # bw = 100 px, ไม่มีสัญญาณต่อเฟรม
+    SPEED_KEYS = ("wrist_speed", "speed_pre_mean", "speed_post_mean",
+                  "speed_std_window")
+    at_calib = {"wrist_speed": 30.0, "speed_pre_mean": 12.0,
+                "speed_post_mean": 6.0, "speed_std_window": 4.0,
+                "ball_dist": 50.0, "racket_dist": 20.0}
+    # การเคลื่อนไหวทางกายภาพเดียวกัน วัดที่ 60fps -> px ต่อเฟรมลดลงตามสัดส่วน
+    # (30 px/เฟรม ที่ 29.97fps = 899.1 px/วิ = 14.985 px/เฟรม ที่ 60fps)
+    at_60 = dict(at_calib)
+    for k in SPEED_KEYS:
+        at_60[k] = at_calib[k] * CALIBRATION_FPS / 60.0
+
+    slow = _scaled_features(0, at_calib, ctx, CALIBRATION_FPS)
+    fast = _scaled_features(0, at_60, ctx, 60.0)
+    for k in ("wrist_speed_bw", "speed_pre_bw", "speed_post_bw", "speed_std_bw"):
+        assert slow[k] == pytest.approx(fast[k], rel=1e-6), k
+    # ระยะทางไม่ขึ้นกับ fps — ห้ามถูกสเกล
+    for k in ("ball_dist_bw", "racket_dist_bw"):
+        assert slow[k] == pytest.approx(fast[k], rel=1e-6), k
+
+    # ที่ fps คาลิเบรตต้องเท่ากับไม่ส่ง fps เลย (พฤติกรรมเดิมไม่เปลี่ยน)
+    assert _scaled_features(0, at_calib, ctx) == _scaled_features(
+        0, at_calib, ctx, CALIBRATION_FPS)
 
 
 def test_session_metadata_matches_client_spec():

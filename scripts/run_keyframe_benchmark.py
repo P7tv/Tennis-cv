@@ -274,7 +274,8 @@ def stage_track(args, sessions, manifest: Manifest):
 
             track = _pick_target_track(tracks)
             ball_traj, ball_measured = extract_ball_trajectory_kalman(
-                ball_bboxes, len(track.pose.landmarks), return_measured=True)
+                ball_bboxes, len(track.pose.landmarks), return_measured=True,
+                fps=fps)
 
             out.parent.mkdir(parents=True, exist_ok=True)
             with open(out, "wb") as f:
@@ -330,7 +331,7 @@ def _build_for_mode(cached: dict, session, mode: str, ml_threshold=None):
     if cached.get("ball_bboxes") is not None:
         ball_traj, ball_measured = extract_ball_trajectory_kalman(
             cached["ball_bboxes"], len(track.pose.landmarks),
-            return_measured=True)
+            return_measured=True, fps=fps)
     else:
         ball_traj, ball_measured = cached["ball_traj"], None
 

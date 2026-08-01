@@ -146,7 +146,7 @@ def process_session(label_path: Path, args, hit_writer, stroke_writer, stats) ->
     # ─── Hit candidates: auto-label จาก impact_frame ที่คน label ───
     n_pose_frames = len(track.pose.landmarks)
     traj, ball_measured = extract_ball_trajectory_kalman(
-        ball_bboxes, n_pose_frames, return_measured=True)
+        ball_bboxes, n_pose_frames, return_measured=True, fps=fps)
     impact_frames = [
         s.keyframes["impact"] for s in session.strokes if s.keyframes.get("impact") is not None
     ]

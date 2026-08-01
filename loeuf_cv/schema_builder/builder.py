@@ -373,11 +373,14 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
         # ทั้งชุด (ไม่ใช่แค่ตอน stype != "FH" เหมือนเดิม) ไม่งั้น B block ที่ส่ง
         # ลูกค้าจะรายงานเฟรมที่ปรับแล้ว แต่ metric ยังคิดจากเฟรมชุดเก่า
         kf = refine_keyframes_for_type(kf, stype, impact_frame,
-                                       video_meta.get("total_frames", 0))
+                                       video_meta.get("total_frames", 0), fps)
         detected_frames = [f for f in kf.values() if f is not None]
-        stroke_start_frame = max(0, min(detected_frames + [impact_frame - 30]))
+        # กันชนหน้า/หลัง impact = 1 วินาที (เดิมเขียน 30 เฟรมตรง ๆ ซึ่งกลายเป็น
+        # 0.5 วิ ที่คลิป 60fps) — ดู keyframes.py หัวไฟล์เรื่องหน่วยเวลา
+        pad = int(round(fps)) if fps else 30
+        stroke_start_frame = max(0, min(detected_frames + [impact_frame - pad]))
         stroke_end_frame = min(video_meta.get("total_frames", 0) - 1,
-                               max(detected_frames + [impact_frame + 30]))
+                               max(detected_frames + [impact_frame + pad]))
         sliced_pose = _slice_pose_for_stroke(track.pose, stroke_start_frame,
                                              stroke_end_frame, engine_config)
         engine_kf = _build_engine_keyframes(kf, fps, stroke_start_frame)
@@ -448,7 +451,7 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
         # คำนวณ stroke_start_frame/stroke_end_frame จาก kf.values() การเติม
         # entry ใหม่จะไปยืดหน้าต่าง stroke
         trophy_frame = trophy_position_frame(
-            stype, impact_frame, video_meta.get("total_frames", 0))
+            stype, impact_frame, video_meta.get("total_frames", 0), fps)
         b_keyframe = {
             "unit_turn": _b_keyframe_entry(track.pose, kf["unit_turn"], fps),
             "backswing_peak": _b_keyframe_entry(track.pose, kf["backswing_peak"], fps),

@@ -422,7 +422,7 @@ if tracks:
                 # เดาต่อ — detect_hit_events ต้องใช้ ไม่งั้นจะปัด stroke จริงทิ้ง
                 # ด้วยตำแหน่งลูกที่ระบบแต่งขึ้นเอง (ดู docs/BALL_DETECTION_ISSUE.md)
                 traj, ball_measured = extract_ball_trajectory_kalman(
-                    ball_bboxes, n_frames, return_measured=True)
+                    ball_bboxes, n_frames, return_measured=True, fps=fps)
                 racket_bboxes = st.session_state.get("racket_bboxes")
                 hits = detect_hit_events(traj, tracks, fps, fw, fh,
                                          racket_bboxes=racket_bboxes,
