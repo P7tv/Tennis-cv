@@ -57,6 +57,7 @@ from loeuf_cv.benchmark_keyframes import (
     pred_strokes_from_schema, render_keyframe_markdown, score_mode,
     score_phase_mode, sensitivity_without_anomalies,
 )
+from loeuf_cv import hit_detection
 from loeuf_cv.config import PipelineConfig
 from loeuf_cv.hit_detection import detect_hit_events, extract_ball_trajectory_kalman
 from loeuf_cv.schema_builder.builder import build_loeuf_schema
@@ -311,6 +312,64 @@ def stage_track(args, sessions, manifest: Manifest):
 # stage 2: predict
 # ---------------------------------------------------------------------------
 
+_LOPO_MAP_CACHE: dict | None = None
+
+
+def _lookup_person(mapping: dict, clip: str) -> str | None:
+    """หา player_id ของคลิป โดยทนกับ "ชื่อชุด" ที่เขียนคนละแบบ
+
+    train_hit_classifier_from_cache.py สร้างคีย์จาก `pkl.parent.name` = ชื่อ
+    โฟลเดอร์ชั้นเดียว ("set4/IMG_0294(SV1)") ส่วน benchmark ใช้ path เต็มจาก
+    dataset root ("sessions_deferred/set4/IMG_0294(SV1)") — คลิปเดียวกันแต่
+    คีย์ไม่ตรง ถ้าไม่รองรับจะ error เฉพาะคลิปที่อยู่ลึกกว่าหนึ่งชั้น
+    """
+    if clip in mapping:
+        return mapping[clip]
+    tail = "/".join(Path(clip).parts[-2:])          # <โฟลเดอร์แม่>/<ชื่อคลิป>
+    if tail in mapping:
+        return mapping[tail]
+    stem = Path(clip).name
+    hits = {v for k, v in mapping.items() if Path(k).name == stem}
+    return hits.pop() if len(hits) == 1 else None
+
+
+def _use_lopo_model(args, clip: str) -> None:
+    """สลับ hit classifier ให้เป็นตัวที่ **ไม่เคยเห็นคนในคลิปนี้**
+
+    ⚠️ ทำไมต้องมี: hit_classifier.pkl ตัวจริงเทรนจาก 16 คลิปเดียวกับที่ใช้วัด
+    benchmark → ตัวเลขที่ได้มีส่วนที่มาจาก "การจำคลิป" ไม่ใช่ความสามารถจริง
+    วัดแล้ว: โมเดลเดิม LOPO recall 54.7% แต่ benchmark 86.6% (ช่องว่าง 31.9 pp)
+    ส่วนโมเดลที่ผ่าน augmentation 68.0% vs 80.8% (12.8 pp) — เอาสองตัวนี้มา
+    เทียบกันบน benchmark ที่ปนเปื้อน ตัวที่ "จำเก่งกว่า" จะชนะเสมอ ซึ่งตรงข้าม
+    กับสิ่งที่เราต้องการ
+
+    ไม่แตะโค้ด production: ใช้ตัวแปรสภาพแวดล้อม LOEUF_HIT_CLASSIFIER ที่
+    _load_hit_classifier() รองรับอยู่แล้ว + ล้าง cache ระดับโมดูลก่อนทุกคลิป
+    (ไม่งั้นคลิปที่ 2 เป็นต้นไปจะยังใช้โมเดลของคลิปแรก)
+    """
+    global _LOPO_MAP_CACHE
+    d = getattr(args, "hit_classifier_dir", None)
+    if not d:
+        return
+    d = Path(d)
+    if _LOPO_MAP_CACHE is None:
+        with open(d / "clip_person.json", encoding="utf-8") as f:
+            _LOPO_MAP_CACHE = json.load(f)
+
+    person = _lookup_person(_LOPO_MAP_CACHE, clip)
+    if person is None:
+        raise RuntimeError(
+            f"ไม่รู้ว่า {clip} เป็นของใคร — clip_person.json ไม่มีคีย์นี้ "
+            f"(สร้างใหม่ด้วย train_hit_classifier_from_cache.py --lopo-out)")
+    model = d / f"{person}.pkl"
+    if not model.is_file():
+        raise RuntimeError(f"ไม่พบโมเดล LOPO ของ {person} ที่ {model}")
+
+    os.environ["LOEUF_HIT_CLASSIFIER"] = str(model)
+    hit_detection._hit_clf_cache = None
+    print(f"    [LOPO] {clip} -> โมเดลที่ไม่เคยเห็น {person}")
+
+
 def _build_for_mode(cached: dict, session, mode: str, ml_threshold=None):
     """คืน (schema, hit_events) — โหมด A ให้ pipeline หา impact เอง,
     โหมด B ป้อน GT impact เข้าไป (oracle)
@@ -373,6 +432,8 @@ def stage_predict(args, sessions, manifest: Manifest):
 
         with open(pkl, "rb") as f:
             cached = pickle.load(f)
+
+        _use_lopo_model(args, clip)
 
         for mode in modes:
             stage = f"predict_{mode}"
@@ -525,6 +586,11 @@ def stage_score(args, sessions, manifest: Manifest):
             "run_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "accuracy_tolerance": args.accuracy_tolerance,
             "match_tolerance": args.match_tolerance,
+            # ⚠️ ตัวเลขจะต่างกันมากระหว่างสองโหมดนี้ (acceptance 0.506 vs 0.308)
+            # ต้องระบุไว้ในรายงานเสมอ ไม่งั้นอ่านสลับกันแล้วเข้าใจผิดทั้งฉบับ
+            "hit_model_eval": ("LOPO (โมเดลไม่เคยเห็นคนในคลิปที่วัด)"
+                               if getattr(args, "hit_classifier_dir", None)
+                               else "in-sample (โมเดลเทรนจากคลิปเดียวกับที่วัด)"),
         },
     }
 
@@ -621,6 +687,10 @@ def main():
     ap.add_argument("--accuracy-tolerance", type=int, default=1,
                     help="±N เฟรม สำหรับตัดสินว่า keyframe ถูก")
     ap.add_argument("--report", default="docs/BENCHMARK_KEYFRAME.md")
+    ap.add_argument("--hit-classifier-dir", default=None,
+                    help="โฟลเดอร์โมเดล LOPO (จาก train_hit_classifier_from_cache"
+                         ".py --lopo-out) — แต่ละคลิปจะใช้โมเดลที่ไม่เคยเห็นคน"
+                         "ในคลิปนั้น = ตัวเลข end-to-end ที่ไม่ปนข้อมูลที่เคยเห็น")
     ap.add_argument("--ml-threshold", type=float, default=None,
                     help="ทับ ML_PROB_THRESHOLD (ต้องส่งเป็น argument — "
                          "การแก้ตัวแปรโมดูลไม่มีผลเพราะเป็น default argument "

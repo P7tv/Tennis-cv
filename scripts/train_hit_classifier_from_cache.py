@@ -12,8 +12,10 @@
 (leave-one-clip-out ยังรั่ว เพราะคนเดียวกันมีหลายคลิป โมเดลจำสไตล์คนได้)
 """
 import argparse
+import json
 import pickle
 import sys
+import zlib
 from collections import Counter
 from pathlib import Path
 
@@ -156,9 +158,14 @@ def build_rows(cache_dir: Path, dataset_root: Path, n_aug: int = 0,
         rows.extend(orig)
 
         n_aug_rows = 0
+        # ⚠️ ห้ามใช้ hash() ของ Python ตรงนี้ — มันสุ่ม salt ใหม่ทุกโปรเซส
+        # (PYTHONHASHSEED) ทำให้ augmentation ออกมาไม่เหมือนเดิมทุกครั้งที่รัน
+        # เจอจริง: n_aug=6 ชุดเดิม รันสองรอบได้ F1 0.528 กับ 0.508
+        # crc32 เสถียรข้ามโปรเซส/เครื่อง/เวอร์ชัน Python
+        clip_seed = seed + zlib.crc32(key.encode("utf-8")) % 10_000
         for t2, tr2, me2, rb2, gt2, name in augmented_variants(
                 track, c["ball_bboxes"], racket, w, h, fps, gt,
-                seed + abs(hash(key)) % 10_000, n_aug):
+                clip_seed, n_aug):
             r = _candidates_for(t2, tr2, me2, rb2, w, h, fps, gt2, key, person,
                                 name)
             rows.extend(r)
@@ -218,6 +225,9 @@ def main():
                     help="จำนวนสำเนา augment ต่อคลิป (0 = ปิด) — ใช้เฉพาะฝั่ง "
                          "train เท่านั้น ตอนวัดผลตัดออกเสมอ")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--lopo-out", default=None,
+                    help="โฟลเดอร์เก็บโมเดลชุด LOPO (<person>.pkl = เทรนโดย "
+                         "ตัดคนนั้นออก) สำหรับ benchmark ที่ไม่ปนข้อมูลที่เคยเห็น")
     ap.add_argument("--features", choices=("all", "scaled", "base"),
                     default="all",
                     help="all=ทั้งหมด · scaled=เฉพาะที่ normalize แล้ว "
@@ -284,6 +294,8 @@ def main():
             df.iloc[te_real, df.columns.get_loc("oof_prob")] = \
                 clf.predict_proba(X.iloc[te_real])[:, 1]
 
+    # เก็บชุดเต็ม (รวม augment) ไว้ก่อน — ใช้เทรนโมเดล LOPO ท้ายไฟล์
+    df_all = df
     # วัดผลบนแถวของจริงล้วน
     df = df[df["is_aug"] == 0].reset_index(drop=True)
 
@@ -316,6 +328,36 @@ def main():
         print(f"\nบันทึกโมเดล -> {args.out}")
     else:
         print("\n(ไม่ได้บันทึกโมเดล — ใส่ --save ถ้าต้องการเขียนทับตัวจริง)")
+
+    # ─── โมเดลชุด LOPO สำหรับ benchmark ที่ไม่ปนข้อมูลที่เคยเห็น ───
+    #
+    # ⚠️ ทำไมต้องมี: hit_classifier.pkl ตัวจริงเทรนจาก 16 คลิปเดียวกับที่ใช้วัด
+    # benchmark → ตัวเลข recall ที่รายงานไปมีส่วนที่มาจาก "การจำคลิป" ไม่ใช่
+    # ความสามารถจริง (วัดแล้ว: LOPO recall 54.7% แต่ benchmark 86.6% =
+    # ช่องว่าง 31.9 pp) เอาไปเทียบโมเดลสองตัวไม่ได้ เพราะตัวที่จำเก่งกว่าชนะ
+    #
+    # โมเดลในโฟลเดอร์นี้: <person>.pkl = เทรนโดย **ตัดคนนั้นออกทั้งหมด**
+    # benchmark เอาไปใช้กับคลิปของคนนั้น -> ได้ตัวเลข end-to-end ที่ซื่อสัตย์
+    if args.lopo_out:
+        out_dir = Path(args.lopo_out)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        clip2person = (df_all[["clip", "person"]].drop_duplicates()
+                       .set_index("clip")["person"].to_dict())
+        for person in sorted(df_all["person"].unique()):
+            tr = df_all["person"] != person
+            m = RandomForestClassifier(n_estimators=args.n_estimators,
+                                       max_depth=args.max_depth,
+                                       random_state=42,
+                                       class_weight="balanced", n_jobs=-1)
+            m.fit(df_all.loc[tr, FEATURE_COLS].fillna(0),
+                  df_all.loc[tr, "is_hit"])
+            with open(out_dir / f"{person}.pkl", "wb") as f:
+                pickle.dump((m, FEATURE_COLS), f)
+            print(f"  LOPO model (ไม่มี {person}): "
+                  f"{int(tr.sum())} แถว -> {person}.pkl")
+        with open(out_dir / "clip_person.json", "w", encoding="utf-8") as f:
+            json.dump(clip2person, f, ensure_ascii=False, indent=2)
+        print(f"\nบันทึกชุด LOPO -> {out_dir}")
 
 
 if __name__ == "__main__":
