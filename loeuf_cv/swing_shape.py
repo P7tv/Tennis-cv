@@ -72,6 +72,16 @@ SWING_FEATURE_COLS = [
 ]
 
 
+SWING3D_FEATURE_COLS = [
+    "sweep3d_total",    # มุมกวาดของข้อมือรอบไหล่ ใน 3 มิติ (เรเดียน)
+    "path3d_len",       # ความยาวเส้นทางข้อมือ 3D / ความกว้างไหล่
+    "arm_ext_range",    # ช่วงการเหยียด-งอแขน (ไหล่->ข้อมือ) / ความกว้างไหล่
+    "depth_range",      # ระยะที่ข้อมือเคลื่อนตามแกนลึก — 2D มองไม่เห็นเลย
+    "torso3d_sweep",    # มุมที่แนวไหล่หมุนไปใน 3 มิติ
+    "plane_flatness",   # เส้นทางข้อมือแบนเป็นระนาบแค่ไหน (0 = แบนสนิท)
+]
+
+
 def _xy(lm: np.ndarray, idx: int, width: float, height: float) -> np.ndarray:
     """landmark normalized -> พิกัด px รูป (T, 2)"""
     return np.stack([lm[:, idx, 0] * width, lm[:, idx, 1] * height], axis=1)
@@ -267,5 +277,105 @@ def swing_shape_features(
     sep = np.abs(sh_ang - hip_ang)[:f_rel + 1]
     if not np.all(np.isnan(sep)):
         out["x_factor_max"] = float(np.nanmax(sep))
+
+    return out
+
+
+# ---------------------------------------------------------------------------
+# เวอร์ชัน 3 มิติ — ใช้ world_landmarks ที่ไม่เคยถูกแตะเลย
+# ---------------------------------------------------------------------------
+#
+# ทำไมถึงน่าจะดีกว่า 2D: ฟีเจอร์ข้างบนวัดบน "ภาพที่ถูกกล้องฉายแบน" วงสวิงเดียวกัน
+# ถ่ายคนละมุมได้ค่าคนละอย่าง ส่วน world_landmarks ของ MediaPipe เป็นพิกัดเมตร
+# ที่อ้างอิงจุดกึ่งกลางสะโพก -> ระยะกล้อง/ซูม/มุมกล้อง หายไปจากสมการ
+#
+# ตรวจแล้วว่าใช้ได้จริงบนข้อมูลชุดนี้ (ไม่ใช่ค่าขยะ):
+#   ครอบคลุม 99.8% ของเฟรม (NaN 0.24%)
+#   ความกว้างไหล่ median 0.335 m (ถูกตามกายวิภาค) · std ข้ามเฟรมแค่ 8%
+#   ไหล่->ข้อมือ median 0.436 m
+#   แกนลึกขยับจริง 0.98 m และเรียบ (เปลี่ยนเฟรมละ 0.029 m)
+#
+# ⚠️ ความลึกของ MediaPipe เป็นค่าที่ **โมเดลเดา** ไม่ใช่วัดด้วยเซนเซอร์ แกน z
+# จึงอ่อนที่สุดในสามแกน — ต้องวัดผลจริง ห้ามสรุปว่าดีกว่าเพราะ "เป็น 3D"
+#
+# ยังหารด้วยความกว้างไหล่อยู่ ทั้งที่เป็นเมตรแล้ว — เพราะต้องการตัดผลของ
+# **ขนาดตัวคน** ด้วย ไม่ใช่แค่ระยะกล้อง (คนสูงแขนยาวกว่าโดยธรรมชาติ)
+
+
+def swing_shape_3d_features(
+    world_landmarks: np.ndarray,
+    frame: int,
+    fps: float | None = None,
+    side: str | None = None,
+) -> dict:
+    """ฟีเจอร์รูปทรงวงสวิงในพิกัด 3 มิติ (เมตร) จาก PoseTimeseries.world_landmarks"""
+    out = {"sweep3d_total": 0.0, "path3d_len": 0.0, "arm_ext_range": 0.0,
+           "depth_range": 0.0, "torso3d_sweep": 0.0, "plane_flatness": 0.0}
+    if world_landmarks is None or len(world_landmarks) < 5:
+        return out
+
+    T = len(world_landmarks)
+    W = _f(SWING_WINDOW, fps)
+    lo, hi = max(0, frame - W), min(T, frame + W // 2 + 1)
+    if hi - lo < 5:
+        return out
+    # หน้าต่างเอียงมาทางช่วงก่อนปะทะ (เหมือนเวอร์ชัน 2D) จึงไม่ต้องแยกก่อน/หลัง
+    lm = world_landmarks[lo:hi]
+
+    l_sh, r_sh = lm[:, L_SHOULDER, :3], lm[:, R_SHOULDER, :3]
+    sh_len = np.linalg.norm(r_sh - l_sh, axis=1)
+    if np.all(np.isnan(sh_len)):        # เช็คก่อนเรียก nanmedian กัน RuntimeWarning
+        return out
+    bw = float(np.nanmedian(sh_len))
+    if not np.isfinite(bw) or bw < EPS:
+        return out
+
+    sh_c = (l_sh + r_sh) / 2.0
+    wrist = lm[:, R_WRIST if side != "left" else L_WRIST, :3]
+
+    rel = wrist - sh_c
+    ok = np.isfinite(rel).all(axis=1)
+    if ok.sum() < 3:
+        return out
+    v = rel[ok]
+
+    # มุมกวาดสะสม — ข้าม stride ด้วยเหตุผลเดียวกับเวอร์ชัน 2D (กัน noise สะสม)
+    stride = min(_f(SWEEP_STRIDE, fps), max(1, len(v) // 3))
+    vs = v[::stride]
+    if len(vs) >= 2:
+        n = np.linalg.norm(vs, axis=1)
+        good = n > EPS
+        vs, n = vs[good], n[good]
+        if len(vs) >= 2:
+            cos = np.sum(vs[:-1] * vs[1:], axis=1) / (n[:-1] * n[1:])
+            out["sweep3d_total"] = float(
+                np.sum(np.arccos(np.clip(cos, -1.0, 1.0))))
+
+    p = wrist[ok]
+    out["path3d_len"] = float(np.sum(np.linalg.norm(np.diff(p, axis=0),
+                                                   axis=1)) / bw)
+    arm = np.linalg.norm(v, axis=1)
+    out["arm_ext_range"] = float((arm.max() - arm.min()) / bw)
+    out["depth_range"] = float((p[:, 2].max() - p[:, 2].min()) / bw)
+
+    # ── ความแบนของระนาบสวิง — วัดได้เฉพาะใน 3 มิติ ──────────────────────
+    # การตีเทนนิสเกิดในระนาบสวิงระนาบเดียวโดยประมาณ (swing plane เป็นแนวคิด
+    # มาตรฐานทางชีวกลศาสตร์) ส่วนการเดิน/ปรับท่า/เอื้อมหยิบของ ไม่มีระนาบ
+    # ค่านี้คือ singular value ที่เล็กที่สุด / ใหญ่ที่สุด ของเส้นทางข้อมือที่
+    # ลบค่าเฉลี่ยแล้ว = ความหนาของเส้นทางเทียบกับความกว้าง (0 = แบนสนิท)
+    if len(p) >= 4:
+        s = np.linalg.svd(p - p.mean(axis=0), compute_uv=False)
+        if s[0] > EPS:
+            out["plane_flatness"] = float(s[-1] / s[0])
+
+    sh_v = (r_sh - l_sh)[np.isfinite(r_sh - l_sh).all(axis=1)]
+    if len(sh_v) >= 2:
+        n = np.linalg.norm(sh_v, axis=1)
+        good = n > EPS
+        sh_v, n = sh_v[good], n[good]
+        if len(sh_v) >= 2:
+            cos = np.sum(sh_v[:-1] * sh_v[1:], axis=1) / (n[:-1] * n[1:])
+            out["torso3d_sweep"] = float(
+                np.sum(np.arccos(np.clip(cos, -1.0, 1.0))))
 
     return out

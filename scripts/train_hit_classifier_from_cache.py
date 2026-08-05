@@ -30,7 +30,9 @@ from loeuf_cv.augment import (jitter_landmarks, remap_bboxes,  # noqa: E402
                               warp_frame_index)
 from loeuf_cv.hit_detection import (detect_hit_events,  # noqa: E402
                                     extract_ball_trajectory_kalman)
-from loeuf_cv.swing_shape import SWING_FEATURE_COLS  # noqa: E402
+from loeuf_cv.racket_shape import RACKET_FEATURE_COLS  # noqa: E402
+from loeuf_cv.swing_shape import (SWING3D_FEATURE_COLS,  # noqa: E402
+                                  SWING_FEATURE_COLS)
 from train_model.label_ingest import (find_session_labels,  # noqa: E402
                                       load_session_label)
 
@@ -55,6 +57,13 @@ SCALED_COLS = [
 # ต่างจากชุดบนที่ตอบได้แค่ "ข้อมือเร็วไหม ณ เฟรมนั้น"
 SWING_COLS = list(SWING_FEATURE_COLS)
 
+# รูปทรงวงสวิงเดียวกันแต่คำนวณบนพิกัด 3 มิติ (world_landmarks) — ตัดผลของมุมกล้อง
+SWING3D_COLS = list(SWING3D_FEATURE_COLS)
+
+# ฟีเจอร์ของไม้ที่ "ไม่ต้องใช้ลูกบอล" — ของเดิม racket_dist วัดระยะไม้ถึงลูก
+# จึงใช้ได้เฉพาะเฟรมที่เห็นลูก (4.4-22%) ทั้งที่เห็นไม้ 15-100%
+RACKET_COLS = list(RACKET_FEATURE_COLS)
+
 # ชุดที่ไม่พึ่งตำแหน่งลูก/ไม้เลย — ในคลิปจริงเห็นลูกลอยแค่ 4.4-22% ของเฟรม
 # ที่เหลือ ball_dist ถูกเติมด้วย 9999 ปลอม ซึ่งเป็น "ค่าคงที่ที่ไม่ได้แปลว่า
 # ไม่มีลูก" -> RF เอาไปแตกกิ่งแล้วเรียนสิ่งที่ไม่มีอยู่จริง
@@ -67,16 +76,23 @@ FEATURE_SETS = {
                              "ball_angle_change"],
     "all": BASE_COLS + SCALED_COLS,
     "swing": SWING_COLS,
-    "swing+speed": SWING_COLS + SPEED_ONLY_COLS,
+    "swing+speed": SWING_COLS + SPEED_ONLY_COLS,          # <- ชุดที่ใช้อยู่
     "swing+scaled": SWING_COLS + SCALED_COLS,
     "all+swing": BASE_COLS + SCALED_COLS + SWING_COLS,
+    # ── กลุ่มที่กำลังทดลอง: เพิ่มทีละกลุ่มบนชุดที่ใช้อยู่ เพื่อแยกผลของแต่ละอันได้ ──
+    "+3d": SWING_COLS + SPEED_ONLY_COLS + SWING3D_COLS,
+    "+racket": SWING_COLS + SPEED_ONLY_COLS + RACKET_COLS,
+    "+3d+racket": SWING_COLS + SPEED_ONLY_COLS + SWING3D_COLS + RACKET_COLS,
+    "3d เดี่ยว": SWING3D_COLS,
+    "racket เดี่ยว": RACKET_COLS,
 }
-FEATURE_COLS = FEATURE_SETS["all"]
+FEATURE_COLS = FEATURE_SETS["swing+speed"]
 
 # แถวที่สร้างเก็บ "ทุก" ฟีเจอร์เสมอ ไม่ว่าจะเทรนด้วยชุดไหน — สร้างแถวคือส่วนที่
 # แพง (ต้องรัน detect_hit_events ใหม่ทั้ง dataset) ส่วนการเลือกคอลัมน์ถูกมาก
 # แยกกันแบบนี้ทำให้ ablation สร้างแถวรอบเดียวแล้วเทียบได้ทุกชุด
-ALL_FEATURE_COLS = list(dict.fromkeys(BASE_COLS + SCALED_COLS + SWING_COLS))
+ALL_FEATURE_COLS = list(dict.fromkeys(
+    BASE_COLS + SCALED_COLS + SWING_COLS + SWING3D_COLS + RACKET_COLS))
 LABEL_TOL = 5   # candidate ห่าง GT impact <= 5 เฟรม ถือว่าเป็น hit จริง
 MATCH_TOL = 10  # ตอนวัดผล ใช้ tolerance เดียวกับ benchmark harness
 

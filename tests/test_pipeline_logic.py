@@ -2791,6 +2791,102 @@ def test_wrist_peak_merge_window_keeps_impact_and_followthrough_apart():
                              merge_window=16) == [40]
 
 
+def test_racket_gate_rejects_someone_elses_racket():
+    """🔴 ไม้ที่อยู่ไกลมือเกินเกณฑ์ต้องไม่ถูกนับว่าเป็นไม้ของผู้เล่นคนนี้
+
+    วัดจากข้อมูลจริง: 5 จาก 16 คลิปมี bbox ไม้ห่างข้อมือ 9-25 เท่าของความกว้าง
+    ไหล่ ทั้งที่รายงานว่า "เจอไม้" เกือบทุกเฟรม = ตัวตรวจจับล็อกวัตถุอื่น
+    (ไม้ของคนอื่น/ไม้ที่วางอยู่) ถ้าไม่กรอง ฟีเจอร์กลุ่มไม้จะเป็นพิษใน 1 ใน 3
+    ของคลิปโดยไม่มี error ให้เห็น
+    """
+    from loeuf_cv.config import L_SHOULDER, R_SHOULDER, R_WRIST
+    from loeuf_cv.racket_shape import (RACKET_FEATURE_COLS, RACKET_GATE_BW,
+                                       racket_shape_features)
+
+    n = 60
+    lm = np.full((n, 33, 3), np.nan)
+    lm[:, L_SHOULDER, :2] = (0.45, 0.35)
+    lm[:, R_SHOULDER, :2] = (0.55, 0.35)      # ความกว้างไหล่ = 0.1 * 1920 = 192 px
+    lm[:, R_WRIST, :2] = (0.55, 0.45)         # ข้อมือที่ (1056, 486) px
+    kw = dict(fps=29.97, width=_W, height=_H, side="right")
+
+    near = {f: [(1040, 470, 40, 40)] for f in range(n)}      # ~0.1 เท่า
+    far = {f: [(1040 + 10 * 192, 470, 40, 40)] for f in range(n)}   # ~10 เท่า
+
+    got_near = racket_shape_features(near, lm, 30, **kw)
+    got_far = racket_shape_features(far, lm, 30, **kw)
+
+    assert got_near["racket_seen_frac"] > 0.9      # ไม้ในมือ = เห็นเกือบทุกเฟรม
+    assert got_far["racket_seen_frac"] == 0.0      # ไม้คนอื่น = ต้องถูกตัดทิ้ง
+    assert got_near["racket_wrist_bw"] < RACKET_GATE_BW
+    for g in (got_near, got_far):
+        assert set(g) == set(RACKET_FEATURE_COLS)
+        assert all(np.isfinite(v) for v in g.values())
+
+
+def test_racket_picks_nearest_box_not_first_in_list():
+    """เฟรมที่เจอไม้หลายอัน ต้องเลือกอันที่ใกล้มือ ไม่ใช่อันแรกในลิสต์
+
+    ของเดิมใน diagnostic ใช้ boxes[0] ตรง ๆ ซึ่งขึ้นกับลำดับที่ตัวตรวจจับคืนมา
+    (เรียงตาม confidence ไม่ใช่ตามระยะ) -> คลิปที่มีคนอื่นถือไม้อยู่ในเฟรมจะ
+    หยิบไม้ผิดคนแบบสุ่ม
+    """
+    from loeuf_cv.config import L_SHOULDER, R_SHOULDER, R_WRIST
+    from loeuf_cv.racket_shape import racket_shape_features
+
+    n = 60
+    lm = np.full((n, 33, 3), np.nan)
+    lm[:, L_SHOULDER, :2] = (0.45, 0.35)
+    lm[:, R_SHOULDER, :2] = (0.55, 0.35)
+    lm[:, R_WRIST, :2] = (0.55, 0.45)
+    kw = dict(fps=29.97, width=_W, height=_H, side="right")
+
+    # อันไกลมาก่อนในลิสต์ อันที่ถืออยู่จริงมาทีหลัง
+    boxes = {f: [(1040 + 10 * 192, 470, 40, 40), (1040, 470, 40, 40)]
+             for f in range(n)}
+    got = racket_shape_features(boxes, lm, 30, **kw)
+    assert got["racket_seen_frac"] > 0.9
+    assert got["racket_wrist_bw"] < 1.0
+
+
+def test_swing_plane_flatness_separates_planar_swing_from_random_motion():
+    """เส้นทางข้อมือของการตีอยู่ในระนาบเดียว (swing plane) การขยับมั่วไม่อยู่
+
+    เป็นฟีเจอร์ที่วัดได้เฉพาะใน 3 มิติ — ภาพ 2D ทุกเส้นทางแบนอยู่แล้วโดยปริยาย
+    """
+    from loeuf_cv.config import (L_SHOULDER, L_WRIST, R_SHOULDER, R_WRIST)
+    from loeuf_cv.swing_shape import (SWING3D_FEATURE_COLS,
+                                      swing_shape_3d_features)
+
+    def build(z_of):
+        n, t = 60, np.linspace(0, 1, 60)
+        w = np.full((n, 33, 3), np.nan)
+        w[:, L_SHOULDER, :] = (-0.17, 0.0, 0.0)
+        w[:, R_SHOULDER, :] = (0.17, 0.0, 0.0)
+        th = np.linspace(-1.5, 1.5, n)
+        for idx in (R_WRIST, L_WRIST):
+            w[:, idx, 0] = 0.17 + 0.40 * np.cos(th)
+            w[:, idx, 1] = 0.40 * np.sin(th)
+            w[:, idx, 2] = z_of(t)
+        return w
+
+    rng = np.random.default_rng(0)
+    planar = build(lambda t: np.zeros_like(t))          # อยู่ในระนาบ z คงที่
+    noisy = build(lambda t: rng.normal(0, 0.25, len(t)))  # กระเด็นออกนอกระนาบ
+
+    a = swing_shape_3d_features(planar, 30, fps=29.97, side="right")
+    b = swing_shape_3d_features(noisy, 30, fps=29.97, side="right")
+    assert a["plane_flatness"] < 0.05      # แบนสนิท
+    assert b["plane_flatness"] > a["plane_flatness"] * 5
+    assert set(a) == set(SWING3D_FEATURE_COLS)
+    assert all(np.isfinite(v) for v in a.values())
+
+    # NaN ล้วนต้องไม่ throw และคืนคีย์ครบ
+    out = swing_shape_3d_features(np.full((40, 33, 3), np.nan), 20, fps=29.97)
+    assert set(out) == set(SWING3D_FEATURE_COLS)
+    assert all(np.isfinite(v) for v in out.values())
+
+
 def test_benchmark_report_labels_eval_mode_from_manifest_not_flags():
     """🔴 รายงานต้องบอกโหมดที่ 'ทำนายจริง' ไม่ใช่แฟล็กที่พิมพ์ตอน score
 

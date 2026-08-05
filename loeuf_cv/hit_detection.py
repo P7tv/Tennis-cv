@@ -713,9 +713,10 @@ def detect_hit_events(
       LOW    = Ball Inflection + Racket Proximity (Wrist ไม่เจอ)
     """
     from .config import L_WRIST, R_WRIST
-    # import ในฟังก์ชันเพราะ swing_shape ใช้ _f/_fps_ratio ของไฟล์นี้ —
-    # import ระดับโมดูลจะวนกลับมาหากันเอง
-    from .swing_shape import swing_shape_features
+    # import ในฟังก์ชันเพราะ swing_shape/racket_shape ใช้ _f/_fps_ratio ของ
+    # ไฟล์นี้ — import ระดับโมดูลจะวนกลับมาหากันเอง
+    from .racket_shape import racket_shape_features
+    from .swing_shape import swing_shape_3d_features, swing_shape_features
 
     total_frames = ball_traj.shape[0]
     px_thresh = height * proximity_thresh
@@ -787,6 +788,13 @@ def detect_hit_events(
                 feats.update(swing_shape_features(
                     t.pose.landmarks, f, fps=fps, width=width, height=height,
                     side=side))
+                feats.update(swing_shape_3d_features(
+                    t.pose.world_landmarks, f, fps=fps, side=side))
+                feats.update(racket_shape_features(
+                    racket_bboxes, t.pose.landmarks, f, fps=fps, width=width,
+                    height=height, side=side,
+                    wrist_speed_px=float(speed[f]) if not np.isnan(speed[f])
+                    else None))
 
                 all_candidates.append({
                     "frame": f,
@@ -865,6 +873,11 @@ def detect_hit_events(
                 feats.update(swing_shape_features(
                     best_track.pose.landmarks, f, fps=fps, width=width,
                     height=height))
+                feats.update(swing_shape_3d_features(
+                    best_track.pose.world_landmarks, f, fps=fps))
+                feats.update(racket_shape_features(
+                    racket_bboxes, best_track.pose.landmarks, f, fps=fps,
+                    width=width, height=height))
                 all_candidates.append({
                     "frame": f,
                     "timestamp_sec": round(f / fps, 2),
