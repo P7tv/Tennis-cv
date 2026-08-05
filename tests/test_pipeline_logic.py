@@ -2590,3 +2590,252 @@ def test_classify_stroke_with_confidence_returns_pair():
     t, c = classify_stroke_with_confidence(ts, 30, "right")
     assert isinstance(t, str) and 0.0 <= c <= 1.0
     assert classify_stroke(ts, 30, "right") == t
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ฟีเจอร์รูปทรงวงสวิง (loeuf_cv/swing_shape.py)
+# ═══════════════════════════════════════════════════════════════════
+
+_W, _H = 1920, 1080
+
+
+def _swing_landmarks(n=60, impact=30, arc_deg=170.0, radius=0.12):
+    """โครงกระดูกที่ข้อมือกวาดเป็นส่วนโค้งรอบไหล่ — ลำตัวอยู่กับที่
+
+    ใช้เป็น "การตีจริง" อ้างอิงในเทสต์ ตรงข้ามกับ _fidget_landmarks()
+    """
+    from loeuf_cv.config import (L_ELBOW, L_HIP, L_SHOULDER, L_WRIST, R_ELBOW,
+                                 R_HIP, R_SHOULDER, R_WRIST)
+    lm = np.full((n, 33, 3), np.nan)
+    lm[:, L_SHOULDER, :2] = (0.45, 0.35)
+    lm[:, R_SHOULDER, :2] = (0.55, 0.35)
+    lm[:, L_HIP, :2] = (0.47, 0.55)
+    lm[:, R_HIP, :2] = (0.53, 0.55)
+    lm[:, L_WRIST, :2] = (0.44, 0.50)
+    lm[:, L_ELBOW, :2] = (0.44, 0.44)
+
+    sh = np.array([0.50, 0.35])
+    # กวาดจากหลังตัวไปหน้าตัว โดยให้เฟรม impact อยู่กลางส่วนโค้งพอดี
+    th = np.deg2rad(np.linspace(-arc_deg / 2, arc_deg / 2, n))
+    th = th - th[min(impact, n - 1)] + np.deg2rad(10.0)
+    for ratio, idx in ((1.0, R_WRIST), (0.55, R_ELBOW)):
+        lm[:, idx, 0] = sh[0] + radius * ratio * np.cos(th)
+        lm[:, idx, 1] = sh[1] + radius * ratio * np.sin(th)
+    return lm
+
+
+def _fidget_landmarks(n=60, seed=3):
+    """คนยืนขยับมือไปมาเล็กน้อย — ไม่มีวงสวิง ใช้เป็นตัวเทียบ "ไม่ใช่การตี" """
+    from loeuf_cv.config import R_ELBOW, R_WRIST
+    rng = np.random.default_rng(seed)
+    lm = _swing_landmarks(n)
+    for idx, base in ((R_WRIST, (0.58, 0.45)), (R_ELBOW, (0.56, 0.42))):
+        lm[:, idx, 0] = base[0] + rng.normal(0, 0.004, n)
+        lm[:, idx, 1] = base[1] + rng.normal(0, 0.004, n)
+    return lm
+
+
+def test_swing_shape_separates_real_swing_from_fidgeting():
+    """วงสวิงจริงต้องได้ sweep/path สูงกว่าการขยับมือไปมาชัดเจน
+
+    นี่คือสัญญาณที่ฟีเจอร์ชุดเดิมมองไม่เห็นเลย เพราะมันแปลง velocity เป็น
+    speed ทิ้งทิศทางไปหมด แล้วเหลือแค่ "ข้อมือเร็วไหม"
+    """
+    from loeuf_cv.swing_shape import swing_shape_features
+    kw = dict(fps=29.97, width=_W, height=_H, side="right")
+    swing = swing_shape_features(_swing_landmarks(), 30, **kw)
+    fidget = swing_shape_features(_fidget_landmarks(), 30, **kw)
+
+    # หน้าต่างวิเคราะห์ครอบ ~23 เฟรมจาก 60 จึงเห็นส่วนโค้งราว 1 ใน 3 และ
+    # การคูณ width/height ที่ไม่เท่ากันบีบวงกลมเป็นวงรี -> มุมที่วัดได้ต่ำกว่า
+    # มุมเชิงเรขาคณิตตรง ๆ ข้อพิสูจน์จริงคือ "สูงกว่าการขยับมือไปมา"
+    # เกณฑ์ 2 เท่าอิงอัตราส่วนที่วัดได้จากข้อมูลจริง (hit 6.03 : ขยะ 2.68)
+    assert swing["sweep_total"] > 0.5
+    assert swing["sweep_total"] > fidget["sweep_total"] * 2
+
+    # 🔴 regression guard ของ SWEEP_STRIDE: การสั่นอยู่กับที่ต้องไม่สะสมเป็น
+    # มุมกวาดปลอม ถ้าใครเปลี่ยนกลับไปวัด |dมุม| ทีละเฟรม ค่านี้จะพุ่งเป็น ~0.84
+    # (= กวาดจริง 48 องศา) ทั้งที่ข้อมือไม่ได้ไปไหนเลย
+    assert fidget["sweep_total"] < 0.4
+
+    # ไม่เทียบ path_len_bw ตรงนี้โดยตั้งใจ — มันเป็นฟีเจอร์เชิง "ขนาด" ไม่ใช่
+    # เชิง "รูปทรง" และวงสวิงสังเคราะห์นี้เล็กกว่าของจริงราว 20 เท่า
+    # (0.8 เทียบกับ 17.8 หน่วยความกว้างไหล่) เพราะจำลองแค่แขนกวาด ไม่มีการ
+    # ก้าวเท้า/หมุนตัวที่พาข้อมือเดินทางไกลกว่ามาก -> เทียบขนาดกันไม่มีความหมาย
+    # ค่าจริงของฟีเจอร์นี้ยืนยันด้วย AUC 0.767 บน dataset จริงแทน
+
+
+def test_swing_shape_is_invariant_to_body_size():
+    """คนตัวใหญ่/ยืนใกล้กล้อง ต้องได้ค่าเท่าคนตัวเล็ก/ยืนไกล
+
+    ถ้าไม่ invariant โมเดลจะเรียน "ระยะกล้อง" แทน "การตี" แล้วย้ายข้ามคนไม่ได้
+    — บั๊กเดียวกับที่เคยแก้ใน SCALED_FEATURE_COLS (F1 0.365 -> 0.461)
+    """
+    from loeuf_cv.augment import rescale_body
+    from loeuf_cv.swing_shape import swing_shape_features
+    kw = dict(fps=29.97, width=_W, height=_H, side="right")
+    base = _swing_landmarks()
+    big = swing_shape_features(rescale_body(base, 1.5), 30, **kw)
+    small = swing_shape_features(rescale_body(base, 0.7), 30, **kw)
+    for k in ("sweep_total", "path_len_bw", "straightness", "radius_cv"):
+        assert abs(big[k] - small[k]) < 0.05 * max(1.0, abs(big[k])), k
+
+
+def test_swing_shape_detects_backswing_then_forward():
+    """ถอยแล้วสวนกลับ -> pre_reversal_cos ติดลบ · ไปทางเดียว -> เป็นบวก
+
+    นี่คือสัญญาณที่ ฟีเจอร์ wrist_dir_change เดิมจับไม่ได้ เพราะมันคร่อมแค่
+    +-2 เฟรม (~70ms) ส่วนจุดกลับทิศจริงอยู่ก่อนปะทะราว 0.3 วิ
+    วัดจากข้อมูลจริง: ตอนตี median -0.138 · candidate ขยะ +0.174
+    """
+    from loeuf_cv.config import R_WRIST
+    from loeuf_cv.swing_shape import swing_shape_features
+    kw = dict(fps=29.97, width=_W, height=_H, side="right")
+    impact, n, turn = 32, 60, 24     # กลับทิศ 8 เฟรมก่อนปะทะ
+
+    back = _swing_landmarks(n=n, impact=impact)
+    x = np.concatenate([np.linspace(0.50, 0.62, turn),          # ถอยไปข้างหลัง
+                        np.linspace(0.62, 0.38, n - turn)])     # สวนกลับ
+    back[:, R_WRIST, 0], back[:, R_WRIST, 1] = x, 0.45
+    assert swing_shape_features(back, impact, **kw)["pre_reversal_cos"] < -0.9
+
+    straight = _swing_landmarks(n=n, impact=impact)
+    straight[:, R_WRIST, 0] = np.linspace(0.40, 0.62, n)
+    straight[:, R_WRIST, 1] = 0.45
+    assert swing_shape_features(straight, impact, **kw)[
+        "pre_reversal_cos"] > 0.9
+
+
+def test_swing_shape_kinetic_chain_ordering():
+    """พีคเรียง สะโพก->ไหล่->ศอก->ข้อมือ ได้ 1.0 · เรียงกลับหลังได้ต่ำกว่า"""
+    from loeuf_cv.config import (L_ELBOW, L_HIP, L_SHOULDER, L_WRIST, R_ELBOW,
+                                 R_HIP, R_SHOULDER, R_WRIST)
+    from loeuf_cv.swing_shape import swing_shape_features
+
+    def build(peaks):
+        n = 45
+        t = np.arange(n)
+        lm = np.full((n, 33, 3), np.nan)
+        # ตำแหน่ง = ผลรวมสะสมของความเร็วรูประฆังที่พีคตามเวลาที่กำหนด
+        pos = {k: np.cumsum(np.exp(-((t - p) ** 2) / 8.0)) * 0.01
+               for k, p in peaks.items()}
+        for idx, k, off in ((L_HIP, "hip", -0.03), (R_HIP, "hip", 0.03),
+                            (L_SHOULDER, "sh", -0.05), (R_SHOULDER, "sh", 0.05),
+                            (R_ELBOW, "el", 0.0), (R_WRIST, "wr", 0.0),
+                            (L_ELBOW, "el", 0.0), (L_WRIST, "wr", 0.0)):
+            lm[:, idx, 0] = 0.5 + off + pos[k]
+            lm[:, idx, 1] = 0.45
+        lm[:, L_SHOULDER, 1] = lm[:, R_SHOULDER, 1] = 0.35
+        lm[:, L_HIP, 1] = lm[:, R_HIP, 1] = 0.55
+        return lm
+
+    kw = dict(fps=29.97, width=_W, height=_H, side="right")
+    good = build({"hip": 10, "sh": 13, "el": 16, "wr": 19})
+    bad = build({"hip": 19, "sh": 16, "el": 13, "wr": 10})
+    assert swing_shape_features(good, 20, **kw)["chain_order"] == 1.0
+    assert swing_shape_features(bad, 20, **kw)["chain_order"] < 0.5
+
+
+def test_swing_shape_survives_missing_pose_without_raising():
+    """track หลุด (NaN ล้วน) ต้องคืน dict ที่มีคีย์ครบ ไม่ throw ไม่คืน NaN
+
+    ถ้าคีย์หายไปบางเฟรม DataFrame ที่เอาไปเทรนจะมีช่องว่างแบบเงียบ ๆ
+    """
+    from loeuf_cv.swing_shape import SWING_FEATURE_COLS, swing_shape_features
+    kw = dict(fps=29.97, width=_W, height=_H, side="right")
+    for lm in (np.full((40, 33, 3), np.nan), _swing_landmarks(n=3)):
+        out = swing_shape_features(lm, 20, **kw)
+        assert set(out) == set(SWING_FEATURE_COLS)
+        assert all(np.isfinite(v) for v in out.values())
+
+
+def test_swing_shape_window_scales_with_fps():
+    """คลิป 60fps ที่เป็นการเคลื่อนไหวเดียวกัน ต้องได้ค่าใกล้เคียง 29.97fps
+
+    ถ้าหน้าต่างไม่สเกล คลิปชุดหน้า (>=60fps ตาม spec) จะมองเห็นวงสวิงแค่
+    ครึ่งเดียว -> ฟีเจอร์หลุด distribution ที่โมเดลเทรนมา โดยไม่มี error
+    """
+    from loeuf_cv.swing_shape import swing_shape_features
+    slow = _swing_landmarks(n=60, impact=30)
+    fast = np.repeat(slow, 2, axis=0)          # เคลื่อนไหวเดิมที่ 2 เท่าของ fps
+    a = swing_shape_features(slow, 30, fps=29.97, width=_W, height=_H,
+                             side="right")
+    b = swing_shape_features(fast, 60, fps=59.94, width=_W, height=_H,
+                             side="right")
+    assert abs(a["sweep_total"] - b["sweep_total"]) < 0.15 * a["sweep_total"]
+    assert abs(a["path_len_bw"] - b["path_len_bw"]) < 0.15 * a["path_len_bw"]
+
+
+def test_wrist_peak_merge_window_keeps_impact_and_followthrough_apart():
+    """🔴 regression guard: peak สองตัวห่างกัน 10 เฟรมต้องไม่ถูกยุบเป็นตัวเดียว
+
+    เดิม merge = window*2 = 16 เฟรม ทำให้จังหวะปะทะถูกจังหวะ follow-through
+    ที่เร็วกว่ากลืนหายไป — GT ที่หลุดตั้งแต่ด่านนี้คือลูกที่ตีแรงที่สุด
+    (speed median 108 px เทียบกับ 49 px ของลูกที่จับได้)
+    เพดาน recall ระดับ candidate: merge 16 = 95.3% -> merge 8 = 99.4%
+    ดู scripts/diagnose_missed_candidates.py
+    """
+    from loeuf_cv.hit_detection import (PEAK_MERGE_WINDOW, PEAK_WINDOW,
+                                        _find_wrist_peaks)
+    t = np.arange(80)
+    # ปะทะที่ 30 (เตี้ยกว่า) · follow-through ที่ 40 (สูงกว่า) ห่างกัน 10 เฟรม
+    speed = (40 * np.exp(-((t - 30) ** 2) / 6.0)
+             + 60 * np.exp(-((t - 40) ** 2) / 6.0))
+    got = _find_wrist_peaks(speed, min_speed_px=8.0, window=PEAK_WINDOW,
+                            merge_window=PEAK_MERGE_WINDOW)
+    assert 30 in got and 40 in got, got
+    assert PEAK_MERGE_WINDOW <= 10
+
+    # ค่าเดิมกลืนเฟรมปะทะทิ้ง — เก็บไว้เป็นหลักฐานว่าทำไมต้องเปลี่ยน
+    assert _find_wrist_peaks(speed, min_speed_px=8.0, window=8,
+                             merge_window=16) == [40]
+
+
+def test_benchmark_report_labels_eval_mode_from_manifest_not_flags():
+    """🔴 รายงานต้องบอกโหมดที่ 'ทำนายจริง' ไม่ใช่แฟล็กที่พิมพ์ตอน score
+
+    การเลือกโมเดล LOPO เกิดตอน stage predict แต่รายงานสร้างตอน stage score
+    ซึ่งเป็นคนละคำสั่ง ถ้าอ่านจาก args ของ score จะเกิดสองเคสที่อันตราย:
+      · predict แบบ LOPO + score เปล่า -> รายงานเขียน "in-sample" (ต่ำไป)
+      · predict แบบ in-sample + score ใส่แฟล็ก -> รายงานอ้าง "LOPO" ทั้งที่
+        ปนเปื้อน = ตัวเลขสูงเกินจริงโดยมีป้ายรับรองว่าเชื่อถือได้ ⚠️
+    เคสแรกเกิดขึ้นจริงตอนรันชุด swing features
+    """
+    import types
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from run_keyframe_benchmark import (INSAMPLE_LABEL, LOPO_LABEL,
+                                        _eval_mode_from_manifest)
+
+    def mani(**clips):
+        m = types.SimpleNamespace()
+        m.data = {c: {"predict_a": {"status": "ok", "hit_model_eval": v}}
+                  for c, v in clips.items()}
+        return m
+
+    no_flag = types.SimpleNamespace(hit_classifier_dir=None)
+    with_flag = types.SimpleNamespace(hit_classifier_dir="/some/dir")
+
+    # manifest ชนะแฟล็กเสมอ ทั้งสองทิศทาง
+    assert _eval_mode_from_manifest(mani(a=LOPO_LABEL), no_flag) == LOPO_LABEL
+    assert _eval_mode_from_manifest(
+        mani(a=INSAMPLE_LABEL), with_flag) == INSAMPLE_LABEL
+
+    # ปนกัน = ต้องเตือน ไม่ใช่เลือกข้างใดข้างหนึ่ง
+    mixed = _eval_mode_from_manifest(
+        mani(a=LOPO_LABEL, b=INSAMPLE_LABEL), no_flag)
+    assert "ปนกัน" in mixed
+
+    # manifest เก่าที่ไม่มีคีย์ -> ใช้แฟล็กได้ แต่ต้องบอกว่าเป็นการเดา
+    old = types.SimpleNamespace(data={"a": {"predict_a": {"status": "ok"}}})
+    assert "เดาจากแฟล็ก" in _eval_mode_from_manifest(old, with_flag)
+
+
+def test_wrist_peak_default_merge_window_is_backward_compatible():
+    """ไม่ส่ง merge_window มา = พฤติกรรมเดิม (window*2) ทุกประการ"""
+    from loeuf_cv.hit_detection import _find_wrist_peaks
+    t = np.arange(80)
+    speed = (40 * np.exp(-((t - 30) ** 2) / 6.0)
+             + 60 * np.exp(-((t - 40) ** 2) / 6.0))
+    assert (_find_wrist_peaks(speed, window=8)
+            == _find_wrist_peaks(speed, window=8, merge_window=16))

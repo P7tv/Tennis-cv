@@ -30,6 +30,7 @@ from loeuf_cv.augment import (jitter_landmarks, remap_bboxes,  # noqa: E402
                               warp_frame_index)
 from loeuf_cv.hit_detection import (detect_hit_events,  # noqa: E402
                                     extract_ball_trajectory_kalman)
+from loeuf_cv.swing_shape import SWING_FEATURE_COLS  # noqa: E402
 from train_model.label_ingest import (find_session_labels,  # noqa: E402
                                       load_session_label)
 
@@ -49,7 +50,33 @@ SCALED_COLS = [
     "speed_pre_bw", "speed_post_bw", "speed_std_bw",
     "wrist_dir_change", "wrist_y_rel", "wrist_x_rel",
 ]
-FEATURE_COLS = BASE_COLS + SCALED_COLS
+
+# ฟีเจอร์รูปทรงวงสวิง (loeuf_cv/swing_shape.py) — ตอบ "มันวาดเป็นวงตีจริงไหม"
+# ต่างจากชุดบนที่ตอบได้แค่ "ข้อมือเร็วไหม ณ เฟรมนั้น"
+SWING_COLS = list(SWING_FEATURE_COLS)
+
+# ชุดที่ไม่พึ่งตำแหน่งลูก/ไม้เลย — ในคลิปจริงเห็นลูกลอยแค่ 4.4-22% ของเฟรม
+# ที่เหลือ ball_dist ถูกเติมด้วย 9999 ปลอม ซึ่งเป็น "ค่าคงที่ที่ไม่ได้แปลว่า
+# ไม่มีลูก" -> RF เอาไปแตกกิ่งแล้วเรียนสิ่งที่ไม่มีอยู่จริง
+SPEED_ONLY_COLS = [c for c in SCALED_COLS
+                   if not c.startswith(("ball_", "racket_"))]
+
+FEATURE_SETS = {
+    "base": BASE_COLS,
+    "scaled": SCALED_COLS + ["speed_decel_ratio", "speed_peak_sharpness",
+                             "ball_angle_change"],
+    "all": BASE_COLS + SCALED_COLS,
+    "swing": SWING_COLS,
+    "swing+speed": SWING_COLS + SPEED_ONLY_COLS,
+    "swing+scaled": SWING_COLS + SCALED_COLS,
+    "all+swing": BASE_COLS + SCALED_COLS + SWING_COLS,
+}
+FEATURE_COLS = FEATURE_SETS["all"]
+
+# แถวที่สร้างเก็บ "ทุก" ฟีเจอร์เสมอ ไม่ว่าจะเทรนด้วยชุดไหน — สร้างแถวคือส่วนที่
+# แพง (ต้องรัน detect_hit_events ใหม่ทั้ง dataset) ส่วนการเลือกคอลัมน์ถูกมาก
+# แยกกันแบบนี้ทำให้ ablation สร้างแถวรอบเดียวแล้วเทียบได้ทุกชุด
+ALL_FEATURE_COLS = list(dict.fromkeys(BASE_COLS + SCALED_COLS + SWING_COLS))
 LABEL_TOL = 5   # candidate ห่าง GT impact <= 5 เฟรม ถือว่าเป็น hit จริง
 MATCH_TOL = 10  # ตอนวัดผล ใช้ tolerance เดียวกับ benchmark harness
 
@@ -68,7 +95,7 @@ def _candidates_for(track, traj, meas, racket, w, h, fps, gt, key, person,
     for ev in cands:
         fe = ev.get("features", {})
         out.append({
-            **{col: fe.get(col, 0.0) for col in FEATURE_COLS},
+            **{col: fe.get(col, 0.0) for col in ALL_FEATURE_COLS},
             "is_hit": int(any(abs(ev["frame"] - g) <= LABEL_TOL for g in gt)),
             "frame": ev["frame"], "clip": key, "person": person, "fps": fps,
             "n_gt": len(gt), "variant": variant, "is_aug": int(variant != "orig"),
@@ -228,20 +255,19 @@ def main():
     ap.add_argument("--lopo-out", default=None,
                     help="โฟลเดอร์เก็บโมเดลชุด LOPO (<person>.pkl = เทรนโดย "
                          "ตัดคนนั้นออก) สำหรับ benchmark ที่ไม่ปนข้อมูลที่เคยเห็น")
-    ap.add_argument("--features", choices=("all", "scaled", "base"),
-                    default="all",
-                    help="all=ทั้งหมด · scaled=เฉพาะที่ normalize แล้ว "
-                         "(+ ratio ที่ไม่มีหน่วย) · base=ชุดเดิม")
+    # ค่า default = ชุดที่ชนะจาก scripts/ablate_hit_features.py (LOPO, augment 3)
+    #   all (เดิม)   F1 0.460 · recall 59.9% · precision 37.3%
+    #   swing+speed  F1 0.665 · recall 69.8% · precision 63.5%
+    # ที่ตัด ball_dist/racket_dist ออกเพราะเห็นลูกลอยแค่ 4.4-22% ของเฟรม
+    # ที่เหลือถูกเติมด้วย 9999 ซึ่งเป็นค่าคงที่ที่ไม่ได้แปลว่า "ไม่มีลูก"
+    ap.add_argument("--features", choices=tuple(FEATURE_SETS),
+                    default="swing+speed",
+                    help=" · ".join(f"{k}={len(v)} ตัว"
+                                    for k, v in FEATURE_SETS.items()))
     args = ap.parse_args()
 
     global FEATURE_COLS
-    if args.features == "scaled":
-        # ratio/cosine ไม่มีหน่วย px อยู่แล้ว จึงข้ามข้ามคนได้ เก็บไว้ด้วย
-        FEATURE_COLS = SCALED_COLS + ["speed_decel_ratio",
-                                      "speed_peak_sharpness",
-                                      "ball_angle_change"]
-    elif args.features == "base":
-        FEATURE_COLS = BASE_COLS
+    FEATURE_COLS = FEATURE_SETS[args.features]
 
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.model_selection import LeaveOneGroupOut

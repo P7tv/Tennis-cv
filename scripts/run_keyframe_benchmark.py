@@ -333,6 +333,39 @@ def _lookup_person(mapping: dict, clip: str) -> str | None:
     return hits.pop() if len(hits) == 1 else None
 
 
+LOPO_LABEL = "LOPO (โมเดลไม่เคยเห็นคนในคลิปที่วัด)"
+INSAMPLE_LABEL = "in-sample (โมเดลเทรนจากคลิปเดียวกับที่วัด)"
+
+
+def _eval_mode_label(args) -> str:
+    return LOPO_LABEL if getattr(args, "hit_classifier_dir", None) else INSAMPLE_LABEL
+
+
+def _eval_mode_from_manifest(manifest, args) -> str:
+    """โหมดที่ใช้ตอน 'ทำนาย' จริง — อ่านจาก manifest ก่อนเสมอ
+
+    🔴 ทำไมไม่ดูจาก args ตรง ๆ: การเลือกโมเดล LOPO เกิดตอน stage predict แต่
+    รายงานถูกสร้างตอน stage score ซึ่งเป็นคนละคำสั่งกัน ถ้าอ่านจาก args ของ
+    score รายงานจะติดป้ายตามแฟล็กที่พิมพ์ตอน score ไม่ใช่ตามสิ่งที่เกิดขึ้นจริง
+    -> รัน predict --hit-classifier-dir แล้ว score เปล่า ๆ จะได้รายงานที่เขียนว่า
+    "in-sample" ทั้งที่วัดแบบ LOPO (และกลับกันซึ่งอันตรายกว่า คืออ้าง LOPO
+    ทั้งที่ปนเปื้อน) เจอจริงตอนรันชุด swing features
+
+    manifest บันทึกไว้ตอน predict จึงเป็นแหล่งความจริง ส่วน args ใช้เป็นตัวสำรอง
+    สำหรับ manifest เก่าที่ยังไม่มีคีย์นี้
+    """
+    seen = {e.get("hit_model_eval")
+            for clip in manifest.data.values()
+            for stage, e in clip.items()
+            if stage == "predict_a" and e.get("status") == "ok"}
+    seen.discard(None)
+    if len(seen) == 1:
+        return seen.pop()
+    if len(seen) > 1:
+        return "ปนกันหลายโหมด ⚠️ ให้รัน predict --force ใหม่ทั้งชุด"
+    return _eval_mode_label(args) + " (เดาจากแฟล็ก — manifest ไม่ได้บันทึกไว้)"
+
+
 def _use_lopo_model(args, clip: str) -> None:
     """สลับ hit classifier ให้เป็นตัวที่ **ไม่เคยเห็นคนในคลิปนี้**
 
@@ -464,6 +497,10 @@ def stage_predict(args, sessions, manifest: Manifest):
                                 n_pred=n_pred, n_gt=n_gt,
                                 mode_b_count_mismatch=mismatch,
                                 n_hit_events=len(hit_events),
+                                # บันทึกไว้ให้ stage score อ่าน — ไม่งั้นรายงาน
+                                # จะติดป้ายตามแฟล็กของคำสั่ง score แทนที่จะเป็น
+                                # สิ่งที่เกิดขึ้นจริงตอนทำนาย
+                                hit_model_eval=_eval_mode_label(args),
                                 duration_s=round(time.time() - t0, 1))
                 print(f"[{i}/{len(sessions)}] {clip} mode {mode} — "
                       f"{n_pred} stroke (GT {n_gt}){warn}")
@@ -588,9 +625,7 @@ def stage_score(args, sessions, manifest: Manifest):
             "match_tolerance": args.match_tolerance,
             # ⚠️ ตัวเลขจะต่างกันมากระหว่างสองโหมดนี้ (acceptance 0.506 vs 0.308)
             # ต้องระบุไว้ในรายงานเสมอ ไม่งั้นอ่านสลับกันแล้วเข้าใจผิดทั้งฉบับ
-            "hit_model_eval": ("LOPO (โมเดลไม่เคยเห็นคนในคลิปที่วัด)"
-                               if getattr(args, "hit_classifier_dir", None)
-                               else "in-sample (โมเดลเทรนจากคลิปเดียวกับที่วัด)"),
+            "hit_model_eval": _eval_mode_from_manifest(manifest, args),
         },
     }
 

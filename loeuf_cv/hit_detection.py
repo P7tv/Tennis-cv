@@ -325,11 +325,43 @@ def _compute_wrist_speed(pose_ts, wrist_idx: int, width: int, height: int) -> np
     return speed
 
 
-def _find_wrist_peaks(speed: np.ndarray, min_speed_px: float = 8.0, window: int = 8) -> list[int]:
+# หน้าต่างหา local max ของความเร็วข้อมือ และระยะที่ถือว่า peak สองตัวเป็น
+# ตัวเดียวกัน (หน่วย: เฟรมที่ 29.97fps — สเกลด้วย _f() ที่จุดเรียก)
+#
+# เดิม merge = window*2 = 16 เฟรม ซึ่งกว้างเกินไป: จังหวะปะทะกับจังหวะพีคของ
+# follow-through อยู่ห่างกันราว 10-15 เฟรม พอถูกยุบเป็นตัวเดียวโดยเลือก
+# "ตัวที่เร็วกว่า" เฟรมปะทะของลูกที่ตีแรงจะแพ้เสมอ
+#
+# วัดผลของการลดเหลือ 8 (เพดาน recall ระดับ candidate บน GT 172 ลูก):
+#   merge 16 -> 95.3% · candidate 2,250
+#   merge  8 -> 99.4% · candidate 2,909  (+29% แลกกับเพดาน +4.1 จุด)
+# ลดต่ำกว่า 8 ไม่ได้เพดานเพิ่มอีก มีแต่ candidate บวม
+PEAK_WINDOW = 8
+PEAK_MERGE_WINDOW = 8
+
+
+def _find_wrist_peaks(speed: np.ndarray, min_speed_px: float = 8.0,
+                      window: int = 8, merge_window: int | None = None) -> list[int]:
     """
     หา Local Maximum ของ speed ที่เกิน threshold
     → จุดเหล่านี้คือ "จังหวะที่แขนขยับเร็วสุด" ซึ่งสอดคล้องกับจังหวะตีลูก
+
+    merge_window  ระยะที่ถือว่า peak สองตัวเป็นตัวเดียวกัน (default = window*2)
+
+    🔴 ทำไม merge_window ต้องปรับได้ — วัดแล้วพบว่า GT ที่หลุดตั้งแต่ด่านนี้
+    ไม่ใช่ลูกที่ตีเบา แต่เป็นลูกที่ **ตีแรงที่สุด** (speed median 108 px เทียบ
+    กับ 49 px ของลูกที่จับได้) เพราะตอนตีแรง จังหวะ follow-through เร็วกว่า
+    จังหวะปะทะ พอ de-dup เลือก "ตัวที่ speed สูงกว่า" เฟรมปะทะจึงถูกเขี่ยทิ้ง
+    แล้วเหลือ candidate ที่อยู่ห่างจากเฉลยเกิน tolerance
+    ดู scripts/diagnose_missed_candidates.py
+
+    การเลือกด้วย speed ดิบตรงนี้เป็นการตัดสินใจที่ "เร็วเกินไป" — ปลายทางมี
+    NMS ที่เลือกด้วย ml_prob ซึ่งรู้จักรูปทรงวงสวิงและมีข้อมูลมากกว่ามาก
+    ปล่อย candidate ให้เยอะขึ้นแล้วให้ปลายทางตัดสินจึงดีกว่า แต่ทำได้ก็ต่อ
+    เมื่อ precision ดีพอ (ตอนใช้ฟีเจอร์เดิม 39.8% ยังไม่พอ)
     """
+    if merge_window is None:
+        merge_window = window * 2
     n = len(speed)
     peaks = []
     for i in range(window, n - window):
@@ -339,12 +371,12 @@ def _find_wrist_peaks(speed: np.ndarray, min_speed_px: float = 8.0, window: int 
         if speed[i] == local_max:
             peaks.append(i)
 
-    # De-duplicate: ถ้า peak ใกล้กัน < window*2 ให้เอา peak ที่ speed สูงสุด
-    if not peaks:
-        return []
+    # De-duplicate: ถ้า peak ใกล้กัน < merge_window ให้เอา peak ที่ speed สูงสุด
+    if not peaks or merge_window <= 1:
+        return peaks
     merged = [peaks[0]]
     for p in peaks[1:]:
-        if p - merged[-1] < window * 2:
+        if p - merged[-1] < merge_window:
             if speed[p] > speed[merged[-1]]:
                 merged[-1] = p
         else:
@@ -681,6 +713,9 @@ def detect_hit_events(
       LOW    = Ball Inflection + Racket Proximity (Wrist ไม่เจอ)
     """
     from .config import L_WRIST, R_WRIST
+    # import ในฟังก์ชันเพราะ swing_shape ใช้ _f/_fps_ratio ของไฟล์นี้ —
+    # import ระดับโมดูลจะวนกลับมาหากันเอง
+    from .swing_shape import swing_shape_features
 
     total_frames = ball_traj.shape[0]
     px_thresh = height * proximity_thresh
@@ -705,7 +740,8 @@ def detect_hit_events(
         for wrist_idx, side in [(R_WRIST, "right"), (L_WRIST, "left")]:
             speed = _compute_wrist_speed(t.pose, wrist_idx, width, height)
             peaks = _find_wrist_peaks(speed, min_speed_px=min_wrist_speed_px,
-                                      window=_f(8, fps))
+                                      window=_f(PEAK_WINDOW, fps),
+                                      merge_window=_f(PEAK_MERGE_WINDOW, fps))
 
             for f in peaks:
                 if f >= n_pose:
@@ -748,6 +784,9 @@ def detect_hit_events(
                                               height, racket_bboxes,
                                               scale_ctx=scale_by_track[t.track_id],
                                               fps=fps)
+                feats.update(swing_shape_features(
+                    t.pose.landmarks, f, fps=fps, width=width, height=height,
+                    side=side))
 
                 all_candidates.append({
                     "frame": f,
@@ -821,6 +860,11 @@ def detect_hit_events(
                 feats = _extract_hit_features(
                     f, ball_traj, None, best_dist, width, height, racket_bboxes,
                     scale_ctx=scale_by_track.get(best_track.track_id), fps=fps)
+                # candidate สายนี้ไม่รู้ว่าใช้มือไหน -> ให้ swing_shape เลือก
+                # ข้างที่ข้อมือเร็วกว่าเอง (side=None)
+                feats.update(swing_shape_features(
+                    best_track.pose.landmarks, f, fps=fps, width=width,
+                    height=height))
                 all_candidates.append({
                     "frame": f,
                     "timestamp_sec": round(f / fps, 2),

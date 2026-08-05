@@ -167,7 +167,10 @@ def main():
     ap = argparse.ArgumentParser(
         description="เทรนโมเดลใหม่จากคลิปที่เพิ่มเข้ามา (คำสั่งเดียวจบ)")
     ap.add_argument("--dataset-root", default=str(ROOT / "dataset"))
-    ap.add_argument("--n-aug", type=int, default=6,
+    # 3 = ค่าที่วัดคู่กับชุดฟีเจอร์ปัจจุบัน (swing+speed) ใน
+    # scripts/ablate_hit_features.py — ยังไม่ได้วัดว่า 6 ดีกว่าไหมกับชุดนี้
+    # จึงใช้ค่าที่มีหลักฐานรองรับ ไม่ใช่ค่าที่เดาว่าเยอะกว่าน่าจะดีกว่า
+    ap.add_argument("--n-aug", type=int, default=3,
                     help="จำนวนสำเนาสังเคราะห์ต่อคลิป (0 = ปิด)")
     ap.add_argument("--skip-tracking", action="store_true",
                     help="ข้ามการรัน YOLO (ใช้เมื่อ cache ครบแล้ว)")
