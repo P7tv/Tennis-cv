@@ -636,6 +636,7 @@ def render_keyframe_markdown(results: dict) -> str:
         f"- Accuracy tolerance: ±{meta.get('accuracy_tolerance', 1)} เฟรม · "
         f"Match tolerance: ±{meta.get('match_tolerance', MATCH_TOLERANCE_FRAMES)} เฟรม",
         f"- **การประเมิน hit classifier: {meta.get('hit_model_eval', '(ไม่ระบุ)')}**",
+        f"- ปรับเฟรมปะทะด้วยเสียง: {meta.get('impact_audio_refine', '(ไม่ระบุ)')}",
         "",
         "  > ⚠️ ตัวเลขต่างกันมากระหว่างสองโหมด — โหมด in-sample ให้ acceptance "
         "0.506 แต่โหมด LOPO ให้ 0.308 บนข้อมูลชุดเดียวกัน ส่วนต่างคือ "

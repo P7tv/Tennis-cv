@@ -2995,3 +2995,132 @@ def test_wrist_peak_default_merge_window_is_backward_compatible():
              + 60 * np.exp(-((t - 40) ** 2) / 6.0))
     assert (_find_wrist_peaks(speed, window=8)
             == _find_wrist_peaks(speed, window=8, merge_window=16))
+
+
+def test_build_loeuf_schema_uses_pose_length_not_video_metadata():
+    """cv2 อ่าน total_frames จาก metadata ของไฟล์ แต่จำนวนเฟรมที่ decode + track
+    ได้จริงน้อยกว่านั้นได้ (วัดจริง IMG_0301A2: metadata 2414 vs pose 2408)
+
+    ถ้า builder จำกัด keyframe/หน้าต่าง stroke ด้วยเลขจาก metadata แล้วเอาไป
+    index อาร์เรย์ pose ที่สั้นกว่า -> IndexError, stroke ท้ายคลิปพังทั้ง stroke
+    เจอตอนต่อการปรับเฟรมด้วยเสียง (ซึ่งดัน keyframe ไปตกช่วงนั้นพอดี) แต่เป็น
+    บั๊กที่มีมาก่อน ไม่เกี่ยวกับเสียง
+    """
+    from loeuf_cv.config import PipelineConfig
+    from loeuf_cv.schema_builder.builder import build_loeuf_schema
+
+    n_pose = 72
+    track = _fake_player_track(n_frames=n_pose)
+    # impact ชิดท้ายสุดของ pose -> ทุก keyframe หลัง impact จะโดนดันไปชนขอบ
+    hit_events = [{"frame": n_pose - 3, "player_id": 1, "confidence": 0.9}]
+    # metadata โกหกว่ายาวกว่าที่มีจริง 6 เฟรม
+    video_meta = {"width": 1920, "height": 1080, "total_frames": n_pose + 6}
+
+    out = build_loeuf_schema([track], hit_events, 30.0, video_meta,
+                             PipelineConfig())
+
+    assert len(out["strokes"]) == 1
+    for name, entry in out["strokes"][0]["keyframe"].items():
+        idx = entry.get("frame_index")
+        if idx is not None:
+            assert idx < n_pose, f"{name} ชี้เฟรม {idx} ซึ่งเกินข้อมูล pose ที่มี {n_pose}"
+
+
+def _audio_env_with_onsets(frames, fps=30.0, n_frames=200, sr_hop=0.0029):
+    """สร้าง envelope สังเคราะห์ที่มียอดแหลมตรงเฟรมที่กำหนด"""
+    t = np.arange(0.0, n_frames / fps, sr_hop)
+    env = np.full(len(t), 0.01)
+    for f in frames:
+        env[np.argmin(np.abs(t - f / fps))] = 1.0
+    return t, env
+
+
+def test_refine_hits_with_audio_removes_sound_travel_delay(tmp_path, monkeypatch):
+    """เสียงเดินทางช้ากว่าภาพ -> onset ตกหลังเฟรมปะทะจริงเป็นค่าคงที่ต่อคลิป
+
+    การชดเชยต้องคำนวณจาก "เฟรมที่ภาพทำนาย" เท่านั้น ห้ามแตะเฉลย ไม่งั้นตัวเลข
+    ที่วัดได้จะโกง — ทดสอบด้วยการให้ภาพทำนายพลาดแบบไม่มีทิศทาง (+1/-1/0)
+    แล้วดูว่าผลลัพธ์กลับมาใกล้เฟรมจริงกว่าเดิม
+    """
+    from loeuf_cv import audio_onset
+
+    fps = 30.0
+    true_frames = [40, 80, 120, 160]
+    delay = 2                                  # เสียงช้า 2 เฟรม (~23 m)
+    pred_frames = [41, 79, 120, 158]           # ภาพพลาดแบบไม่มีทิศทาง
+
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"x")
+    monkeypatch.setattr(audio_onset, "extract_audio", lambda *a, **k: True)
+    monkeypatch.setattr(audio_onset, "onset_envelope",
+                        lambda *a, **k: _audio_env_with_onsets(
+                            [f + delay for f in true_frames], fps=fps))
+
+    events = [{"frame": f, "timestamp_sec": round(f / fps, 2)}
+              for f in pred_frames]
+    out = audio_onset.refine_hits_with_audio(events, video, fps,
+                                             total_frames=200)
+    got = [e["frame"] for e in out]
+
+    before = sum(abs(p - g) for p, g in zip(pred_frames, true_frames))
+    after = sum(abs(p - g) for p, g in zip(got, true_frames))
+    assert after < before, f"{pred_frames} -> {got} (จริง {true_frames})"
+    # ค่าชดเชยที่ประมาณได้ต้องเท่ากับความช้าจริง -> ทุกลูกตรงเป๊ะ
+    assert got == true_frames
+
+
+def test_refine_hits_with_audio_needs_enough_events(tmp_path, monkeypatch):
+    """ลูกน้อยเกินไป ค่ากลางไม่มีความหมาย — ต้องคืนของเดิม ไม่ใช่เดาแล้วเลื่อนทั้งคลิป"""
+    from loeuf_cv import audio_onset
+
+    monkeypatch.setattr(audio_onset, "extract_audio", lambda *a, **k: True)
+    monkeypatch.setattr(audio_onset, "onset_envelope",
+                        lambda *a, **k: _audio_env_with_onsets([42, 82]))
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"x")
+
+    events = [{"frame": 40}, {"frame": 80}]
+    assert audio_onset.refine_hits_with_audio(
+        events, video, 30.0) == [{"frame": 40}, {"frame": 80}]
+
+
+def test_refine_hits_with_audio_clamps_to_last_frame(tmp_path, monkeypatch):
+    """แทร็กเสียงมักยาวกว่าวิดีโอ — เฟรมที่เสียงชี้จึงหลุดท้ายคลิปได้
+    ถ้าปล่อยหลุด builder จะ IndexError แล้ว GT ทั้งคลิปถูกนับเป็น FN"""
+    from loeuf_cv import audio_onset
+
+    n = 100
+    monkeypatch.setattr(audio_onset, "extract_audio", lambda *a, **k: True)
+    # onset ทุกตัวช้ากว่าเฟรมที่ทำนาย 5 เฟรม -> ตัวสุดท้ายเล็งไปเลยขอบคลิป
+    monkeypatch.setattr(audio_onset, "onset_envelope",
+                        lambda *a, **k: _audio_env_with_onsets(
+                            [25, 55, 97], fps=30.0, n_frames=120))
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"x")
+
+    events = [{"frame": 20}, {"frame": 50}, {"frame": 92}]
+    out = audio_onset.refine_hits_with_audio(events, video, 30.0,
+                                             total_frames=n)
+    assert all(0 <= e["frame"] <= n - 1 for e in out)
+
+
+def test_audio_mode_read_from_manifest_not_flags():
+    """เหตุผลเดียวกับ hit_model_eval — แฟล็ก --use-audio มีผลตอน predict แต่
+    รายงานสร้างตอน score รายงานสองฉบับที่ตัวเลขต่างกันจะดูเหมือนกันทุกประการ
+    ถ้าไม่บันทึกไว้"""
+    import types
+
+    from scripts.run_keyframe_benchmark import _audio_mode_from_manifest
+
+    def mani(**clips):
+        m = types.SimpleNamespace()
+        m.data = {c: {"predict_a": {"status": "ok", "use_audio": v}}
+                  for c, v in clips.items()}
+        return m
+
+    assert "เปิด" in _audio_mode_from_manifest(mani(a=True, b=True))
+    assert "ปิด" in _audio_mode_from_manifest(mani(a=False, b=False))
+    assert "ปนกัน" in _audio_mode_from_manifest(mani(a=True, b=False))
+    # manifest เก่าที่ยังไม่มีคีย์นี้ ต้องไม่โกหกว่า "ปิด"
+    old = types.SimpleNamespace(data={"a": {"predict_a": {"status": "ok"}}})
+    assert "ไม่ทราบ" in _audio_mode_from_manifest(old)

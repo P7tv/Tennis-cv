@@ -424,9 +424,13 @@ if tracks:
                 traj, ball_measured = extract_ball_trajectory_kalman(
                     ball_bboxes, n_frames, return_measured=True, fps=fps)
                 racket_bboxes = st.session_state.get("racket_bboxes")
+                # video_path -> ใช้เสียงกระทบช่วยระบุเฟรมปะทะ (ต้องมี ffmpeg
+                # ใน PATH ไม่มีก็ข้ามไปเงียบ ๆ ไม่พัง) วัดแล้วบน benchmark เต็ม
+                # acceptance 0.442 -> 0.471 · ดู docs/IMPACT_FRAME_REFINEMENT.md
                 hits = detect_hit_events(traj, tracks, fps, fw, fh,
                                          racket_bboxes=racket_bboxes,
-                                         ball_measured=ball_measured)
+                                         ball_measured=ball_measured,
+                                         video_path=video_path)
                 # Enrich with bounce detection
                 from loeuf_cv.bounce_detection import add_bounce_to_hits
                 court_H = st.session_state.get("court_homography")

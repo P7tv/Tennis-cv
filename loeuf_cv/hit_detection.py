@@ -538,6 +538,28 @@ def _load_impact_refiner(path: str | None = None) -> tuple:
     return None, [], 0
 
 
+def _refine_with_audio(events: list[dict], video_path, fps: float,
+                       total_frames: int | None = None) -> list[dict]:
+    """ปรับเฟรมด้วยเสียงกระทบ — ทำเป็นขั้นสุดท้าย หลังตัวปรับที่ใช้ภาพแล้ว
+
+    ลำดับนี้สำคัญ: ตัวปรับที่ใช้ภาพ (_refine_impact_frames) แก้ความคลาดหยาบ ๆ
+    ก่อน แล้วเสียงค่อยเก็บรายละเอียด — เพราะเสียงค้นหาในหน้าต่างแคบ (±6 เฟรม)
+    รอบเฟรมที่ให้มา ถ้าเฟรมตั้งต้นยังคลาดมากจะหาไม่เจอ
+
+    import ในฟังก์ชันเพราะ audio_onset ต้องใช้ scipy ซึ่งหนัก และงานส่วนใหญ่
+    ของไฟล์นี้ไม่ต้องใช้เสียงเลย — ไม่มีวิดีโอส่งมาก็ข้ามไปเงียบ ๆ
+    """
+    if not video_path:
+        return events
+    try:
+        from .audio_onset import refine_hits_with_audio
+        return refine_hits_with_audio(events, video_path, fps,
+                                      total_frames=total_frames)
+    except Exception as e:
+        print(f"ข้ามการปรับด้วยเสียง: {e}")
+        return events
+
+
 def _refine_impact_frames(events: list[dict], total_frames: int,
                           fps: float) -> list[dict]:
     """เลื่อนเฟรมปะทะของ event ที่เลือกแล้ว ให้เข้าใกล้จังหวะปะทะจริงขึ้น
@@ -788,6 +810,7 @@ def detect_hit_events(
     nms_by_prob: bool = True,
     return_candidates: bool = False,
     ball_measured: np.ndarray | None = None,
+    video_path=None,
 ) -> list[dict]:
     """
     Fusion Hit Detection:
@@ -1024,8 +1047,9 @@ def detect_hit_events(
             if all(abs(c["frame"] - k["frame"]) >= MIN_GAP for k in chosen):
                 chosen.append(c)
         # ปรับเฟรมหลัง NMS เท่านั้น — ตัวปรับเทรนบนประชากรนี้ ไม่ใช่ candidate ดิบ
-        return _refine_impact_frames(sorted(chosen, key=lambda x: x["frame"]),
-                                     total_frames, fps)
+        out = _refine_impact_frames(sorted(chosen, key=lambda x: x["frame"]),
+                                    total_frames, fps)
+        return _refine_with_audio(out, video_path, fps, total_frames)
 
     final: list[dict] = []
     for c in kept:
@@ -1078,4 +1102,6 @@ def detect_hit_events(
     except Exception as e:
         print(f"Warning: could not write to {csv_file}: {e}")
 
-    return _refine_impact_frames(final, total_frames, fps)
+    return _refine_with_audio(
+        _refine_impact_frames(final, total_frames, fps), video_path, fps,
+        total_frames)

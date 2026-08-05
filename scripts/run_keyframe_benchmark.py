@@ -366,6 +366,27 @@ def _eval_mode_from_manifest(manifest, args) -> str:
     return _eval_mode_label(args) + " (เดาจากแฟล็ก — manifest ไม่ได้บันทึกไว้)"
 
 
+def _audio_mode_from_manifest(manifest) -> str:
+    """เปิดการปรับเฟรมด้วยเสียงตอน predict หรือเปล่า — อ่านจาก manifest เท่านั้น
+
+    เหตุผลเดียวกับ _eval_mode_from_manifest: แฟล็ก --use-audio มีผลตอน predict
+    แต่รายงานสร้างตอน score ซึ่งเป็นคนละคำสั่ง ถ้าไม่บันทึกไว้ รายงานสองฉบับที่
+    ตัวเลขต่างกันจะดูเหมือนกันทุกประการ
+    """
+    seen = {bool(e.get("use_audio"))
+            for clip in manifest.data.values()
+            for stage, e in clip.items()
+            if stage == "predict_a" and e.get("status") == "ok"
+            and "use_audio" in e}
+    if seen == {True}:
+        return "เปิด (ปรับเฟรมปะทะด้วยเสียง)"
+    if seen == {False}:
+        return "ปิด (ใช้ภาพอย่างเดียว)"
+    if len(seen) > 1:
+        return "ปนกัน ⚠️ ให้รัน predict --force ใหม่ทั้งชุด"
+    return "ไม่ทราบ (manifest ไม่ได้บันทึกไว้)"
+
+
 def _use_lopo_model(args, clip: str) -> None:
     """สลับ hit classifier ให้เป็นตัวที่ **ไม่เคยเห็นคนในคลิปนี้**
 
@@ -416,7 +437,8 @@ def _use_lopo_model(args, clip: str) -> None:
           f"{' (+refiner)' if rd else ''}")
 
 
-def _build_for_mode(cached: dict, session, mode: str, ml_threshold=None):
+def _build_for_mode(cached: dict, session, mode: str, ml_threshold=None,
+                    use_audio: bool = False):
     """คืน (schema, hit_events) — โหมด A ให้ pipeline หา impact เอง,
     โหมด B ป้อน GT impact เข้าไป (oracle)
 
@@ -440,12 +462,23 @@ def _build_for_mode(cached: dict, session, mode: str, ml_threshold=None):
     else:
         ball_traj, ball_measured = cached["ball_traj"], None
 
+    # 🔴 ต้อง resolve **ก่อน** เข้า scratch_cwd() — session.video_path เป็น
+    # relative path และ scratch_cwd() ย้าย CWD ไป temp ถ้า resolve ข้างใน จะได้
+    # <temp>/dataset/sessions/... ซึ่งไม่มีอยู่จริง แล้วการปรับด้วยเสียงจะถูกข้าม
+    # ไปเงียบ ๆ (เจอจริง: benchmark ออกมาเหมือนเดิมเป๊ะทุกหลักโดยไม่มี error)
+    audio_video = None
+    if use_audio and session.video_path:
+        audio_video = Path(session.video_path).resolve()
+        if not audio_video.is_file():
+            print(f"    ⚠️ ไม่พบวิดีโอสำหรับดึงเสียง: {audio_video}")
+            audio_video = None
+
     if mode == "a":
         with scratch_cwd():
             hit_events = detect_hit_events(
                 ball_traj, [track], fps, vm["width"], vm["height"],
                 racket_bboxes=cached["racket_bboxes"],
-                ball_measured=ball_measured,
+                ball_measured=ball_measured, video_path=audio_video,
                 **({"ml_prob_threshold": ml_threshold}
                    if ml_threshold is not None else {}))
     else:
@@ -491,8 +524,10 @@ def stage_predict(args, sessions, manifest: Manifest):
 
             t0 = time.time()
             try:
-                schema, hit_events = _build_for_mode(cached, session, mode,
-                                                    ml_threshold=getattr(args, "ml_threshold", None))
+                schema, hit_events = _build_for_mode(
+                    cached, session, mode,
+                    ml_threshold=getattr(args, "ml_threshold", None),
+                    use_audio=getattr(args, "use_audio", False))
                 slim = _slim_schema(schema)
                 out.parent.mkdir(parents=True, exist_ok=True)
                 out.write_text(json.dumps(slim, ensure_ascii=False, indent=1),
@@ -514,10 +549,19 @@ def stage_predict(args, sessions, manifest: Manifest):
                                 # จะติดป้ายตามแฟล็กของคำสั่ง score แทนที่จะเป็น
                                 # สิ่งที่เกิดขึ้นจริงตอนทำนาย
                                 hit_model_eval=_eval_mode_label(args),
+                                use_audio=bool(getattr(args, "use_audio", False)),
                                 duration_s=round(time.time() - t0, 1))
                 print(f"[{i}/{len(sessions)}] {clip} mode {mode} — "
                       f"{n_pred} stroke (GT {n_gt}){warn}")
             except Exception as e:
+                # 🔴 ต้องลบผลเก่าทิ้ง ไม่ใช่ปล่อยไว้: stage score อ่านไฟล์ที่มีอยู่
+                # โดยไม่สนใจว่า predict รอบล่าสุดพังหรือไม่ → คลิปที่พังจะถูกให้
+                # คะแนนด้วยคำทำนายจากรอบก่อน แล้วรายงานเป็นตัวเลขของรอบนี้
+                # เจอจริง: รอบที่เปิดเสียงแล้วพัง 1 คลิป รายงาน 0.485 แต่พอแก้
+                # บั๊กจนคลิปนั้นรันผ่านจริง ๆ ได้ 0.471 — ตัวเลขที่สูงกว่ามาจาก
+                # ไฟล์เก่าที่ค้างอยู่ ไม่ใช่ผลของรอบนั้น
+                if out.exists():
+                    out.unlink()
                 manifest.record(clip, stage, session.video_path, status="error",
                                 error=str(e), traceback=traceback.format_exc())
                 print(f"[{i}/{len(sessions)}] {clip} mode {mode} — ERROR: {e}")
@@ -639,6 +683,9 @@ def stage_score(args, sessions, manifest: Manifest):
             # ⚠️ ตัวเลขจะต่างกันมากระหว่างสองโหมดนี้ (acceptance 0.506 vs 0.308)
             # ต้องระบุไว้ในรายงานเสมอ ไม่งั้นอ่านสลับกันแล้วเข้าใจผิดทั้งฉบับ
             "hit_model_eval": _eval_mode_from_manifest(manifest, args),
+            # เหตุผลเดียวกับ hit_model_eval — แฟล็กนี้ใช้ตอน predict ไม่ใช่ตอน
+            # score จึงต้องอ่านจาก manifest ไม่ใช่จาก args ของคำสั่งที่รันอยู่
+            "impact_audio_refine": _audio_mode_from_manifest(manifest),
         },
     }
 
@@ -735,6 +782,9 @@ def main():
     ap.add_argument("--accuracy-tolerance", type=int, default=1,
                     help="±N เฟรม สำหรับตัดสินว่า keyframe ถูก")
     ap.add_argument("--report", default="docs/BENCHMARK_KEYFRAME.md")
+    ap.add_argument("--use-audio", action="store_true",
+                    help="ปรับเฟรมปะทะด้วยเสียงกระทบจากแทร็กเสียงของคลิป "
+                         "(ต้องมี ffmpeg) — ดู loeuf_cv/audio_onset.py")
     ap.add_argument("--impact-refiner-dir", default=None,
                     help="โฟลเดอร์ refiner ชุด LOPO (สร้างด้วย "
                          "train_impact_refiner.py --lopo-out) — ไม่ระบุ = ปิด"

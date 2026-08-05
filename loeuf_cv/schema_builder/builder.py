@@ -333,8 +333,17 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
                      - track.pose.landmarks[:, L_SHOULDER, 0])
         shoulder_width = float(np.nanmedian(_sh)) if not np.isnan(_sh).all() else None
 
+        # 🔴 ขอบบนของทุก keyframe ต้องเป็น "จำนวนเฟรมที่มี pose จริง" ไม่ใช่
+        # video_meta["total_frames"] ซึ่งมาจาก metadata ของไฟล์วิดีโอ สองค่านี้
+        # ไม่ตรงกัน: cv2 อ่าน metadata ได้ 2414 แต่ decode + track ได้จริง 2408
+        # (ต่างกัน 6 เฟรม วัดจาก IMG_0301A2) ถ้าจำกัดด้วยเลขจาก metadata แล้วเอา
+        # ไป index อาร์เรย์ที่สั้นกว่า -> IndexError ทำให้ stroke ท้ายคลิปพังทั้ง
+        # stroke  เจอตอนต่อการปรับเฟรมด้วยเสียง ซึ่งดัน keyframe ไปตกช่วงนั้น
+        # พอดี แต่เป็นบั๊กที่มีมาก่อน ไม่เกี่ยวกับเสียง
+        n_pose = len(track.pose.landmarks)
+
         # Extract Keyframes (B)
-        kf = extract_keyframes(impact_frame, wrist_path, fps, video_meta.get("total_frames", 0),
+        kf = extract_keyframes(impact_frame, wrist_path, fps, n_pose,
                                head_path=head_path, shoulder_width=shoulder_width)
 
         # ต้องครอบคลุมทุก keyframe ที่ตรวจเจอจริง ไม่ใช่แค่ unit_turn/recovery_position —
@@ -343,7 +352,7 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
         # จะได้ relative frame_index ติดลบ (ตัดหัวคิวทิ้งไปทั้งที่ยังต้องใช้) → crash/ผิดพลาด
         detected_frames = [f for f in kf.values() if f is not None]
         stroke_start_frame = max(0, min(detected_frames + [impact_frame - 30]))
-        stroke_end_frame = min(video_meta.get("total_frames", 0) - 1,
+        stroke_end_frame = min(n_pose - 1,
                                 max(detected_frames + [impact_frame + 30]))
 
         actual_height = config.subject_height_cm if hasattr(config, 'subject_height_cm') and config.subject_height_cm else 170.0
@@ -372,14 +381,13 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
         # B4/B5 ขึ้นกับ stroke_type ซึ่งเพิ่งรู้ตอนนี้ → ปรับแล้วคำนวณ metric ใหม่
         # ทั้งชุด (ไม่ใช่แค่ตอน stype != "FH" เหมือนเดิม) ไม่งั้น B block ที่ส่ง
         # ลูกค้าจะรายงานเฟรมที่ปรับแล้ว แต่ metric ยังคิดจากเฟรมชุดเก่า
-        kf = refine_keyframes_for_type(kf, stype, impact_frame,
-                                       video_meta.get("total_frames", 0), fps)
+        kf = refine_keyframes_for_type(kf, stype, impact_frame, n_pose, fps)
         detected_frames = [f for f in kf.values() if f is not None]
         # กันชนหน้า/หลัง impact = 1 วินาที (เดิมเขียน 30 เฟรมตรง ๆ ซึ่งกลายเป็น
         # 0.5 วิ ที่คลิป 60fps) — ดู keyframes.py หัวไฟล์เรื่องหน่วยเวลา
         pad = int(round(fps)) if fps else 30
         stroke_start_frame = max(0, min(detected_frames + [impact_frame - pad]))
-        stroke_end_frame = min(video_meta.get("total_frames", 0) - 1,
+        stroke_end_frame = min(n_pose - 1,
                                max(detected_frames + [impact_frame + pad]))
         sliced_pose = _slice_pose_for_stroke(track.pose, stroke_start_frame,
                                              stroke_end_frame, engine_config)
@@ -450,8 +458,7 @@ def build_loeuf_schema(tracks, hit_events, fps, video_meta, config, racket_keypo
         # ⚠️ trophy_frame ห้ามใส่กลับเข้า dict `kf` เด็ดขาด — builder.py ด้านบน
         # คำนวณ stroke_start_frame/stroke_end_frame จาก kf.values() การเติม
         # entry ใหม่จะไปยืดหน้าต่าง stroke
-        trophy_frame = trophy_position_frame(
-            stype, impact_frame, video_meta.get("total_frames", 0), fps)
+        trophy_frame = trophy_position_frame(stype, impact_frame, n_pose, fps)
         b_keyframe = {
             "unit_turn": _b_keyframe_entry(track.pose, kf["unit_turn"], fps),
             "backswing_peak": _b_keyframe_entry(track.pose, kf["backswing_peak"], fps),

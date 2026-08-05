@@ -18,3 +18,4 @@ dataset/
 *.pkl
 dist/
 _incoming/
+.audio_cache/
