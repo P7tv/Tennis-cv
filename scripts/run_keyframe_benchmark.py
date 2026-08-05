@@ -400,7 +400,20 @@ def _use_lopo_model(args, clip: str) -> None:
 
     os.environ["LOEUF_HIT_CLASSIFIER"] = str(model)
     hit_detection._hit_clf_cache = None
-    print(f"    [LOPO] {clip} -> โมเดลที่ไม่เคยเห็น {person}")
+
+    # ตัวปรับเฟรมปะทะต้องสลับตามคนเดียวกัน ไม่งั้นตัวเลขปนเปื้อนที่ขั้นนี้แทน
+    rd = getattr(args, "impact_refiner_dir", None)
+    if rd:
+        rm = Path(rd) / f"{person}.pkl"
+        if not rm.is_file():
+            raise RuntimeError(f"ไม่พบ refiner LOPO ของ {person} ที่ {rm}")
+        os.environ["LOEUF_IMPACT_REFINER"] = str(rm)
+    else:
+        # ไม่ระบุ = ปิดการปรับไปเลย ดีกว่าเผลอใช้ตัวที่เทรนจากทุกคน
+        os.environ["LOEUF_IMPACT_REFINER"] = ""
+    hit_detection._impact_refiner_cache = None
+    print(f"    [LOPO] {clip} -> โมเดลที่ไม่เคยเห็น {person}"
+          f"{' (+refiner)' if rd else ''}")
 
 
 def _build_for_mode(cached: dict, session, mode: str, ml_threshold=None):
@@ -722,6 +735,10 @@ def main():
     ap.add_argument("--accuracy-tolerance", type=int, default=1,
                     help="±N เฟรม สำหรับตัดสินว่า keyframe ถูก")
     ap.add_argument("--report", default="docs/BENCHMARK_KEYFRAME.md")
+    ap.add_argument("--impact-refiner-dir", default=None,
+                    help="โฟลเดอร์ refiner ชุด LOPO (สร้างด้วย "
+                         "train_impact_refiner.py --lopo-out) — ไม่ระบุ = ปิด"
+                         "การปรับเฟรม ไม่ใช่ใช้ตัวที่รากโปรเจกต์")
     ap.add_argument("--hit-classifier-dir", default=None,
                     help="โฟลเดอร์โมเดล LOPO (จาก train_hit_classifier_from_cache"
                          ".py --lopo-out) — แต่ละคลิปจะใช้โมเดลที่ไม่เคยเห็นคน"

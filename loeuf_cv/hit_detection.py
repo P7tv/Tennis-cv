@@ -492,6 +492,94 @@ def _load_hit_classifier(path: str | None = None) -> tuple:
     return None, []
 
 
+IMPACT_REFINER_FILENAME = "impact_refiner.pkl"
+_impact_refiner_cache = None
+
+
+def _load_impact_refiner(path: str | None = None) -> tuple:
+    """โหลดตัวปรับเฟรมปะทะ — ไม่มีไฟล์ = ข้ามการปรับ ไม่ใช่ error
+
+    ต่างจาก hit_classifier ตรงที่ตัวนี้เป็นของเสริม ไม่มีก็ทำงานได้ (แค่ได้
+    เฟรมปะทะหยาบกว่า) จึงไม่เตือนดัง ๆ เมื่อหาไม่เจอ
+    ลำดับค้นหาเหมือน _load_hit_classifier: LOEUF_IMPACT_REFINER -> รากโปรเจกต์ -> CWD
+    """
+    global _impact_refiner_cache
+    if _impact_refiner_cache is not None and path is None:
+        return _impact_refiner_cache
+
+    import os
+    import pickle
+
+    env = os.environ.get("LOEUF_IMPACT_REFINER")
+    # ตั้งเป็นค่าว่าง = "ปิดการปรับ" อย่างชัดเจน ไม่ใช่ "ไม่ได้ตั้ง"
+    # จำเป็นเพราะถ้าปล่อยให้ไหลไปหาไฟล์ที่รากโปรเจกต์ ตอนรัน benchmark แบบ LOPO
+    # จะเผลอหยิบตัวที่เทรนจากทุกคนมาใช้ = ปนเปื้อนเงียบ ๆ ที่ขั้นนี้แทน
+    if env == "" and path is None:
+        return None, [], 0
+
+    candidates = []
+    if path:
+        candidates.append(Path(path))
+    if env:
+        candidates.append(Path(env))
+    candidates.append(Path(__file__).resolve().parent.parent / IMPACT_REFINER_FILENAME)
+    candidates.append(Path.cwd() / IMPACT_REFINER_FILENAME)
+
+    for p in candidates:
+        try:
+            if p.is_file():
+                with open(p, "rb") as f:
+                    model, cols, max_shift = pickle.load(f)
+                if path is None:
+                    _impact_refiner_cache = (model, cols, max_shift)
+                return model, cols, max_shift
+        except Exception as e:
+            print(f"Failed to load impact refiner from {p}: {e}")
+    return None, [], 0
+
+
+def _refine_impact_frames(events: list[dict], total_frames: int,
+                          fps: float) -> list[dict]:
+    """เลื่อนเฟรมปะทะของ event ที่เลือกแล้ว ให้เข้าใกล้จังหวะปะทะจริงขึ้น
+
+    🔴 ทำไมต้องมีขั้นนี้: hit_classifier ถูกเทรนให้ตอบว่า "หน้าต่างนี้เหมือน
+    การตีแค่ไหน" (label = |frame - เฉลย| <= 5 เฟรม) ซึ่งไม่ใช่คำถามว่า "เฟรมนี้
+    คือจังหวะปะทะพอดีไหม" พอ NMS เลือกด้วย ml_prob เฟรม follow-through ที่
+    ความเร็วสูงกว่าจึงชนะบ่อย
+
+    วัดจากของจริง (LOPO, 132 stroke ที่ตรวจเจอ): 37 เคสที่เลือกผิด ตัวที่ควร
+    เลือกมี prob ต่ำกว่า **100%** ของเคส และ 30 ใน 37 ผ่านเกณฑ์แล้วแต่แพ้ NMS
+
+    ทำไมสำคัญกว่าที่คิด: backswing_peak = impact - ค่าคงที่ ความคลาดของ impact
+    จึงส่งต่อไปทั้งดุ้น keyframe ทั้งสองตกพร้อมกัน — ก้อนนี้กิน 23.5% ของคะแนน
+    ที่หายไป พอ ๆ กับก้อน "หาลูกไม่เจอ" (23.3%)
+
+    ⚠️ ตัวปรับต้องเทรนบนประชากร "เฟรมที่ NMS เลือกแล้ว" เท่านั้น ไม่ใช่ candidate
+    ทุกตัวในรัศมี — สองประชากรนี้เอนเอียงคนละทิศ (+1 vs -0.5 เฟรม) เทรนผิด
+    ประชากรแล้วโมเดลจะเลื่อนผิดทาง ดู scripts/train_impact_refiner.py
+    """
+    model, cols, max_shift = _load_impact_refiner()
+    if model is None or not events:
+        return events
+
+    import pandas as pd
+    rows = [{c: e.get("features", {}).get(c, 0) for c in cols} for e in events]
+    try:
+        shifts = model.predict(pd.DataFrame(rows))
+    except Exception as e:
+        print(f"impact refiner predict failed, ใช้เฟรมเดิม: {e}")
+        return events
+
+    for e, s in zip(events, shifts):
+        d = int(np.clip(round(float(s)), -max_shift, max_shift))
+        f = int(np.clip(e["frame"] + d, 0, max(0, total_frames - 1)))
+        if f != e["frame"]:
+            e["frame_before_refine"] = e["frame"]
+            e["frame"] = f
+            e["timestamp_sec"] = round(f / fps, 2) if fps else e["timestamp_sec"]
+    return sorted(events, key=lambda x: x["frame"])
+
+
 def _hit_window_features(f: int, speed: np.ndarray, window: int = HIT_WINDOW) -> dict:
     """รูปทรงของ wrist speed รอบๆ frame ผู้สมัคร (candidate) แทนที่จะดูแค่ค่าเดียว ณ frame นั้น
 
@@ -935,7 +1023,9 @@ def detect_hit_events(
         for c in sorted(kept, key=lambda x: -(x["ml_prob"] if x["ml_prob"] is not None else 0.0)):
             if all(abs(c["frame"] - k["frame"]) >= MIN_GAP for k in chosen):
                 chosen.append(c)
-        return sorted(chosen, key=lambda x: x["frame"])
+        # ปรับเฟรมหลัง NMS เท่านั้น — ตัวปรับเทรนบนประชากรนี้ ไม่ใช่ candidate ดิบ
+        return _refine_impact_frames(sorted(chosen, key=lambda x: x["frame"]),
+                                     total_frames, fps)
 
     final: list[dict] = []
     for c in kept:
@@ -988,4 +1078,4 @@ def detect_hit_events(
     except Exception as e:
         print(f"Warning: could not write to {csv_file}: {e}")
 
-    return final
+    return _refine_impact_frames(final, total_frames, fps)

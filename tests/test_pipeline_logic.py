@@ -2791,6 +2791,66 @@ def test_wrist_peak_merge_window_keeps_impact_and_followthrough_apart():
                              merge_window=16) == [40]
 
 
+def test_impact_refiner_disabled_by_empty_env_not_falling_back_to_root():
+    """🔴 ตั้ง LOEUF_IMPACT_REFINER = "" ต้องแปลว่า "ปิด" ไม่ใช่ "ไม่ได้ตั้ง"
+
+    ถ้าค่าว่างแล้วไหลไปหยิบ impact_refiner.pkl ที่รากโปรเจกต์ ตอนรัน benchmark
+    แบบ LOPO จะเผลอใช้ตัวที่เทรนจากทุกคน = ตัวเลขปนเปื้อนเงียบ ๆ ที่ขั้นนี้แทน
+    (บั๊กชนิดเดียวกับที่ทำให้เคยรายงาน acceptance 0.506 แทนที่จะเป็น 0.308)
+    """
+    import os
+
+    from loeuf_cv import hit_detection as hd
+
+    old = os.environ.get("LOEUF_IMPACT_REFINER")
+    try:
+        os.environ["LOEUF_IMPACT_REFINER"] = ""
+        hd._impact_refiner_cache = None
+        assert hd._load_impact_refiner() == (None, [], 0)
+    finally:
+        if old is None:
+            os.environ.pop("LOEUF_IMPACT_REFINER", None)
+        else:
+            os.environ["LOEUF_IMPACT_REFINER"] = old
+        hd._impact_refiner_cache = None
+
+
+def test_impact_refiner_clamps_shift_and_records_original_frame():
+    """เลื่อนได้ไม่เกิน max_shift · เก็บเฟรมเดิมไว้ · ไม่มีโมเดล = ไม่แตะอะไร"""
+    from loeuf_cv import hit_detection as hd
+
+    class FakeModel:
+        def __init__(self, shifts):
+            self.shifts = shifts
+
+        def predict(self, X):
+            return np.array(self.shifts[:len(X)])
+
+    events = [{"frame": 50, "timestamp_sec": 1.67, "features": {"a": 1.0}},
+              {"frame": 90, "timestamp_sec": 3.0, "features": {"a": 2.0}}]
+    old = hd._impact_refiner_cache
+    try:
+        # ทำนายเลื่อน +3 กับ +99 — ตัวหลังต้องถูกจำกัดไว้ที่ max_shift = 8
+        hd._impact_refiner_cache = (FakeModel([3, 99]), ["a"], 8)
+        out = hd._refine_impact_frames([dict(e) for e in events], 200, 30.0)
+        assert out[0]["frame"] == 53 and out[0]["frame_before_refine"] == 50
+        assert out[1]["frame"] == 98, out[1]["frame"]
+        assert out[0]["timestamp_sec"] == round(53 / 30.0, 2)
+
+        # ไม่ให้เลื่อนหลุดออกนอกคลิป
+        hd._impact_refiner_cache = (FakeModel([-8]), ["a"], 8)
+        assert hd._refine_impact_frames([{"frame": 2, "timestamp_sec": 0.07,
+                                          "features": {"a": 1.0}}],
+                                        200, 30.0)[0]["frame"] == 0
+
+        # ไม่มีโมเดล = คืนของเดิมทั้งดุ้น ไม่ throw
+        hd._impact_refiner_cache = (None, [], 0)
+        same = [dict(e) for e in events]
+        assert hd._refine_impact_frames(same, 200, 30.0) == same
+    finally:
+        hd._impact_refiner_cache = old
+
+
 def test_racket_gate_rejects_someone_elses_racket():
     """🔴 ไม้ที่อยู่ไกลมือเกินเกณฑ์ต้องไม่ถูกนับว่าเป็นไม้ของผู้เล่นคนนี้
 

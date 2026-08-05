@@ -276,6 +276,20 @@ def main():
     hist_path.write_text(json.dumps(history, ensure_ascii=False, indent=2),
                          encoding="utf-8")
     print(f"\nบันทึกประวัติคะแนน -> {hist_path}")
+
+    # ── 6. ตัวปรับเฟรมปะทะ ──
+    # 🔴 ต้องเทรนใหม่ทุกครั้งที่ hit classifier เปลี่ยน ไม่ใช่เทรนแยกอิสระ —
+    # ตัวปรับเทรนบนประชากร "เฟรมที่ NMS เลือก" ซึ่งเป็นผลผลิตของ classifier
+    # ถ้า classifier เปลี่ยนแต่ตัวปรับไม่เปลี่ยน ตัวปรับจะเลื่อนตามรูปแบบความ
+    # คลาดของโมเดลตัวเก่าที่ไม่มีอยู่แล้ว = ทำให้แย่ลง
+    if decisions.get("hit"):
+        run([PY, "scripts/train_impact_refiner.py", "--dataset-root", str(root),
+             "--n-aug", str(args.n_aug), "--save"],
+            "เทรนตัวปรับเฟรมปะทะใหม่ (เพราะ hit classifier เปลี่ยน)")
+        print("  refiner ✅ เขียนทับแล้ว")
+    else:
+        print("\n  refiner ข้าม — hit classifier ไม่ได้เปลี่ยน")
+
     print("\nเสร็จแล้ว ✅")
 
 

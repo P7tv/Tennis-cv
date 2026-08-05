@@ -110,10 +110,17 @@ def _candidates_for(track, traj, meas, racket, w, h, fps, gt, key, person,
     out = []
     for ev in cands:
         fe = ev.get("features", {})
+        f = ev["frame"]
+        # ระยะมีเครื่องหมายถึงเฉลยที่ใกล้ที่สุด (เฉลย - เฟรมนี้) = "ต้องเลื่อน
+        # ไปกี่เฟรมถึงจะตรง" ใช้เป็นเป้าของตัวปรับเฟรมปะทะ
+        # (scripts/train_impact_refiner.py) เก็บไว้ทุกแถวเพราะการสร้าง candidate
+        # คือส่วนที่แพง จะได้ไม่ต้องรันซ้ำเมื่ออยากเทรนตัวปรับ
+        nearest = min(gt, key=lambda g: abs(g - f)) if gt else None
         out.append({
             **{col: fe.get(col, 0.0) for col in ALL_FEATURE_COLS},
-            "is_hit": int(any(abs(ev["frame"] - g) <= LABEL_TOL for g in gt)),
-            "frame": ev["frame"], "clip": key, "person": person, "fps": fps,
+            "is_hit": int(any(abs(f - g) <= LABEL_TOL for g in gt)),
+            "gt_offset": (nearest - f) if nearest is not None else np.nan,
+            "frame": f, "clip": key, "person": person, "fps": fps,
             "n_gt": len(gt), "variant": variant, "is_aug": int(variant != "orig"),
         })
     return out
