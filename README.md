@@ -73,23 +73,24 @@ streamlit run webui/app.py
 - กดรันและดูผลการวิเคราะห์ 3D พร้อมกราฟได้เลย!
 
 ### 2. รันประเมินความแม่นยำเต็มรูปแบบ (End-to-End Keyframe Benchmark)
-หากต้องการทดสอบรันไปป์ไลน์ทั้งหมด (ตั้งแต่ Tracking ไปจนถึงหา Impact Frame ด้วย ML + Audio) กับวิดีโอในฐานข้อมูล ให้ใช้สคริปต์นี้:
+หากต้องการทดสอบรันไปป์ไลน์ทั้งหมด (ตั้งแต่ Tracking ไปจนถึงหา Impact Frame ด้วย ML + Audio) กับวิดีโอในฐานข้อมูล ให้ใช้เครื่องมือในโฟลเดอร์ `tools/`:
 ```bash
-python scripts/run_keyframe_benchmark.py all --use-audio --force --ml-threshold 0.20
+python tools/run_keyframe_benchmark.py all --use-audio --force --ml-threshold 0.20
 ```
 - ระบบจะทำนายการตีและขยับเฟรมด้วยเสียงอัตโนมัติ 
 - ตรวจดูรายงานผลลัพธ์ความแม่นยำแบบละเอียดได้ที่ `docs/BENCHMARK_KEYFRAME.md`
 
 ### 3. การเทรนสอนโมเดลใหม่ (กรณีต้องการอัปเกรด AI)
-หากต้องการให้ AI ฉลาดขึ้นในอนาคต:
-- **YOLO Ball Detection:** รัน `python train_model/train_yolo.py` 
-- **Hit Classifier:** สร้าง Ground Truth ใน CSV และรันสคริปต์ `python scripts/train_hit_classifier_from_cache.py` 
+ตามโครงสร้าง Handover ล่าสุด สคริปต์หลักสำหรับการเทรนถูกย้ายไปที่ `scripts/train.py`:
+- รัน `python scripts/train.py --help` เพื่อดูวิธีเทรนโมเดลทั้งหมดในระบบ
+- หรือใช้เครื่องมือเฉพาะทางในโฟลเดอร์ `tools/` เช่น `python tools/train_hit_classifier.py`
 
 ---
 
 ## 📂 โครงสร้างโฟลเดอร์ที่สำคัญ (Directory Structure)
 - `webui/` : ไฟล์ User Interface (app.py) สำหรับการแสดงผลหน้าเว็บ
 - `loeuf_cv/` : แกนหลักของ Computer Vision (Court Calibration, Hit Detection, Pose, Audio)
-- `hit_classifier_ag/` : **[สำคัญ]** โฟลเดอร์เก็บน้ำหนักโมเดล AutoGluon ที่เทรนเสร็จสมบูรณ์แล้ว
-- `runs/` : โฟลเดอร์เก็บโมเดล YOLO
-- `scripts/` : สคริปต์สำหรับการรันทดสอบและเทรนโมเดลต่างๆ
+- `checkpoints/` : **[สำคัญ]** โฟลเดอร์เก็บน้ำหนักโมเดล (เช่น AutoGluon, YOLO) ที่เทรนเสร็จสมบูรณ์แล้ว
+- `scripts/` : สคริปต์หลักตามโครงสร้าง Handover (train, predict, eval, preprocess)
+- `tools/` : เครื่องมือสำหรับนักพัฒนาและการทดสอบ (Benchmark, Training Scripts)
+- `_archive/` : ที่เก็บโค้ดเก่าและชุดข้อมูลที่ไม่ได้ใช้แล้ว

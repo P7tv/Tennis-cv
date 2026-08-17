@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0 — 2026-08-17 (Handover Restructuring & Streamlit Redesign)
+
+- **Repository Restructuring**: Reorganized the codebase to strictly match the "CV File - Handover" structure defined in `test.pdf`. 
+  - Moved legacy diagnostic scripts, raw datasets, and old experiments to an `_archive/` directory.
+  - Consolidated scattered training scripts into `tools/`.
+  - Added unified `scripts/train.py`, `scripts/predict.py`, `scripts/eval.py`, and `scripts/preprocess.py`.
+  - Deleted obsolete files including `HANDOVER.md` and `train_model` folder.
+  - Moved ML weights from root directories into a unified `checkpoints/` directory and updated hardcoded paths.
+- **Streamlit Redesign**: Overhauled `webui/app.py` UI/UX.
+  - Removed outdated tracking options (SAM 2 and MOG2). YOLO11 + BoT-SORT is now the only tracking method.
+  - Applied "Data-Dense Dashboard" design principles (Blue/Amber theme, `Fira Sans` typography).
+  - Explicitly mapped the "Hit Event Analysis" execution to the 5-layer system architecture (CV, Audio, Features, ML, Refinement) using `st.status`.
+
 ## 0.3.9 — 2026-07-29 (schema null-rule compliance + first handover package)
 
 Client sent the full schema spec doc (`cv_schema_table_loeuf`) — audited

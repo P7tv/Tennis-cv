@@ -58,14 +58,14 @@ with st.sidebar:
     import os
     
     # ค้นหาโมเดล .pt ทั้งหมดในโปรเจกต์
-    available_models = ["yolo11n.pt", "yolo11s.pt", "yolo11m.pt"]
+    available_models = ["checkpoints/yolo11n.pt", "checkpoints/yolo11s.pt", "checkpoints/yolo11m.pt"]
     custom_models = glob.glob("runs/**/*.pt", recursive=True) + glob.glob("*.pt") + glob.glob("checkpoints/*.pt")
     for m in custom_models:
         m_norm = os.path.normpath(m)
         if m_norm not in available_models and not any(m_norm.endswith(x) for x in ["yolo11n.pt", "yolo11s.pt", "yolo11m.pt"]):
             available_models.append(m_norm)
             
-    base_models = ["yolo11n.pt", "yolo11s.pt", "yolo11m.pt"]
+    base_models = ["checkpoints/yolo11n.pt", "checkpoints/yolo11s.pt", "checkpoints/yolo11m.pt"]
     base_model_path = st.selectbox("Player Model (YOLO11)", base_models, index=2, help="โมเดลหาคน (n = เร็วสุด, m = แม่นสุด)")
     
     yolo_model_path = st.selectbox("Ball Detection Model", available_models, help="โมเดลลูกเทนนิส")

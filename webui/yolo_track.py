@@ -7,7 +7,7 @@ webui/yolo_track.py
 ข้อดีเหนือ MOG2:
 - ทนต่อการเดินบังกัน (Occlusion) ผ่านระบบ ReID (จดจำสีเสื้อ/รูปร่าง)
 - ไม่สับสนกับเงาสนามหรือการเปลี่ยนแสง (YOLO รู้จัก "คน" โดยตรง)
-- กิน VRAM เพียง ~1.5GB รันได้ realtime ไม่ต้องแบ่ง Chunk แบบ SAM 2
+- กิน VRAM เพียง ~1.5GB รันได้ realtime
 """
 
 from __future__ import annotations
