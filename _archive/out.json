@@ -1,0 +1,2428 @@
+{
+  "session_metadata": {
+    "cv_model_version": "0.2.0",
+    "pose_model": "mediapipe_blazepose",
+    "pose_model_version": "0.10.14",
+    "schema_version": "1.0",
+    "session_id": "sess-20260810-01",
+    "session_date": "2026-08-09T18:41:17",
+    "fps": 30,
+    "camera_angle": "single_view",
+    "total_duration_sec": 147.35,
+    "total_session_frame": 4420,
+    "total_strokes_detected": 4,
+    "usable_strokes": 0,
+    "stroke_type_distribution": {
+      "SV": 1,
+      "VL": 2
+    },
+    "_spotting_rejected": 1
+  },
+  "strokes": [
+    {
+      "stroke_metadata": {
+        "debug_pose_confidence": 0.82,
+        "processed_at": "2026-08-09T18:41:17",
+        "resolution": "960x540",
+        "camera_angle": "behind_baseline",
+        "velocity_normalized": true,
+        "normalization_method": "resampled_to_60fps",
+        "debug_camera": {
+          "roll_deg": -166.41,
+          "camera_deviation_deg": 9.17,
+          "tier": "ok"
+        },
+        "debug_classification": {
+          "predicted_type": "SV",
+          "confidence": 0.95,
+          "features": {
+            "overhead_margin": 0.189
+          }
+        }
+      },
+      "video_quality": {
+        "usable": true,
+        "issues": [
+          "camera_tilted"
+        ],
+        "partial_swing_detail": null
+      },
+      "keyframes": {
+        "unit_turn": {
+          "frame_index": 114,
+          "timestamp_ms": 3800.0,
+          "detected": true
+        },
+        "backswing_peak": {
+          "frame_index": 186,
+          "timestamp_ms": 5000.0,
+          "detected": true
+        },
+        "impact": {
+          "frame_index": 192,
+          "timestamp_ms": 5092.3,
+          "detected": true
+        },
+        "follow_through_peak": {
+          "frame_index": 194,
+          "timestamp_ms": 5133.33,
+          "detected": true
+        },
+        "ready_position_restored": {
+          "frame_index": null,
+          "timestamp_ms": null,
+          "detected": false
+        }
+      },
+      "stroke_root": {
+        "stroke_id": "sess-20260810-01_stroke-01",
+        "stroke_index": 1,
+        "stroke_type": "SV",
+        "stroke_start_frame": 114,
+        "stroke_end_frame": 293,
+        "dominant_side": "right",
+        "detection_status": "partial",
+        "is_clean_stroke": false,
+        "stroke_recommended_action": "coach_review"
+      },
+      "metrics": {
+        "body": {
+          "body_height_cm": 170.0,
+          "arm_span_cm": 170.0,
+          "shoulder_rotation_at_unit_turn_deg": 0.65,
+          "shoulder_rotation_at_impact_deg": 52.29,
+          "hip_rotation_at_unit_turn_deg": -4.31,
+          "hip_rotation_at_impact_deg": 58.2,
+          "shoulder_rotation_normalized_pct": 78.33,
+          "shoulder_hip_separation_at_impact_deg": -5.91,
+          "head_still_at_contact": false
+        },
+        "arm": {
+          "follow_through_angle_deg": null,
+          "backswing_depth_deg": null
+        },
+        "timing": {
+          "backswing_duration_ms": 1200.0,
+          "forward_swing_duration_ms": 92.3,
+          "total_swing_duration_ms": 1292.3,
+          "tempo_ratio": 13.0,
+          "rhythm_class": "slow"
+        },
+        "contact": {
+          "contact_height_cm": 235.38,
+          "contact_distance_from_body_cm": 4.9,
+          "swing_path_angle_deg": null
+        },
+        "movement": {
+          "split_step_detected": null,
+          "split_step_timing_ms": null,
+          "footwork_distance_cm": null,
+          "movement_speed_mps": null,
+          "stance_width_at_impact_cm": 48.16,
+          "stance_angle_deg": 74.91,
+          "weight_transfer_timing_offset_ms": -92.3,
+          "rear_leg_load_pct": 0.0,
+          "front_leg_transfer_pct": 0.0,
+          "recovery_time_ms": null,
+          "return_to_ready_frames": null,
+          "recovery_position": "not_recovered"
+        },
+        "depth_estimated": {
+          "elbow_angle_at_impact_deg": 139.06,
+          "elbow_angle_at_backswing_peak_deg": 134.07,
+          "wrist_angle_at_impact_deg": 162.79,
+          "spine_tilt_at_impact_deg": 2.98,
+          "com_shift_distance_cm": 61.56,
+          "com_deviation_at_impact_cm": 61.56,
+          "com_deviation_at_finish_cm": 51.04,
+          "pronation_detected": null,
+          "racket_face_open_deg": null,
+          "peak_racket_drop_cm": 13.33
+        },
+        "kinematics": {
+          "hip_rotation_velocity_deg_s": 439.28,
+          "shoulder_rotation_velocity_deg_s": 758.96,
+          "hip_shoulder_velocity_lag_ms": 0.0,
+          "center_of_mass_velocity_mps": 4.74,
+          "racket_tip_position": null,
+          "racket_center_position": null,
+          "racket_head_speed_mps": 61.7
+        },
+        "stroke_specific": {
+          "toss_deviation_cm": null,
+          "trophy_position_achieved": false,
+          "leg_drive_detected": false,
+          "peak_contact_height_cm": 235.38,
+          "stance_type": "platform"
+        },
+        "ball": {
+          "available": false,
+          "ball_speed_kmh": null,
+          "trajectory_clearance_cm": null,
+          "landing_position": null,
+          "landing_zone": null,
+          "landing_call": null,
+          "server_position": null,
+          "target_box_correct": null,
+          "serve_attempt_number": null,
+          "is_fault": null,
+          "_tracked_fraction": null
+        }
+      },
+      "derived": {
+        "swing_path_direction": null,
+        "center_of_mass_shift": "backward",
+        "balance_at_impact": "clear_loss",
+        "balance_at_finish": "clear_loss",
+        "stance_type": "open",
+        "weight_transfer_timing": "pre_impact",
+        "weight_transfer_direction": "neutral",
+        "contact_timing": "late",
+        "arm_extension_at_impact": "partial"
+      },
+      "visibility_flag": {
+        "body_height_cm": "low_confidence",
+        "arm_span_cm": "low_confidence",
+        "shoulder_rotation_at_unit_turn_deg": "visible",
+        "shoulder_rotation_at_impact_deg": "visible",
+        "hip_rotation_at_unit_turn_deg": "visible",
+        "hip_rotation_at_impact_deg": "visible",
+        "shoulder_rotation_normalized_pct": "visible",
+        "shoulder_hip_separation_at_impact_deg": "visible",
+        "head_still_at_contact": "visible",
+        "follow_through_angle_deg": "not_detectable",
+        "backswing_depth_deg": "not_detectable",
+        "backswing_duration_ms": "visible",
+        "forward_swing_duration_ms": "visible",
+        "total_swing_duration_ms": "visible",
+        "tempo_ratio": "visible",
+        "rhythm_class": "derived",
+        "contact_height_cm": "low_confidence",
+        "contact_distance_from_body_cm": "low_confidence",
+        "swing_path_angle_deg": "not_detectable",
+        "split_step_detected": "not_detectable",
+        "split_step_timing_ms": "not_detectable",
+        "footwork_distance_cm": "not_detectable",
+        "movement_speed_mps": "not_detectable",
+        "stance_width_at_impact_cm": "low_confidence",
+        "stance_angle_deg": "low_confidence",
+        "weight_transfer_timing_offset_ms": "low_confidence",
+        "rear_leg_load_pct": "not_detectable",
+        "front_leg_transfer_pct": "low_confidence",
+        "recovery_time_ms": "not_detectable",
+        "return_to_ready_frames": "not_detectable",
+        "recovery_position": "visible",
+        "elbow_angle_at_impact_deg": "low_confidence",
+        "elbow_angle_at_backswing_peak_deg": "low_confidence",
+        "wrist_angle_at_impact_deg": "low_confidence",
+        "spine_tilt_at_impact_deg": "low_confidence",
+        "com_shift_distance_cm": "low_confidence",
+        "com_deviation_at_impact_cm": "low_confidence",
+        "com_deviation_at_finish_cm": "low_confidence",
+        "pronation_detected": "not_detectable",
+        "racket_face_open_deg": "not_detectable",
+        "peak_racket_drop_cm": "low_confidence",
+        "hip_rotation_velocity_deg_s": "low_confidence",
+        "shoulder_rotation_velocity_deg_s": "low_confidence",
+        "hip_shoulder_velocity_lag_ms": "low_confidence",
+        "center_of_mass_velocity_mps": "visible",
+        "racket_tip_position": "not_detectable",
+        "racket_center_position": "not_detectable",
+        "racket_head_speed_mps": "low_confidence",
+        "toss_deviation_cm": "not_detectable",
+        "trophy_position_achieved": "visible",
+        "leg_drive_detected": "low_confidence",
+        "peak_contact_height_cm": "low_confidence",
+        "stance_type": "derived",
+        "swing_path_direction": "derived",
+        "center_of_mass_shift": "derived",
+        "balance_at_impact": "derived",
+        "balance_at_finish": "derived",
+        "weight_transfer_timing": "derived",
+        "weight_transfer_direction": "derived",
+        "contact_timing": "derived",
+        "arm_extension_at_impact": "derived"
+      },
+      "confidence_flag": {
+        "pose_estimation_confidence": 0.7,
+        "inference_clean": false,
+        "issues_detected": []
+      },
+      "visualization": {
+        "wrist_path": [
+          {
+            "frame": 72,
+            "x": 0.347,
+            "y": 0.461
+          },
+          {
+            "frame": 73,
+            "x": 0.351,
+            "y": 0.464
+          },
+          {
+            "frame": 74,
+            "x": 0.359,
+            "y": 0.472
+          },
+          {
+            "frame": 75,
+            "x": 0.369,
+            "y": 0.465
+          },
+          {
+            "frame": 76,
+            "x": 0.38,
+            "y": 0.421
+          },
+          {
+            "frame": 77,
+            "x": 0.397,
+            "y": 0.347
+          },
+          {
+            "frame": 78,
+            "x": 0.424,
+            "y": 0.253
+          },
+          {
+            "frame": 79,
+            "x": 0.453,
+            "y": 0.18
+          },
+          {
+            "frame": 80,
+            "x": 0.475,
+            "y": 0.164
+          }
+        ],
+        "ball_path": null,
+        "racket_tip_path": null,
+        "racket_center_path": null,
+        "body_center_path": [
+          {
+            "frame": 72,
+            "x": 0.386,
+            "y": 0.433
+          },
+          {
+            "frame": 73,
+            "x": 0.388,
+            "y": 0.438
+          },
+          {
+            "frame": 74,
+            "x": 0.394,
+            "y": 0.442
+          },
+          {
+            "frame": 75,
+            "x": 0.4,
+            "y": 0.449
+          },
+          {
+            "frame": 76,
+            "x": 0.405,
+            "y": 0.461
+          },
+          {
+            "frame": 77,
+            "x": 0.409,
+            "y": 0.473
+          },
+          {
+            "frame": 78,
+            "x": 0.412,
+            "y": 0.479
+          },
+          {
+            "frame": 79,
+            "x": 0.415,
+            "y": 0.483
+          },
+          {
+            "frame": 80,
+            "x": 0.419,
+            "y": 0.489
+          }
+        ]
+      }
+    },
+    {
+      "stroke_metadata": {
+        "debug_pose_confidence": 0.79,
+        "processed_at": "2026-08-09T18:41:17",
+        "resolution": "960x540",
+        "camera_angle": "behind_baseline",
+        "velocity_normalized": true,
+        "normalization_method": "resampled_to_60fps",
+        "debug_camera": {
+          "roll_deg": -12.23,
+          "camera_deviation_deg": 59.76,
+          "tier": "reject"
+        },
+        "debug_classification": {
+          "predicted_type": "VL",
+          "confidence": 0.89,
+          "features": {
+            "overhead_margin": -0.188,
+            "backswing_amplitude": 0.175
+          }
+        }
+      },
+      "video_quality": {
+        "usable": true,
+        "issues": [
+          "side_view",
+          "camera_tilted"
+        ],
+        "partial_swing_detail": null
+      },
+      "keyframes": {
+        "unit_turn": {
+          "frame_index": null,
+          "timestamp_ms": null,
+          "detected": false
+        },
+        "backswing_peak": {
+          "frame_index": 644,
+          "timestamp_ms": 21400.0,
+          "detected": true
+        },
+        "impact": {
+          "frame_index": 730,
+          "timestamp_ms": 22825.01,
+          "detected": true
+        },
+        "follow_through_peak": {
+          "frame_index": 758,
+          "timestamp_ms": 23300.0,
+          "detected": true
+        },
+        "ready_position_restored": {
+          "frame_index": null,
+          "timestamp_ms": null,
+          "detected": false
+        }
+      },
+      "stroke_root": {
+        "stroke_id": "sess-20260810-01_stroke-02",
+        "stroke_index": 2,
+        "stroke_type": "VL",
+        "stroke_start_frame": 640,
+        "stroke_end_frame": 819,
+        "dominant_side": "right",
+        "detection_status": "partial",
+        "is_clean_stroke": false,
+        "stroke_recommended_action": "coach_review"
+      },
+      "metrics": {
+        "body": {
+          "body_height_cm": 170.0,
+          "arm_span_cm": 170.0,
+          "shoulder_rotation_at_unit_turn_deg": null,
+          "shoulder_rotation_at_impact_deg": -66.76,
+          "hip_rotation_at_unit_turn_deg": null,
+          "hip_rotation_at_impact_deg": -72.35,
+          "shoulder_rotation_normalized_pct": 100.0,
+          "shoulder_hip_separation_at_impact_deg": 5.59,
+          "head_still_at_contact": true
+        },
+        "arm": {
+          "follow_through_angle_deg": 110.14,
+          "backswing_depth_deg": 21.86
+        },
+        "timing": {
+          "backswing_duration_ms": null,
+          "forward_swing_duration_ms": 1425.01,
+          "total_swing_duration_ms": null,
+          "tempo_ratio": null,
+          "rhythm_class": null
+        },
+        "contact": {
+          "contact_height_cm": 111.55,
+          "contact_distance_from_body_cm": 11.39,
+          "swing_path_angle_deg": null
+        },
+        "movement": {
+          "split_step_detected": null,
+          "split_step_timing_ms": null,
+          "footwork_distance_cm": 23.08,
+          "movement_speed_mps": 0.15,
+          "stance_width_at_impact_cm": 30.56,
+          "stance_angle_deg": 2.36,
+          "weight_transfer_timing_offset_ms": -1391.67,
+          "rear_leg_load_pct": null,
+          "front_leg_transfer_pct": null,
+          "recovery_time_ms": null,
+          "return_to_ready_frames": null,
+          "recovery_position": "not_recovered"
+        },
+        "depth_estimated": {
+          "elbow_angle_at_impact_deg": 130.96,
+          "elbow_angle_at_backswing_peak_deg": 147.91,
+          "wrist_angle_at_impact_deg": 162.86,
+          "spine_tilt_at_impact_deg": -2.38,
+          "com_shift_distance_cm": 26.95,
+          "com_deviation_at_impact_cm": 0.44,
+          "com_deviation_at_finish_cm": 9.68,
+          "pronation_detected": null,
+          "racket_face_open_deg": null,
+          "peak_racket_drop_cm": null
+        },
+        "kinematics": {
+          "hip_rotation_velocity_deg_s": 997.91,
+          "shoulder_rotation_velocity_deg_s": 366.34,
+          "hip_shoulder_velocity_lag_ms": 0.0,
+          "center_of_mass_velocity_mps": null,
+          "racket_tip_position": null,
+          "racket_center_position": null,
+          "racket_head_speed_mps": 67.15
+        },
+        "stroke_specific": {
+          "backswing_past_ear": false,
+          "hands_height_at_contact": "above_net",
+          "punch_forward_detected": false
+        },
+        "ball": {
+          "available": false,
+          "ball_speed_kmh": null,
+          "trajectory_clearance_cm": null,
+          "landing_position": null,
+          "landing_zone": null,
+          "landing_call": null,
+          "server_position": null,
+          "target_box_correct": null,
+          "serve_attempt_number": null,
+          "is_fault": null,
+          "_tracked_fraction": null
+        }
+      },
+      "derived": {
+        "swing_path_direction": null,
+        "center_of_mass_shift": "forward",
+        "balance_at_impact": "stable",
+        "balance_at_finish": "slight_loss",
+        "stance_type": "closed",
+        "weight_transfer_timing": "pre_impact",
+        "weight_transfer_direction": null,
+        "contact_timing": "early",
+        "arm_extension_at_impact": "partial"
+      },
+      "visibility_flag": {
+        "body_height_cm": "low_confidence",
+        "arm_span_cm": "low_confidence",
+        "shoulder_rotation_at_unit_turn_deg": "not_detectable",
+        "shoulder_rotation_at_impact_deg": "visible",
+        "hip_rotation_at_unit_turn_deg": "not_detectable",
+        "hip_rotation_at_impact_deg": "visible",
+        "shoulder_rotation_normalized_pct": "visible",
+        "shoulder_hip_separation_at_impact_deg": "visible",
+        "head_still_at_contact": "visible",
+        "follow_through_angle_deg": "low_confidence",
+        "backswing_depth_deg": "low_confidence",
+        "backswing_duration_ms": "not_detectable",
+        "forward_swing_duration_ms": "visible",
+        "total_swing_duration_ms": "not_detectable",
+        "tempo_ratio": "not_detectable",
+        "rhythm_class": "derived",
+        "contact_height_cm": "not_detectable",
+        "contact_distance_from_body_cm": "not_detectable",
+        "swing_path_angle_deg": "not_detectable",
+        "split_step_detected": "not_detectable",
+        "split_step_timing_ms": "not_detectable",
+        "footwork_distance_cm": "visible",
+        "movement_speed_mps": "visible",
+        "stance_width_at_impact_cm": "visible",
+        "stance_angle_deg": "visible",
+        "weight_transfer_timing_offset_ms": "low_confidence",
+        "rear_leg_load_pct": "not_detectable",
+        "front_leg_transfer_pct": "not_detectable",
+        "recovery_time_ms": "not_detectable",
+        "return_to_ready_frames": "not_detectable",
+        "recovery_position": "visible",
+        "elbow_angle_at_impact_deg": "low_confidence",
+        "elbow_angle_at_backswing_peak_deg": "low_confidence",
+        "wrist_angle_at_impact_deg": "not_detectable",
+        "spine_tilt_at_impact_deg": "low_confidence",
+        "com_shift_distance_cm": "low_confidence",
+        "com_deviation_at_impact_cm": "low_confidence",
+        "com_deviation_at_finish_cm": "low_confidence",
+        "pronation_detected": "not_detectable",
+        "racket_face_open_deg": "not_detectable",
+        "peak_racket_drop_cm": "not_detectable",
+        "hip_rotation_velocity_deg_s": "low_confidence",
+        "shoulder_rotation_velocity_deg_s": "low_confidence",
+        "hip_shoulder_velocity_lag_ms": "low_confidence",
+        "center_of_mass_velocity_mps": "not_detectable",
+        "racket_tip_position": "not_detectable",
+        "racket_center_position": "not_detectable",
+        "racket_head_speed_mps": "low_confidence",
+        "backswing_past_ear": "low_confidence",
+        "hands_height_at_contact": "not_detectable",
+        "punch_forward_detected": "not_detectable",
+        "swing_path_direction": "derived",
+        "center_of_mass_shift": "derived",
+        "balance_at_impact": "derived",
+        "balance_at_finish": "derived",
+        "stance_type": "derived",
+        "weight_transfer_timing": "derived",
+        "weight_transfer_direction": "derived",
+        "contact_timing": "derived",
+        "arm_extension_at_impact": "derived"
+      },
+      "confidence_flag": {
+        "pose_estimation_confidence": 0.81,
+        "inference_clean": false,
+        "issues_detected": []
+      },
+      "visualization": {
+        "wrist_path": [
+          {
+            "frame": 4,
+            "x": 0.226,
+            "y": 0.549
+          },
+          {
+            "frame": 5,
+            "x": 0.224,
+            "y": 0.56
+          },
+          {
+            "frame": 6,
+            "x": 0.222,
+            "y": 0.571
+          },
+          {
+            "frame": 7,
+            "x": 0.222,
+            "y": 0.576
+          },
+          {
+            "frame": 8,
+            "x": 0.222,
+            "y": 0.58
+          },
+          {
+            "frame": 9,
+            "x": 0.222,
+            "y": 0.579
+          },
+          {
+            "frame": 10,
+            "x": 0.223,
+            "y": 0.578
+          },
+          {
+            "frame": 11,
+            "x": 0.225,
+            "y": 0.571
+          },
+          {
+            "frame": 12,
+            "x": 0.228,
+            "y": 0.564
+          },
+          {
+            "frame": 13,
+            "x": 0.229,
+            "y": 0.557
+          },
+          {
+            "frame": 14,
+            "x": 0.231,
+            "y": 0.55
+          },
+          {
+            "frame": 15,
+            "x": 0.233,
+            "y": 0.538
+          },
+          {
+            "frame": 16,
+            "x": 0.235,
+            "y": 0.527
+          },
+          {
+            "frame": 17,
+            "x": 0.237,
+            "y": 0.511
+          },
+          {
+            "frame": 18,
+            "x": 0.239,
+            "y": 0.495
+          },
+          {
+            "frame": 19,
+            "x": 0.243,
+            "y": 0.483
+          },
+          {
+            "frame": 20,
+            "x": 0.246,
+            "y": 0.472
+          },
+          {
+            "frame": 21,
+            "x": 0.244,
+            "y": 0.456
+          },
+          {
+            "frame": 22,
+            "x": 0.242,
+            "y": 0.44
+          },
+          {
+            "frame": 23,
+            "x": 0.243,
+            "y": 0.434
+          },
+          {
+            "frame": 24,
+            "x": 0.244,
+            "y": 0.429
+          },
+          {
+            "frame": 25,
+            "x": 0.255,
+            "y": 0.447
+          },
+          {
+            "frame": 26,
+            "x": 0.267,
+            "y": 0.467
+          },
+          {
+            "frame": 27,
+            "x": 0.272,
+            "y": 0.474
+          },
+          {
+            "frame": 28,
+            "x": 0.276,
+            "y": 0.48
+          },
+          {
+            "frame": 29,
+            "x": 0.287,
+            "y": 0.487
+          },
+          {
+            "frame": 30,
+            "x": 0.298,
+            "y": 0.494
+          },
+          {
+            "frame": 31,
+            "x": 0.295,
+            "y": 0.485
+          },
+          {
+            "frame": 32,
+            "x": 0.29,
+            "y": 0.475
+          },
+          {
+            "frame": 33,
+            "x": 0.286,
+            "y": 0.473
+          },
+          {
+            "frame": 34,
+            "x": 0.281,
+            "y": 0.471
+          },
+          {
+            "frame": 35,
+            "x": 0.28,
+            "y": 0.466
+          },
+          {
+            "frame": 36,
+            "x": 0.278,
+            "y": 0.461
+          },
+          {
+            "frame": 37,
+            "x": 0.282,
+            "y": 0.461
+          },
+          {
+            "frame": 38,
+            "x": 0.286,
+            "y": 0.462
+          },
+          {
+            "frame": 39,
+            "x": 0.289,
+            "y": 0.464
+          },
+          {
+            "frame": 40,
+            "x": 0.292,
+            "y": 0.465
+          },
+          {
+            "frame": 41,
+            "x": 0.29,
+            "y": 0.465
+          },
+          {
+            "frame": 42,
+            "x": 0.287,
+            "y": 0.465
+          },
+          {
+            "frame": 43,
+            "x": 0.286,
+            "y": 0.467
+          },
+          {
+            "frame": 44,
+            "x": 0.285,
+            "y": 0.469
+          },
+          {
+            "frame": 45,
+            "x": 0.288,
+            "y": 0.466
+          },
+          {
+            "frame": 46,
+            "x": 0.292,
+            "y": 0.463
+          },
+          {
+            "frame": 47,
+            "x": 0.295,
+            "y": 0.453
+          },
+          {
+            "frame": 48,
+            "x": 0.298,
+            "y": 0.441
+          },
+          {
+            "frame": 49,
+            "x": 0.303,
+            "y": 0.432
+          },
+          {
+            "frame": 50,
+            "x": 0.308,
+            "y": 0.423
+          },
+          {
+            "frame": 51,
+            "x": 0.316,
+            "y": 0.424
+          },
+          {
+            "frame": 52,
+            "x": 0.324,
+            "y": 0.425
+          },
+          {
+            "frame": 53,
+            "x": 0.336,
+            "y": 0.423
+          },
+          {
+            "frame": 54,
+            "x": 0.347,
+            "y": 0.422
+          },
+          {
+            "frame": 55,
+            "x": 0.345,
+            "y": 0.427
+          },
+          {
+            "frame": 56,
+            "x": 0.343,
+            "y": 0.433
+          },
+          {
+            "frame": 57,
+            "x": 0.35,
+            "y": 0.437
+          },
+          {
+            "frame": 58,
+            "x": 0.357,
+            "y": 0.441
+          },
+          {
+            "frame": 59,
+            "x": 0.361,
+            "y": 0.448
+          },
+          {
+            "frame": 60,
+            "x": 0.364,
+            "y": 0.455
+          },
+          {
+            "frame": 61,
+            "x": 0.366,
+            "y": 0.462
+          },
+          {
+            "frame": 62,
+            "x": 0.368,
+            "y": 0.468
+          },
+          {
+            "frame": 63,
+            "x": 0.371,
+            "y": 0.471
+          },
+          {
+            "frame": 64,
+            "x": 0.374,
+            "y": 0.474
+          },
+          {
+            "frame": 65,
+            "x": 0.377,
+            "y": 0.475
+          },
+          {
+            "frame": 66,
+            "x": 0.381,
+            "y": 0.476
+          },
+          {
+            "frame": 67,
+            "x": 0.384,
+            "y": 0.475
+          },
+          {
+            "frame": 68,
+            "x": 0.387,
+            "y": 0.475
+          },
+          {
+            "frame": 69,
+            "x": 0.39,
+            "y": 0.475
+          },
+          {
+            "frame": 70,
+            "x": 0.394,
+            "y": 0.475
+          },
+          {
+            "frame": 71,
+            "x": 0.395,
+            "y": 0.471
+          },
+          {
+            "frame": 72,
+            "x": 0.396,
+            "y": 0.468
+          },
+          {
+            "frame": 73,
+            "x": 0.396,
+            "y": 0.462
+          },
+          {
+            "frame": 74,
+            "x": 0.396,
+            "y": 0.457
+          },
+          {
+            "frame": 75,
+            "x": 0.396,
+            "y": 0.453
+          },
+          {
+            "frame": 76,
+            "x": 0.397,
+            "y": 0.449
+          },
+          {
+            "frame": 77,
+            "x": 0.399,
+            "y": 0.44
+          },
+          {
+            "frame": 78,
+            "x": 0.4,
+            "y": 0.43
+          },
+          {
+            "frame": 79,
+            "x": 0.402,
+            "y": 0.422
+          },
+          {
+            "frame": 80,
+            "x": 0.404,
+            "y": 0.414
+          },
+          {
+            "frame": 81,
+            "x": 0.405,
+            "y": 0.418
+          },
+          {
+            "frame": 90,
+            "x": 0.414,
+            "y": 0.467
+          },
+          {
+            "frame": 91,
+            "x": 0.414,
+            "y": 0.467
+          },
+          {
+            "frame": 92,
+            "x": 0.414,
+            "y": 0.467
+          },
+          {
+            "frame": 93,
+            "x": 0.414,
+            "y": 0.466
+          },
+          {
+            "frame": 94,
+            "x": 0.415,
+            "y": 0.466
+          },
+          {
+            "frame": 95,
+            "x": 0.415,
+            "y": 0.466
+          },
+          {
+            "frame": 96,
+            "x": 0.415,
+            "y": 0.466
+          },
+          {
+            "frame": 97,
+            "x": 0.417,
+            "y": 0.465
+          },
+          {
+            "frame": 98,
+            "x": 0.419,
+            "y": 0.464
+          },
+          {
+            "frame": 99,
+            "x": 0.422,
+            "y": 0.464
+          },
+          {
+            "frame": 100,
+            "x": 0.425,
+            "y": 0.465
+          },
+          {
+            "frame": 101,
+            "x": 0.427,
+            "y": 0.466
+          },
+          {
+            "frame": 102,
+            "x": 0.428,
+            "y": 0.468
+          },
+          {
+            "frame": 103,
+            "x": 0.429,
+            "y": 0.468
+          },
+          {
+            "frame": 104,
+            "x": 0.43,
+            "y": 0.469
+          },
+          {
+            "frame": 105,
+            "x": 0.431,
+            "y": 0.468
+          },
+          {
+            "frame": 106,
+            "x": 0.432,
+            "y": 0.468
+          },
+          {
+            "frame": 107,
+            "x": 0.433,
+            "y": 0.466
+          },
+          {
+            "frame": 108,
+            "x": 0.434,
+            "y": 0.464
+          },
+          {
+            "frame": 109,
+            "x": 0.437,
+            "y": 0.462
+          },
+          {
+            "frame": 110,
+            "x": 0.44,
+            "y": 0.46
+          },
+          {
+            "frame": 111,
+            "x": 0.442,
+            "y": 0.46
+          },
+          {
+            "frame": 112,
+            "x": 0.445,
+            "y": 0.46
+          },
+          {
+            "frame": 113,
+            "x": 0.448,
+            "y": 0.46
+          },
+          {
+            "frame": 114,
+            "x": 0.45,
+            "y": 0.461
+          },
+          {
+            "frame": 115,
+            "x": 0.453,
+            "y": 0.462
+          },
+          {
+            "frame": 116,
+            "x": 0.455,
+            "y": 0.462
+          },
+          {
+            "frame": 117,
+            "x": 0.457,
+            "y": 0.462
+          },
+          {
+            "frame": 118,
+            "x": 0.459,
+            "y": 0.462
+          }
+        ],
+        "ball_path": null,
+        "racket_tip_path": null,
+        "racket_center_path": null,
+        "body_center_path": [
+          {
+            "frame": 4,
+            "x": 0.314,
+            "y": 0.543
+          },
+          {
+            "frame": 5,
+            "x": 0.311,
+            "y": 0.545
+          },
+          {
+            "frame": 6,
+            "x": 0.309,
+            "y": 0.547
+          },
+          {
+            "frame": 7,
+            "x": 0.311,
+            "y": 0.55
+          },
+          {
+            "frame": 8,
+            "x": 0.313,
+            "y": 0.552
+          },
+          {
+            "frame": 9,
+            "x": 0.313,
+            "y": 0.554
+          },
+          {
+            "frame": 10,
+            "x": 0.314,
+            "y": 0.556
+          },
+          {
+            "frame": 11,
+            "x": 0.314,
+            "y": 0.556
+          },
+          {
+            "frame": 12,
+            "x": 0.314,
+            "y": 0.556
+          },
+          {
+            "frame": 13,
+            "x": 0.309,
+            "y": 0.553
+          },
+          {
+            "frame": 14,
+            "x": 0.304,
+            "y": 0.551
+          },
+          {
+            "frame": 15,
+            "x": 0.303,
+            "y": 0.549
+          },
+          {
+            "frame": 16,
+            "x": 0.302,
+            "y": 0.548
+          },
+          {
+            "frame": 17,
+            "x": 0.301,
+            "y": 0.547
+          },
+          {
+            "frame": 18,
+            "x": 0.301,
+            "y": 0.546
+          },
+          {
+            "frame": 19,
+            "x": 0.3,
+            "y": 0.543
+          },
+          {
+            "frame": 20,
+            "x": 0.299,
+            "y": 0.54
+          },
+          {
+            "frame": 21,
+            "x": 0.298,
+            "y": 0.537
+          },
+          {
+            "frame": 22,
+            "x": 0.298,
+            "y": 0.534
+          },
+          {
+            "frame": 23,
+            "x": 0.297,
+            "y": 0.533
+          },
+          {
+            "frame": 24,
+            "x": 0.297,
+            "y": 0.531
+          },
+          {
+            "frame": 25,
+            "x": 0.297,
+            "y": 0.53
+          },
+          {
+            "frame": 26,
+            "x": 0.297,
+            "y": 0.528
+          },
+          {
+            "frame": 27,
+            "x": 0.297,
+            "y": 0.526
+          },
+          {
+            "frame": 28,
+            "x": 0.298,
+            "y": 0.524
+          },
+          {
+            "frame": 29,
+            "x": 0.298,
+            "y": 0.522
+          },
+          {
+            "frame": 30,
+            "x": 0.298,
+            "y": 0.52
+          },
+          {
+            "frame": 31,
+            "x": 0.298,
+            "y": 0.517
+          },
+          {
+            "frame": 32,
+            "x": 0.298,
+            "y": 0.515
+          },
+          {
+            "frame": 33,
+            "x": 0.297,
+            "y": 0.513
+          },
+          {
+            "frame": 34,
+            "x": 0.297,
+            "y": 0.511
+          },
+          {
+            "frame": 35,
+            "x": 0.297,
+            "y": 0.509
+          },
+          {
+            "frame": 36,
+            "x": 0.297,
+            "y": 0.508
+          },
+          {
+            "frame": 37,
+            "x": 0.298,
+            "y": 0.507
+          },
+          {
+            "frame": 38,
+            "x": 0.298,
+            "y": 0.506
+          },
+          {
+            "frame": 39,
+            "x": 0.299,
+            "y": 0.505
+          },
+          {
+            "frame": 40,
+            "x": 0.299,
+            "y": 0.504
+          },
+          {
+            "frame": 41,
+            "x": 0.3,
+            "y": 0.503
+          },
+          {
+            "frame": 42,
+            "x": 0.3,
+            "y": 0.501
+          },
+          {
+            "frame": 43,
+            "x": 0.301,
+            "y": 0.5
+          },
+          {
+            "frame": 44,
+            "x": 0.302,
+            "y": 0.5
+          },
+          {
+            "frame": 45,
+            "x": 0.303,
+            "y": 0.498
+          },
+          {
+            "frame": 46,
+            "x": 0.304,
+            "y": 0.497
+          },
+          {
+            "frame": 47,
+            "x": 0.305,
+            "y": 0.496
+          },
+          {
+            "frame": 48,
+            "x": 0.307,
+            "y": 0.496
+          },
+          {
+            "frame": 49,
+            "x": 0.308,
+            "y": 0.496
+          },
+          {
+            "frame": 50,
+            "x": 0.309,
+            "y": 0.496
+          },
+          {
+            "frame": 51,
+            "x": 0.31,
+            "y": 0.496
+          },
+          {
+            "frame": 52,
+            "x": 0.311,
+            "y": 0.496
+          },
+          {
+            "frame": 53,
+            "x": 0.313,
+            "y": 0.496
+          },
+          {
+            "frame": 54,
+            "x": 0.315,
+            "y": 0.497
+          },
+          {
+            "frame": 55,
+            "x": 0.317,
+            "y": 0.497
+          },
+          {
+            "frame": 56,
+            "x": 0.319,
+            "y": 0.497
+          },
+          {
+            "frame": 57,
+            "x": 0.322,
+            "y": 0.497
+          },
+          {
+            "frame": 58,
+            "x": 0.324,
+            "y": 0.498
+          },
+          {
+            "frame": 59,
+            "x": 0.327,
+            "y": 0.498
+          },
+          {
+            "frame": 60,
+            "x": 0.329,
+            "y": 0.499
+          },
+          {
+            "frame": 61,
+            "x": 0.332,
+            "y": 0.501
+          },
+          {
+            "frame": 62,
+            "x": 0.334,
+            "y": 0.502
+          },
+          {
+            "frame": 63,
+            "x": 0.337,
+            "y": 0.504
+          },
+          {
+            "frame": 64,
+            "x": 0.34,
+            "y": 0.505
+          },
+          {
+            "frame": 65,
+            "x": 0.342,
+            "y": 0.506
+          },
+          {
+            "frame": 66,
+            "x": 0.344,
+            "y": 0.506
+          },
+          {
+            "frame": 67,
+            "x": 0.346,
+            "y": 0.506
+          },
+          {
+            "frame": 68,
+            "x": 0.348,
+            "y": 0.506
+          },
+          {
+            "frame": 69,
+            "x": 0.349,
+            "y": 0.505
+          },
+          {
+            "frame": 70,
+            "x": 0.351,
+            "y": 0.504
+          },
+          {
+            "frame": 71,
+            "x": 0.353,
+            "y": 0.502
+          },
+          {
+            "frame": 72,
+            "x": 0.355,
+            "y": 0.499
+          },
+          {
+            "frame": 73,
+            "x": 0.356,
+            "y": 0.496
+          },
+          {
+            "frame": 74,
+            "x": 0.358,
+            "y": 0.493
+          },
+          {
+            "frame": 75,
+            "x": 0.36,
+            "y": 0.491
+          },
+          {
+            "frame": 76,
+            "x": 0.362,
+            "y": 0.488
+          },
+          {
+            "frame": 77,
+            "x": 0.364,
+            "y": 0.48
+          },
+          {
+            "frame": 78,
+            "x": 0.366,
+            "y": 0.472
+          },
+          {
+            "frame": 79,
+            "x": 0.369,
+            "y": 0.467
+          },
+          {
+            "frame": 80,
+            "x": 0.372,
+            "y": 0.463
+          },
+          {
+            "frame": 81,
+            "x": 0.373,
+            "y": 0.467
+          },
+          {
+            "frame": 90,
+            "x": 0.38,
+            "y": 0.509
+          },
+          {
+            "frame": 91,
+            "x": 0.381,
+            "y": 0.51
+          },
+          {
+            "frame": 92,
+            "x": 0.382,
+            "y": 0.511
+          },
+          {
+            "frame": 93,
+            "x": 0.384,
+            "y": 0.511
+          },
+          {
+            "frame": 94,
+            "x": 0.385,
+            "y": 0.512
+          },
+          {
+            "frame": 95,
+            "x": 0.387,
+            "y": 0.512
+          },
+          {
+            "frame": 96,
+            "x": 0.389,
+            "y": 0.511
+          },
+          {
+            "frame": 97,
+            "x": 0.39,
+            "y": 0.511
+          },
+          {
+            "frame": 98,
+            "x": 0.392,
+            "y": 0.51
+          },
+          {
+            "frame": 99,
+            "x": 0.394,
+            "y": 0.509
+          },
+          {
+            "frame": 100,
+            "x": 0.395,
+            "y": 0.507
+          },
+          {
+            "frame": 101,
+            "x": 0.397,
+            "y": 0.506
+          },
+          {
+            "frame": 102,
+            "x": 0.399,
+            "y": 0.506
+          },
+          {
+            "frame": 103,
+            "x": 0.401,
+            "y": 0.506
+          },
+          {
+            "frame": 104,
+            "x": 0.402,
+            "y": 0.506
+          },
+          {
+            "frame": 105,
+            "x": 0.404,
+            "y": 0.506
+          },
+          {
+            "frame": 106,
+            "x": 0.406,
+            "y": 0.506
+          },
+          {
+            "frame": 107,
+            "x": 0.408,
+            "y": 0.507
+          },
+          {
+            "frame": 108,
+            "x": 0.41,
+            "y": 0.507
+          },
+          {
+            "frame": 109,
+            "x": 0.412,
+            "y": 0.508
+          },
+          {
+            "frame": 110,
+            "x": 0.414,
+            "y": 0.509
+          },
+          {
+            "frame": 111,
+            "x": 0.416,
+            "y": 0.511
+          },
+          {
+            "frame": 112,
+            "x": 0.419,
+            "y": 0.512
+          },
+          {
+            "frame": 113,
+            "x": 0.421,
+            "y": 0.514
+          },
+          {
+            "frame": 114,
+            "x": 0.424,
+            "y": 0.515
+          },
+          {
+            "frame": 115,
+            "x": 0.426,
+            "y": 0.516
+          },
+          {
+            "frame": 116,
+            "x": 0.429,
+            "y": 0.518
+          },
+          {
+            "frame": 117,
+            "x": 0.432,
+            "y": 0.519
+          },
+          {
+            "frame": 118,
+            "x": 0.434,
+            "y": 0.519
+          }
+        ]
+      }
+    },
+    {
+      "stroke_metadata": {
+        "debug_pose_confidence": 0.42,
+        "processed_at": "2026-08-09T18:41:17",
+        "resolution": "960x540",
+        "camera_angle": "behind_baseline",
+        "velocity_normalized": true,
+        "normalization_method": "resampled_to_60fps",
+        "debug_camera": {
+          "roll_deg": 5.11,
+          "camera_deviation_deg": 17.85,
+          "tier": "degraded"
+        },
+        "debug_classification": {
+          "predicted_type": "VL",
+          "confidence": 0.64,
+          "features": {
+            "overhead_margin": -0.109,
+            "backswing_amplitude": 0.287
+          }
+        }
+      },
+      "video_quality": {
+        "usable": true,
+        "issues": [
+          "partial_occlusion"
+        ],
+        "partial_swing_detail": null
+      },
+      "keyframes": {
+        "unit_turn": {
+          "frame_index": 7131,
+          "timestamp_ms": 237700.0,
+          "detected": true
+        },
+        "backswing_peak": {
+          "frame_index": 7172,
+          "timestamp_ms": 238383.33,
+          "detected": true
+        },
+        "impact": {
+          "frame_index": 7222,
+          "timestamp_ms": 239208.34,
+          "detected": true
+        },
+        "follow_through_peak": {
+          "frame_index": 7223,
+          "timestamp_ms": 239233.33,
+          "detected": true
+        },
+        "ready_position_restored": {
+          "frame_index": null,
+          "timestamp_ms": null,
+          "detected": false
+        }
+      },
+      "stroke_root": {
+        "stroke_id": "sess-20260810-01_stroke-03",
+        "stroke_index": 3,
+        "stroke_type": "VL",
+        "stroke_start_frame": 7131,
+        "stroke_end_frame": 7310,
+        "dominant_side": "right",
+        "detection_status": "partial",
+        "is_clean_stroke": false,
+        "stroke_recommended_action": "coach_review"
+      },
+      "metrics": {
+        "body": {
+          "body_height_cm": 170.0,
+          "arm_span_cm": 170.0,
+          "shoulder_rotation_at_unit_turn_deg": 6.58,
+          "shoulder_rotation_at_impact_deg": null,
+          "hip_rotation_at_unit_turn_deg": 13.83,
+          "hip_rotation_at_impact_deg": null,
+          "shoulder_rotation_normalized_pct": null,
+          "shoulder_hip_separation_at_impact_deg": null,
+          "head_still_at_contact": null
+        },
+        "arm": {
+          "follow_through_angle_deg": null,
+          "backswing_depth_deg": -93.76
+        },
+        "timing": {
+          "backswing_duration_ms": null,
+          "forward_swing_duration_ms": 825.01,
+          "total_swing_duration_ms": 1508.34,
+          "tempo_ratio": null,
+          "rhythm_class": null
+        },
+        "contact": {
+          "contact_height_cm": null,
+          "contact_distance_from_body_cm": null,
+          "swing_path_angle_deg": null
+        },
+        "movement": {
+          "split_step_detected": null,
+          "split_step_timing_ms": null,
+          "footwork_distance_cm": null,
+          "movement_speed_mps": null,
+          "stance_width_at_impact_cm": null,
+          "stance_angle_deg": null,
+          "weight_transfer_timing_offset_ms": -825.01,
+          "rear_leg_load_pct": null,
+          "front_leg_transfer_pct": null,
+          "recovery_time_ms": null,
+          "return_to_ready_frames": null,
+          "recovery_position": "not_recovered"
+        },
+        "depth_estimated": {
+          "elbow_angle_at_impact_deg": null,
+          "elbow_angle_at_backswing_peak_deg": 117.38,
+          "wrist_angle_at_impact_deg": null,
+          "spine_tilt_at_impact_deg": null,
+          "com_shift_distance_cm": null,
+          "com_deviation_at_impact_cm": null,
+          "com_deviation_at_finish_cm": null,
+          "pronation_detected": null,
+          "racket_face_open_deg": null,
+          "peak_racket_drop_cm": null
+        },
+        "kinematics": {
+          "hip_rotation_velocity_deg_s": 273.38,
+          "shoulder_rotation_velocity_deg_s": 633.91,
+          "hip_shoulder_velocity_lag_ms": 0.0,
+          "center_of_mass_velocity_mps": null,
+          "racket_tip_position": null,
+          "racket_center_position": null,
+          "racket_head_speed_mps": 108.51
+        },
+        "stroke_specific": {
+          "backswing_past_ear": true,
+          "hands_height_at_contact": "at_net",
+          "punch_forward_detected": false
+        },
+        "ball": {
+          "available": false,
+          "ball_speed_kmh": null,
+          "trajectory_clearance_cm": null,
+          "landing_position": null,
+          "landing_zone": null,
+          "landing_call": null,
+          "server_position": null,
+          "target_box_correct": null,
+          "serve_attempt_number": null,
+          "is_fault": null,
+          "_tracked_fraction": null
+        }
+      },
+      "derived": {
+        "swing_path_direction": null,
+        "center_of_mass_shift": null,
+        "balance_at_impact": null,
+        "balance_at_finish": null,
+        "stance_type": null,
+        "weight_transfer_timing": "pre_impact",
+        "weight_transfer_direction": null,
+        "contact_timing": null,
+        "arm_extension_at_impact": null
+      },
+      "visibility_flag": {
+        "body_height_cm": "low_confidence",
+        "arm_span_cm": "low_confidence",
+        "shoulder_rotation_at_unit_turn_deg": "visible",
+        "shoulder_rotation_at_impact_deg": "not_detectable",
+        "hip_rotation_at_unit_turn_deg": "visible",
+        "hip_rotation_at_impact_deg": "not_detectable",
+        "shoulder_rotation_normalized_pct": "not_detectable",
+        "shoulder_hip_separation_at_impact_deg": "not_detectable",
+        "head_still_at_contact": "not_detectable",
+        "follow_through_angle_deg": "not_detectable",
+        "backswing_depth_deg": "visible",
+        "backswing_duration_ms": "not_detectable",
+        "forward_swing_duration_ms": "visible",
+        "total_swing_duration_ms": "visible",
+        "tempo_ratio": "not_detectable",
+        "rhythm_class": "derived",
+        "contact_height_cm": "not_detectable",
+        "contact_distance_from_body_cm": "not_detectable",
+        "swing_path_angle_deg": "not_detectable",
+        "split_step_detected": "not_detectable",
+        "split_step_timing_ms": "not_detectable",
+        "footwork_distance_cm": "not_detectable",
+        "movement_speed_mps": "not_detectable",
+        "stance_width_at_impact_cm": "not_detectable",
+        "stance_angle_deg": "not_detectable",
+        "weight_transfer_timing_offset_ms": "not_detectable",
+        "rear_leg_load_pct": "not_detectable",
+        "front_leg_transfer_pct": "not_detectable",
+        "recovery_time_ms": "not_detectable",
+        "return_to_ready_frames": "not_detectable",
+        "recovery_position": "visible",
+        "elbow_angle_at_impact_deg": "not_detectable",
+        "elbow_angle_at_backswing_peak_deg": "low_confidence",
+        "wrist_angle_at_impact_deg": "not_detectable",
+        "spine_tilt_at_impact_deg": "not_detectable",
+        "com_shift_distance_cm": "not_detectable",
+        "com_deviation_at_impact_cm": "not_detectable",
+        "com_deviation_at_finish_cm": "not_detectable",
+        "pronation_detected": "not_detectable",
+        "racket_face_open_deg": "not_detectable",
+        "peak_racket_drop_cm": "not_detectable",
+        "hip_rotation_velocity_deg_s": "low_confidence",
+        "shoulder_rotation_velocity_deg_s": "low_confidence",
+        "hip_shoulder_velocity_lag_ms": "low_confidence",
+        "center_of_mass_velocity_mps": "not_detectable",
+        "racket_tip_position": "not_detectable",
+        "racket_center_position": "not_detectable",
+        "racket_head_speed_mps": "low_confidence",
+        "backswing_past_ear": "visible",
+        "hands_height_at_contact": "not_detectable",
+        "punch_forward_detected": "not_detectable",
+        "swing_path_direction": "derived",
+        "center_of_mass_shift": "derived",
+        "balance_at_impact": "derived",
+        "balance_at_finish": "derived",
+        "stance_type": "derived",
+        "weight_transfer_timing": "derived",
+        "weight_transfer_direction": "derived",
+        "contact_timing": "derived",
+        "arm_extension_at_impact": "derived"
+      },
+      "confidence_flag": {
+        "pose_estimation_confidence": 0.82,
+        "inference_clean": false,
+        "issues_detected": [
+          "partial_occlusion"
+        ]
+      },
+      "visualization": {
+        "wrist_path": [
+          {
+            "frame": 41,
+            "x": 0.647,
+            "y": 0.384
+          },
+          {
+            "frame": 42,
+            "x": 0.656,
+            "y": 0.371
+          },
+          {
+            "frame": 43,
+            "x": 0.664,
+            "y": 0.352
+          },
+          {
+            "frame": 44,
+            "x": 0.673,
+            "y": 0.338
+          },
+          {
+            "frame": 45,
+            "x": 0.683,
+            "y": 0.331
+          },
+          {
+            "frame": 46,
+            "x": 0.694,
+            "y": 0.324
+          },
+          {
+            "frame": 47,
+            "x": 0.704,
+            "y": 0.317
+          },
+          {
+            "frame": 48,
+            "x": 0.714,
+            "y": 0.31
+          },
+          {
+            "frame": 49,
+            "x": 0.723,
+            "y": 0.303
+          },
+          {
+            "frame": 50,
+            "x": 0.733,
+            "y": 0.298
+          },
+          {
+            "frame": 51,
+            "x": 0.744,
+            "y": 0.294
+          },
+          {
+            "frame": 52,
+            "x": 0.753,
+            "y": 0.293
+          },
+          {
+            "frame": 53,
+            "x": 0.761,
+            "y": 0.297
+          },
+          {
+            "frame": 54,
+            "x": 0.77,
+            "y": 0.3
+          },
+          {
+            "frame": 55,
+            "x": 0.779,
+            "y": 0.305
+          },
+          {
+            "frame": 56,
+            "x": 0.787,
+            "y": 0.311
+          },
+          {
+            "frame": 57,
+            "x": 0.792,
+            "y": 0.319
+          },
+          {
+            "frame": 58,
+            "x": 0.799,
+            "y": 0.327
+          },
+          {
+            "frame": 59,
+            "x": 0.806,
+            "y": 0.334
+          },
+          {
+            "frame": 60,
+            "x": 0.812,
+            "y": 0.346
+          },
+          {
+            "frame": 61,
+            "x": 0.817,
+            "y": 0.363
+          },
+          {
+            "frame": 62,
+            "x": 0.822,
+            "y": 0.379
+          },
+          {
+            "frame": 63,
+            "x": 0.828,
+            "y": 0.394
+          },
+          {
+            "frame": 64,
+            "x": 0.834,
+            "y": 0.407
+          },
+          {
+            "frame": 65,
+            "x": 0.84,
+            "y": 0.418
+          },
+          {
+            "frame": 66,
+            "x": 0.846,
+            "y": 0.429
+          },
+          {
+            "frame": 67,
+            "x": 0.852,
+            "y": 0.441
+          },
+          {
+            "frame": 68,
+            "x": 0.859,
+            "y": 0.452
+          },
+          {
+            "frame": 69,
+            "x": 0.867,
+            "y": 0.461
+          },
+          {
+            "frame": 70,
+            "x": 0.876,
+            "y": 0.47
+          },
+          {
+            "frame": 71,
+            "x": 0.887,
+            "y": 0.476
+          },
+          {
+            "frame": 72,
+            "x": 0.9,
+            "y": 0.483
+          },
+          {
+            "frame": 73,
+            "x": 0.915,
+            "y": 0.49
+          },
+          {
+            "frame": 74,
+            "x": 0.931,
+            "y": 0.497
+          },
+          {
+            "frame": 75,
+            "x": 0.948,
+            "y": 0.503
+          },
+          {
+            "frame": 76,
+            "x": 0.965,
+            "y": 0.505
+          },
+          {
+            "frame": 77,
+            "x": 0.982,
+            "y": 0.502
+          },
+          {
+            "frame": 78,
+            "x": 0.995,
+            "y": 0.496
+          },
+          {
+            "frame": 79,
+            "x": 1.001,
+            "y": 0.486
+          },
+          {
+            "frame": 80,
+            "x": 1.001,
+            "y": 0.466
+          },
+          {
+            "frame": 81,
+            "x": 0.993,
+            "y": 0.431
+          },
+          {
+            "frame": 82,
+            "x": 0.984,
+            "y": 0.406
+          },
+          {
+            "frame": 83,
+            "x": 0.976,
+            "y": 0.397
+          },
+          {
+            "frame": 84,
+            "x": 0.975,
+            "y": 0.392
+          },
+          {
+            "frame": 85,
+            "x": 0.983,
+            "y": 0.393
+          },
+          {
+            "frame": 86,
+            "x": 0.988,
+            "y": 0.397
+          },
+          {
+            "frame": 87,
+            "x": 0.988,
+            "y": 0.404
+          },
+          {
+            "frame": 88,
+            "x": 0.986,
+            "y": 0.412
+          },
+          {
+            "frame": 89,
+            "x": 0.983,
+            "y": 0.422
+          },
+          {
+            "frame": 90,
+            "x": 0.981,
+            "y": 0.428
+          }
+        ],
+        "ball_path": null,
+        "racket_tip_path": null,
+        "racket_center_path": null,
+        "body_center_path": [
+          {
+            "frame": 41,
+            "x": 0.528,
+            "y": 0.545
+          },
+          {
+            "frame": 42,
+            "x": 0.537,
+            "y": 0.543
+          },
+          {
+            "frame": 43,
+            "x": 0.547,
+            "y": 0.54
+          },
+          {
+            "frame": 44,
+            "x": 0.556,
+            "y": 0.538
+          },
+          {
+            "frame": 45,
+            "x": 0.566,
+            "y": 0.535
+          },
+          {
+            "frame": 46,
+            "x": 0.576,
+            "y": 0.532
+          },
+          {
+            "frame": 47,
+            "x": 0.586,
+            "y": 0.529
+          },
+          {
+            "frame": 48,
+            "x": 0.597,
+            "y": 0.527
+          },
+          {
+            "frame": 49,
+            "x": 0.607,
+            "y": 0.526
+          },
+          {
+            "frame": 50,
+            "x": 0.618,
+            "y": 0.525
+          },
+          {
+            "frame": 51,
+            "x": 0.629,
+            "y": 0.524
+          },
+          {
+            "frame": 52,
+            "x": 0.64,
+            "y": 0.524
+          },
+          {
+            "frame": 53,
+            "x": 0.653,
+            "y": 0.526
+          },
+          {
+            "frame": 54,
+            "x": 0.665,
+            "y": 0.527
+          },
+          {
+            "frame": 55,
+            "x": 0.676,
+            "y": 0.529
+          },
+          {
+            "frame": 56,
+            "x": 0.686,
+            "y": 0.53
+          },
+          {
+            "frame": 57,
+            "x": 0.697,
+            "y": 0.531
+          },
+          {
+            "frame": 58,
+            "x": 0.707,
+            "y": 0.532
+          },
+          {
+            "frame": 59,
+            "x": 0.718,
+            "y": 0.533
+          },
+          {
+            "frame": 60,
+            "x": 0.729,
+            "y": 0.534
+          },
+          {
+            "frame": 61,
+            "x": 0.741,
+            "y": 0.535
+          },
+          {
+            "frame": 62,
+            "x": 0.752,
+            "y": 0.536
+          },
+          {
+            "frame": 63,
+            "x": 0.763,
+            "y": 0.537
+          },
+          {
+            "frame": 64,
+            "x": 0.774,
+            "y": 0.538
+          },
+          {
+            "frame": 65,
+            "x": 0.784,
+            "y": 0.537
+          },
+          {
+            "frame": 66,
+            "x": 0.795,
+            "y": 0.537
+          },
+          {
+            "frame": 67,
+            "x": 0.805,
+            "y": 0.537
+          },
+          {
+            "frame": 68,
+            "x": 0.815,
+            "y": 0.537
+          },
+          {
+            "frame": 69,
+            "x": 0.825,
+            "y": 0.537
+          },
+          {
+            "frame": 70,
+            "x": 0.835,
+            "y": 0.537
+          },
+          {
+            "frame": 71,
+            "x": 0.846,
+            "y": 0.536
+          },
+          {
+            "frame": 72,
+            "x": 0.857,
+            "y": 0.536
+          },
+          {
+            "frame": 73,
+            "x": 0.868,
+            "y": 0.536
+          },
+          {
+            "frame": 74,
+            "x": 0.88,
+            "y": 0.537
+          },
+          {
+            "frame": 75,
+            "x": 0.892,
+            "y": 0.538
+          },
+          {
+            "frame": 76,
+            "x": 0.903,
+            "y": 0.538
+          },
+          {
+            "frame": 77,
+            "x": 0.914,
+            "y": 0.537
+          },
+          {
+            "frame": 78,
+            "x": 0.923,
+            "y": 0.536
+          },
+          {
+            "frame": 79,
+            "x": 0.93,
+            "y": 0.536
+          },
+          {
+            "frame": 80,
+            "x": 0.939,
+            "y": 0.535
+          },
+          {
+            "frame": 81,
+            "x": 0.949,
+            "y": 0.531
+          },
+          {
+            "frame": 82,
+            "x": 0.957,
+            "y": 0.528
+          },
+          {
+            "frame": 83,
+            "x": 0.965,
+            "y": 0.525
+          },
+          {
+            "frame": 84,
+            "x": 0.972,
+            "y": 0.521
+          },
+          {
+            "frame": 85,
+            "x": 0.978,
+            "y": 0.518
+          },
+          {
+            "frame": 86,
+            "x": 0.984,
+            "y": 0.513
+          },
+          {
+            "frame": 87,
+            "x": 0.99,
+            "y": 0.506
+          },
+          {
+            "frame": 88,
+            "x": 0.998,
+            "y": 0.503
+          },
+          {
+            "frame": 89,
+            "x": 1.008,
+            "y": 0.504
+          },
+          {
+            "frame": 90,
+            "x": 1.015,
+            "y": 0.505
+          }
+        ]
+      }
+    }
+  ],
+  "aggregated_metric": [],
+  "trend": {
+    "window_method": "thirds",
+    "shoulder_rotation_trend": "stable",
+    "tempo_ratio_trend": "stable",
+    "recovery_time_trend": "stable",
+    "split_step_rate_trend": "stable",
+    "consistency_score": null,
+    "fatigue_flag": false,
+    "fatigue_onset_stroke_index": null
+  },
+  "pattern": {
+    "dominant_stroke_type": "VL",
+    "stroke_sequence": [
+      "SV",
+      "VL",
+      "VL"
+    ],
+    "groundstroke_sequence_detected": false,
+    "serve_fault_rate_pct": null,
+    "backhand_avoidance_flag": null
+  },
+  "session_summary": {
+    "session_quality": null,
+    "primary_issue": null,
+    "highlight_stroke_index": null,
+    "recommended_drill_tag": null,
+    "coach_flag": false
+  }
+}

@@ -83,6 +83,40 @@ class PoseTimeseries:
         return out
 
 
+@dataclass
+class PlayerTrack:
+    track_id: int
+    role: str
+    pose: PoseTimeseries
+    n_frames_tracked: int
+
+CROP_MARGIN_FRAC = 0.4
+UPSCALE_TARGET_PX = 700
+
+def crop_landmarks_to_frame(norm_in_crop: np.ndarray, crop_box: tuple,
+                            frame_w: int, frame_h: int) -> np.ndarray:
+    x0, y0, cw, ch = crop_box
+    out = norm_in_crop.copy()
+    out[:, 0] = (out[:, 0] * cw + x0) / frame_w
+    out[:, 1] = (out[:, 1] * ch + y0) / frame_h
+    return out
+
+
+def _crop_and_run_pose(pose_model, frame: np.ndarray, box: tuple):
+    fh, fw = frame.shape[:2]
+    x, y, w, h = box
+    mx, my = int(w * CROP_MARGIN_FRAC), int(h * CROP_MARGIN_FRAC)
+    x0, y0 = max(0, x - mx), max(0, y - my)
+    x1, y1 = min(fw, x + w + mx), min(fh, y + h + my)
+    crop = frame[y0:y1, x0:x1]
+    if crop.size == 0 or crop.shape[0] < 10 or crop.shape[1] < 10:
+        return None, None
+    scale = max(1.0, UPSCALE_TARGET_PX / crop.shape[0])
+    crop_big = cv2.resize(crop, None, fx=scale, fy=scale,
+                          interpolation=cv2.INTER_CUBIC)
+    result = pose_model.process(cv2.cvtColor(crop_big, cv2.COLOR_BGR2RGB))
+    return result, (x0, y0, x1 - x0, y1 - y0)
+
 def read_video_meta(path: str) -> VideoMeta:
     cap = cv2.VideoCapture(path)
     if not cap.isOpened():

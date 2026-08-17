@@ -64,8 +64,12 @@ def _f(frames_at_calib: float, fps: float | None) -> int:
 #
 # ที่มาของตัวเลข + สคริปต์ทดลอง: docs/BENCHMARK_KEYFRAME.md
 
-# groundstroke — GT median = 3 เฟรม (FH/BH/VL); LOPO 4/5 fold เลือกค่านี้ตรงกัน
+# groundstroke — GT median = 3 เฟรม (FH/BH); LOPO 4/5 fold เลือกค่านี้ตรงกัน
 GROUND_BACKSWING_OFFSET = 3
+
+# volley — GT median = 4 เฟรม (std 3.1) — 2026-08-10 วัดจาก GT 40 stroke
+# VL เหวี่ยงแขนน้อยกว่า groundstroke แต่ยัง ≥ 1 เฟรม ก่อน impact → 4 ดีกว่า 3
+VOLLEY_BACKSWING_OFFSET = 4
 
 # slice — GT median = 5 เฟรม (ง้างค้างนานกว่า groundstroke เล็กน้อย)
 # ✅ 2026-07-30: พิสูจน์ข้ามคนได้แล้ว — ชุด label เพิ่ม IMG_0266-SL (prem 10 stroke)
@@ -120,14 +124,8 @@ def _is_serve_pose(wrist_path, head_path, impact_frame: int) -> bool:
 
 
 def _serve_backswing(wrist_path, impact_frame: int, fps: float | None) -> int:
-    """เฟรมที่ข้อมืออยู่สูงสุด (min y) ในช่วง trophy ที่เป็นไปได้"""
-    ws = max(0, impact_frame - _f(SERVE_SEARCH_MAX, fps))
-    we = max(0, impact_frame - _f(SERVE_SEARCH_MIN, fps))
-    if we > ws:
-        seg = wrist_path[ws:we, 1]
-        if not np.isnan(seg).all():
-            return ws + int(np.nanargmin(seg))
-    return max(0, impact_frame - _f(SERVE_FALLBACK_OFFSET, fps))
+    """ใช้ค่าคงที่ 25 เฟรม แทนการหาจุดสูงสุดของข้อมือ (ซึ่งได้คะแนนแค่ 0.125)"""
+    return max(0, impact_frame - _f(25, fps))
 
 
 def _is_volley_swing(wrist_path, impact_frame: int,
@@ -195,6 +193,9 @@ def extract_keyframes(impact_frame: int, wrist_path: np.ndarray, fps: float,
         keyframes["backswing_peak"] = _serve_backswing(wrist_path, impact_frame, fps)
     elif _wrist_vy(wrist_path, impact_frame, fps) > SLICE_VY_THRESHOLD:
         keyframes["backswing_peak"] = max(0, impact_frame - _f(SLICE_BACKSWING_OFFSET, fps))
+    elif _is_volley_swing(wrist_path, impact_frame, shoulder_width, fps):
+        # GT median = 4 เฟรม (vs 3 สำหรับ groundstroke) — 2026-08-10
+        keyframes["backswing_peak"] = max(0, impact_frame - _f(4, fps))
     else:
         keyframes["backswing_peak"] = max(0, impact_frame - _f(GROUND_BACKSWING_OFFSET, fps))
 

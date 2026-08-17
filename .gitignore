@@ -19,3 +19,4 @@ dataset/
 dist/
 _incoming/
 .audio_cache/
+venv/

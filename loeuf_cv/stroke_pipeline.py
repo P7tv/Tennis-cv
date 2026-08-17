@@ -89,7 +89,7 @@ class StrokePipeline:
 
         if ball_observations is not None:
             from .ball import build_ball_block, build_ball_path
-            stroke["metrics"]["ball"] = build_ball_block(ball_observations)
+            stroke["metric"]["ball"] = build_ball_block(ball_observations)
             stroke["visualization"]["ball_path"] = build_ball_path(
                 ball_observations, smoothed, keyframes)
         return stroke

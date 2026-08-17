@@ -85,13 +85,13 @@ def build_stroke_object(stroke_metadata: dict, video_quality: dict,
     return {
         "stroke_metadata": stroke_metadata,       # M
         "video_quality": video_quality,           # VQ
-        "keyframes": kf_out,                      # B
+        "keyframe": kf_out,                       # B
         "stroke_root": stroke_root,               # A
-        "metrics": metrics,                       # C / KN / SS / BL
+        "metric": metrics,                        # C / KN / SS / BL
         "derived": derived,                       # D
-        "visibility_flag": visibility_flag,       # VF (flat, C/KN/SS/D เท่านั้น)
+        "visibility_flag": visibility_flag,       # VF (flat, C/KN/SS/D ที่อิงจากตาราง)
         "confidence_flag": confidence_flag,       # CF
-        "visualization": visualization,           # VZ
+        "visualization": visualization            # VZ
     }
 
 

@@ -21,9 +21,29 @@ from loeuf_cv.multi_person import PlayerTrack, extract_multi_person
 from loeuf_cv.occlusion_fill import kinematic_fill
 from webui.overlay import NOT_A_PLAYER_PREFIX, render_overlay_video
 
-st.set_page_config(page_title="Loeuf CV — Inference Test", layout="wide")
-st.title("🎾 Loeuf CV — Inference Test UI")
-st.caption("เครื่องมือทดสอบภายใน สำหรับ inspect ผล multi-person tracking ก่อนส่งเข้า pipeline จริง — ไม่ใช่ deliverable ที่ส่งลูกค้า")
+st.set_page_config(page_title="Loeuf CV Analytics", layout="wide", initial_sidebar_state="expanded")
+
+# Inject Custom Typography and Styling
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+    html, body, [class*="css"]  {
+        font-family: 'Fira Sans', sans-serif;
+    }
+    .stButton>button {
+        font-weight: 600;
+        border-radius: 6px;
+        transition: all 0.2s ease-in-out;
+    }
+    .stButton>button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.title("🎾 Loeuf CV — Video Analytics Dashboard")
+st.caption("AI-Powered Tennis Biomechanics & Hit Detection System (5-Layer Architecture)")
 
 if "tracks" not in st.session_state:
     st.session_state.tracks = None
@@ -33,44 +53,31 @@ with st.sidebar:
     st.header("1. Upload คลิป")
     uploaded = st.file_uploader("วิดีโอ", type=["mp4", "mov", "avi"])
 
-    st.header("2. Parameters")
-    tracking_method = st.radio("Tracking Method", ["Classical CV (MOG2)", "SAM 2 Click-to-Track", "YOLO11 + BoT-SORT 🆕"])
-    if tracking_method == "SAM 2 Click-to-Track":
-        sam2_chunk_size = st.slider(
-            "SAM 2 chunk_size (frames)", min_value=10, max_value=150, value=100, step=10,
-            help="เฟรมต่อ chunk ที่ SAM 2 โหลดพร้อมกัน — ลดถ้า RAM ไม่พอ\n"
-                 "30 เฟรม ≈ 377 MB · 100 เฟรม ≈ 1.26 GB · 150 เฟรม ≈ 1.88 GB")
-    else:
-        sam2_chunk_size = 30
-    max_players = st.slider("max_players", 1, 6, 1,
-                            help="จำนวนคนสูงสุดที่จะ track — ปกติมีผู้เล่นหลักคนเดียว เพิ่มถ้าต้องการ track คนป้อนบอล/คู่ต่อสู้ด้วย")
-    model_complexity = st.selectbox("model_complexity", [0, 1, 2], index=1)
-    height_input = st.number_input("subject_height_cm (0 = ไม่ระบุ)", min_value=0, value=0, step=1)
-    dominant_side = st.selectbox("มือถนัด", ["right", "left"])
-    normalize_frames = st.checkbox("normalize_frames (white balance/exposure)", value=False)
-
-    # UI for run button depends on method
-    if tracking_method == "Classical CV (MOG2)":
-        run_btn = st.button("▶️ รัน inference (MOG2)", type="primary", disabled=uploaded is None)
-    elif tracking_method == "YOLO11 + BoT-SORT 🆕":
-        import glob
-        import os
-        
-        # ค้นหาโมเดล .pt ทั้งหมดในโปรเจกต์
-        available_models = ["yolo11n.pt", "yolo11s.pt", "yolo11m.pt"]
-        custom_models = glob.glob("runs/**/*.pt", recursive=True) + glob.glob("*.pt")
-        for m in custom_models:
-            m_norm = os.path.normpath(m)
-            if m_norm not in available_models and not any(m_norm.endswith(x) for x in ["yolo11n.pt", "yolo11s.pt", "yolo11m.pt"]):
-                available_models.append(m_norm)
-                
-        base_models = ["yolo11n.pt", "yolo11s.pt", "yolo11m.pt"]
-        base_model_path = st.selectbox("Base Model (สำหรับหาคน)", base_models, index=2, help="เลือกโมเดลหาคน (n = เร็วสุด, m = แม่นสุด)")
-        
-        yolo_model_path = st.selectbox("Custom Ball Model", available_models, help="เลือกโมเดลลูกเทนนิสที่คุณ Train เองจากในรายการ")
-        run_btn = st.button("▶️ Run YOLO11 + BoT-SORT", type="primary", disabled=uploaded is None)
-    else:
-        run_btn = False
+    st.header("⚙️ Configuration")
+    import glob
+    import os
+    
+    # ค้นหาโมเดล .pt ทั้งหมดในโปรเจกต์
+    available_models = ["yolo11n.pt", "yolo11s.pt", "yolo11m.pt"]
+    custom_models = glob.glob("runs/**/*.pt", recursive=True) + glob.glob("*.pt") + glob.glob("checkpoints/*.pt")
+    for m in custom_models:
+        m_norm = os.path.normpath(m)
+        if m_norm not in available_models and not any(m_norm.endswith(x) for x in ["yolo11n.pt", "yolo11s.pt", "yolo11m.pt"]):
+            available_models.append(m_norm)
+            
+    base_models = ["yolo11n.pt", "yolo11s.pt", "yolo11m.pt"]
+    base_model_path = st.selectbox("Player Model (YOLO11)", base_models, index=2, help="โมเดลหาคน (n = เร็วสุด, m = แม่นสุด)")
+    
+    yolo_model_path = st.selectbox("Ball Detection Model", available_models, help="โมเดลลูกเทนนิส")
+    
+    max_players = st.slider("Max Players", 1, 6, 1, help="จำนวนคนสูงสุดที่จะ track")
+    model_complexity = st.selectbox("MediaPipe Complexity", [0, 1, 2], index=1)
+    height_input = st.number_input("Subject Height (cm) (0 = Auto)", min_value=0, value=0, step=1)
+    dominant_side = st.selectbox("Dominant Hand", ["right", "left"])
+    normalize_frames = st.checkbox("Normalize Frames (Exposure/WB)", value=False)
+    
+    st.divider()
+    run_btn = st.button("▶️ Step 1: Run Tracking & Pose", type="primary", disabled=uploaded is None, use_container_width=True)
 
 # Temp dir on D: drive workspace to avoid exhausting C: drive (only ~2GB free)
 _TMP_DIR = Path(__file__).parent / ".tmp"
@@ -112,126 +119,41 @@ if uploaded is not None:
         subject_height_cm=height_input or None,
     )
 
-    if tracking_method == "YOLO11 + BoT-SORT 🆕":
-        if run_btn:
-            import importlib
-            import webui.yolo_track
-            importlib.reload(webui.yolo_track)
-            from webui.yolo_track import track_players_with_yolo
-            
-            prog = st.progress(0, text="YOLO Tracking...")
-            def _yolo_cb(cur, tot):
-                prog.progress(min(cur / max(tot, 1), 1.0), text=f"Processing frame {cur}/{tot}")
-            with st.spinner("Running YOLO11 + BoT-SORT..."):
-                try:
-                    tracks, ball_bboxes, racket_bboxes, racket_keypoints = track_players_with_yolo(
-                        video_path,
-                        max_players=max_players,
-                        config=config,
-                        progress_callback=_yolo_cb,
-                        model_path=yolo_model_path,
-                        base_model=base_model_path
-                    )
-                    st.session_state.tracks = tracks
-                    st.session_state.ball_bboxes = ball_bboxes
-                    st.session_state.racket_bboxes = racket_bboxes
-                    st.session_state.racket_keypoints = racket_keypoints
-                    prog.progress(1.0, text="Done!")
-                except Exception as e:
-                    st.error(f"YOLO error: {e}")
-                    st.stop()
-
-    elif tracking_method == "SAM 2 Click-to-Track":
-        import cv2
-        from streamlit_image_coordinates import streamlit_image_coordinates
+    if run_btn:
+        import importlib
+        import webui.yolo_track
+        importlib.reload(webui.yolo_track)
+        from webui.yolo_track import track_players_with_yolo
         
-        st.header("1.5 คลิกเลือกผู้เล่น")
-        st.write("คลิกจุดที่ตัวผู้เล่นเป้าหมาย (Player 1) ในภาพด้านล่างเพื่อเริ่ม Track ด้วย SAM 2")
-        cap = cv2.VideoCapture(video_path)
-        ok, frame = cap.read()
-        cap.release()
-        
-        if ok:
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            value = streamlit_image_coordinates(frame_rgb, key="sam2_click")
-            
-            if value is not None:
-                st.write(f"คลิกล่าสุดที่พิกัด: x={value['x']}, y={value['y']}")
-                
-            run_btn = st.button("▶️ รัน SAM 2 Tracking", type="primary", disabled=(value is None))
-            
-            if run_btn and value is not None:
-                with st.spinner("กำลังรัน SAM 2... (อาจใช้เวลาหลายนาที ขึ้นอยู่กับความยาวคลิป)"):
-                    import json
-                    import subprocess
-                    
-                    import os
-                    prompts = [{"frame_idx": 0, "x": value["x"], "y": value["y"], "positive": True}]
-                    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, dir=str(_TMP_DIR)) as f:
-                        json.dump(prompts, f)
-                        prompts_file = f.name
-                    
-                    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, dir=str(_TMP_DIR)) as f:
-                        bboxes_file = f.name
-                    
-                    python_exe = str(Path(__file__).parent / ".venv-sam2" / "Scripts" / "python.exe")
-                    cli_script = str(Path(__file__).parent / "run_sam2_cli.py")
-                    ckpt = str(Path(__file__).parent / "checkpoints" / "sam2.1_hiera_tiny.pt")
-                    
-                    try:
-                        result = subprocess.run([
-                            python_exe, cli_script,
-                            "--video", video_path,
-                            "--prompts", prompts_file,
-                            "--out", bboxes_file,
-                            "--checkpoint", ckpt,
-                            "--chunk-size", str(sam2_chunk_size),
-                        ], capture_output=True, text=True)
-                        if result.returncode != 0:
-                            st.error("SAM 2 CLI failed")
-                            with st.expander("Error details"):
-                                st.code(result.stderr or result.stdout or "(no output)")
-                            st.stop()
-                        
-                        with open(bboxes_file, "r") as f:
-                            bboxes_str = json.load(f)
-                        bboxes = {int(k): v for k, v in bboxes_str.items()}
-                    finally:
-                        try:
-                            os.unlink(prompts_file)
-                        except Exception:
-                            pass
-                        try:
-                            os.unlink(bboxes_file)
-                        except Exception:
-                            pass
-                    
-                    from webui.sam2_track import extract_pose_from_sam2_track
-                    pose_ts = extract_pose_from_sam2_track(video_path, bboxes, config)
-                    
-                    tracks = [PlayerTrack(track_id=1, role="player", pose=pose_ts, n_frames_tracked=len(bboxes))]
-                    st.session_state.tracks = tracks
-                    st.session_state.overlay_path = None
-                    st.success(f"SAM 2 เสร็จสิ้น — เจอ 1 track ({len(bboxes)} frames)")
-                    st.rerun()
-
-    elif tracking_method == "Classical CV (MOG2)" and run_btn:
-        with st.spinner("กำลังรัน multi-person tracking + pose extraction... (อาจใช้เวลาหลายสิบวินาทีถึงหลายนาที ขึ้นกับความยาวคลิป)"):
-            tracks = extract_multi_person(video_path, config, max_players=max_players)
-
-        st.session_state.tracks = tracks
-        st.session_state.overlay_path = None
-        if not tracks:
-            st.warning("ไม่เจอ track ที่ผ่านเกณฑ์เลย (ลองเพิ่ม max_players หรือเช็คว่าคลิปมีคนขยับจริงไหม)")
-        else:
-            st.success(f"เสร็จแล้ว — เจอ {len(tracks)} track")
+        prog = st.progress(0, text="Layer 1: YOLO Tracking & SORT...")
+        def _yolo_cb(cur, tot):
+            prog.progress(min(cur / max(tot, 1), 1.0), text=f"Processing frame {cur}/{tot}")
+        with st.spinner("Running YOLO11 + BoT-SORT + MediaPipe..."):
+            try:
+                tracks, ball_bboxes, racket_bboxes, racket_keypoints = track_players_with_yolo(
+                    video_path,
+                    max_players=max_players,
+                    config=config,
+                    progress_callback=_yolo_cb,
+                    model_path=yolo_model_path,
+                    base_model=base_model_path
+                )
+                st.session_state.tracks = tracks
+                st.session_state.ball_bboxes = ball_bboxes
+                st.session_state.racket_bboxes = racket_bboxes
+                st.session_state.racket_keypoints = racket_keypoints
+                prog.progress(1.0, text="Done!")
+                st.success(f"Tracking Completed: Found {len(tracks)} track(s)")
+            except Exception as e:
+                st.error(f"Error in tracking: {e}")
+                st.stop()
 
 tracks = st.session_state.tracks
 if tracks:
     video_path = st.session_state.video_path
     n_total_frames = len(tracks[0].pose.visibility)
 
-    st.header("2. Track Review")
+    st.header("Step 2: Review & Calibrate")
     rows = []
     for t in tracks:
         vis = t.pose.visibility
@@ -392,23 +314,23 @@ if tracks:
             except ImportError:
                 st.warning("ต้องติดตั้ง streamlit-image-coordinates ก่อน: pip install streamlit-image-coordinates")
     
-    st.header("2.5 Hit Event Log")
-    st.write("วิเคราะห์การเคลื่อนที่ของลูกเทนนิสและพิกัดผู้เล่นเพื่อหาจังหวะการตี (Hit Events)")
+    st.header("Step 3: End-to-End Analysis (Layers 2-5)")
+    st.write("Extract Audio, compute Biomechanical Features, run ML Inference, and synchronize events.")
     
     # Store hit events in session state
     if "hit_events" not in st.session_state:
         st.session_state.hit_events = None
         
-    if st.button("📊 วิเคราะห์ Hit Events"):
+    if st.button("📊 Analyze Hit Events", type="primary"):
         ball_bboxes = st.session_state.get("ball_bboxes")
         if ball_bboxes:
-            with st.spinner("กำลังคำนวณ Kinematics และค้นหา Hit Events..."):
+            with st.status("Running Loeuf CV Pipeline...", expanded=True) as status:
                 import sys, importlib
                 import loeuf_cv.hit_detection
                 importlib.reload(loeuf_cv.hit_detection)
                 from loeuf_cv.hit_detection import extract_ball_trajectory_kalman, detect_hit_events
                 import cv2
-                # force reload 
+                
                 # Get video metadata
                 cap = cv2.VideoCapture(video_path)
                 fw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -417,28 +339,29 @@ if tracks:
                 n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
                 cap.release()
                 
-                # Extract and process
-                # ball_measured แยกเฟรมที่ "เห็นลูกจริง" ออกจากช่วงที่ Kalman
-                # เดาต่อ — detect_hit_events ต้องใช้ ไม่งั้นจะปัด stroke จริงทิ้ง
-                # ด้วยตำแหน่งลูกที่ระบบแต่งขึ้นเอง (ดู docs/BALL_DETECTION_ISSUE.md)
+                st.write("👁️ **Layer 1: Object & Pose Trajectories** (Loaded from State)")
                 traj, ball_measured = extract_ball_trajectory_kalman(
                     ball_bboxes, n_frames, return_measured=True, fps=fps)
                 racket_bboxes = st.session_state.get("racket_bboxes")
-                # video_path -> ใช้เสียงกระทบช่วยระบุเฟรมปะทะ (ต้องมี ffmpeg
-                # ใน PATH ไม่มีก็ข้ามไปเงียบ ๆ ไม่พัง) วัดแล้วบน benchmark เต็ม
-                # acceptance 0.442 -> 0.471 · ดู docs/IMPACT_FRAME_REFINEMENT.md
+                
+                st.write("🎧 **Layer 2: Audio Processing** (Librosa Onset Detection)")
+                st.write("📈 **Layer 3: Biomechanical Feature Engineering** (Window Features)")
+                st.write("🧠 **Layer 4: ML Classification** (AutoGluon Inference)")
+                st.write("🎯 **Layer 5: Synchronization & Refinement** (Audio-Visual Sync)")
+                
                 hits = detect_hit_events(traj, tracks, fps, fw, fh,
                                          racket_bboxes=racket_bboxes,
                                          ball_measured=ball_measured,
                                          video_path=video_path)
-                # Enrich with bounce detection
+                                         
+                st.write("🔍 **Detecting Bounces...**")
                 from loeuf_cv.bounce_detection import add_bounce_to_hits
                 court_H = st.session_state.get("court_homography")
                 hits = add_bounce_to_hits(hits, traj, court_H, fps)
                 
                 st.session_state.hit_events = hits
                 st.session_state.ball_traj = traj
-                st.success(f"วิเคราะห์เสร็จสิ้น: พบการตีทั้งหมด {len(hits)} ครั้ง")
+                status.update(label=f"Analysis Complete! Found {len(hits)} Hit Events.", state="complete", expanded=False)
         else:
             st.warning("ไม่มีข้อมูลลูกเทนนิส (โปรดใช้ YOLO11 + BoT-SORT ที่มี Custom Model ในการตรวจจับลูกเทนนิส)")
             

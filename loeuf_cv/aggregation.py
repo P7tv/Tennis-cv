@@ -18,7 +18,7 @@ MIN_STROKES_FOR_AVOIDANCE = 20
 # ---------- helpers ----------
 
 def _metric(stroke: dict, block: str, field: str):
-    return stroke["metrics"].get(block, {}).get(field)
+    return stroke["metric"].get(block, {}).get(field)
 
 
 def _usable(strokes: list[dict]) -> list[dict]:

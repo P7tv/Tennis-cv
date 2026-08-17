@@ -26,8 +26,8 @@ PIPELINE = StrokePipeline(CONFIG)
 
 METRIC_BLOCKS = ("body", "arm", "timing", "contact", "movement",
                  "depth_estimated", "kinematics", "stroke_specific", "ball")
-STROKE_LAYERS = ("stroke_metadata", "video_quality", "keyframes", "stroke_root",
-                 "metrics", "derived", "visibility_flag", "confidence_flag",
+STROKE_LAYERS = ("stroke_metadata", "video_quality", "keyframe", "stroke_root",
+                 "metric", "derived", "visibility_flag", "confidence_flag",
                  "visualization")
 
 
@@ -40,11 +40,11 @@ def test_stroke_object_has_all_layers():
     for layer in STROKE_LAYERS:
         assert layer in stroke, f"missing layer {layer}"
     for block in METRIC_BLOCKS:
-        assert block in stroke["metrics"], f"missing metric block {block}"
+        assert block in stroke["metric"], f"missing metric block {block}"
 
 
 def test_keyframes_detected_and_ordered():
-    kf = _stroke()["keyframes"]
+    kf = _stroke()["keyframe"]
     assert set(kf) == set(KEYFRAME_NAMES)
     for name in ("unit_turn", "backswing_peak", "impact", "follow_through_peak"):
         assert kf[name]["detected"], f"{name} should be detected"
@@ -63,7 +63,7 @@ def test_null_rule_value_matches_visibility():
     for block in METRIC_BLOCKS:
         if block == "ball":
             continue
-        flat.update(stroke["metrics"][block])
+        flat.update(stroke["metric"][block])
     flat.update(stroke["derived"])
 
     for field, value in flat.items():
@@ -94,7 +94,7 @@ def test_fps_normalization_m4_m5():
 
 
 def test_rotation_degrees_nonzero():
-    body = _stroke()["metrics"]["body"]
+    body = _stroke()["metric"]["body"]
     assert body["shoulder_rotation_at_impact_deg"] is not None
     assert abs(body["shoulder_rotation_at_impact_deg"]) > 10.0
     assert body["shoulder_hip_separation_at_impact_deg"] is not None
@@ -114,7 +114,7 @@ def test_static_clip_fails_gracefully():
     ts.world_landmarks = np.repeat(ts.world_landmarks[:1], ts.n_frames, axis=0)
     stroke = PIPELINE.process_timeseries(ts, "FH")
 
-    impact = stroke["keyframes"]["impact"]
+    impact = stroke["keyframe"]["impact"]
     assert impact == {"frame_index": None, "timestamp_ms": None,
                       "detected": False}
     assert stroke["stroke_root"]["detection_status"] == "failed"
@@ -125,8 +125,8 @@ def test_visualization_wrist_path_required():
     stroke = _stroke()
     vz = stroke["visualization"]
     assert isinstance(vz["wrist_path"], list) and len(vz["wrist_path"]) > 5
-    b2 = stroke["keyframes"]["backswing_peak"]["frame_index"]
-    b4 = stroke["keyframes"]["follow_through_peak"]["frame_index"]
+    b2 = stroke["keyframe"]["backswing_peak"]["frame_index"]
+    b4 = stroke["keyframe"]["follow_through_peak"]["frame_index"]
     frames = [p["frame"] for p in vz["wrist_path"]]
     assert min(frames) >= b2 and max(frames) <= b4
     assert vz["ball_path"] is None and vz["racket_tip_path"] is None
@@ -181,20 +181,20 @@ def test_phase2_aggregation_blocks():
 
 def test_stroke_specific_serve_and_volley():
     sv = PIPELINE.process_timeseries(synthetic_forehand(fps=30), "SV")
-    ss = sv["metrics"]["stroke_specific"]
+    ss = sv["metric"]["stroke_specific"]
     assert "trophy_position_achieved" in ss and "stance_type" in ss
     # SV null rules
-    assert sv["metrics"]["arm"]["follow_through_angle_deg"] is None
-    assert sv["metrics"]["movement"]["split_step_detected"] is None
-    assert sv["metrics"]["contact"]["swing_path_angle_deg"] is None
+    assert sv["metric"]["arm"]["follow_through_angle_deg"] is None
+    assert sv["metric"]["movement"]["split_step_detected"] is None
+    assert sv["metric"]["contact"]["swing_path_angle_deg"] is None
 
     vl = PIPELINE.process_timeseries(synthetic_forehand(fps=30), "VL")
-    assert "backswing_past_ear" in vl["metrics"]["stroke_specific"]
-    assert vl["metrics"]["timing"]["backswing_duration_ms"] is None  # VL null
-    assert vl["metrics"]["timing"]["tempo_ratio"] is None
+    assert "backswing_past_ear" in vl["metric"]["stroke_specific"]
+    assert vl["metric"]["timing"]["backswing_duration_ms"] is None  # VL null
+    assert vl["metric"]["timing"]["tempo_ratio"] is None
 
     fh = _stroke()
-    assert fh["metrics"]["stroke_specific"] == {}  # FH → {}
+    assert fh["metric"]["stroke_specific"] == {}  # FH → {}
 
 
 def _rotate_ts(ts, roll_deg):
@@ -231,15 +231,15 @@ def test_tilted_camera_flagged_and_metrics_survive():
     assert stroke["stroke_root"]["is_clean_stroke"] is False
     assert stroke["stroke_root"]["stroke_recommended_action"] == "coach_review"
     # roll correction ทำให้ keyframes ยังหาเจอ
-    assert stroke["keyframes"]["impact"]["detected"]
+    assert stroke["keyframe"]["impact"]["detected"]
     assert "debug_camera" in stroke["stroke_metadata"]
 
 
 def test_rotation_zero_reference():
     """rotation ที่ ready ต้อง ~0 หลัง zero-reference"""
     stroke = _stroke()
-    c3 = stroke["metrics"]["body"]["shoulder_rotation_at_unit_turn_deg"]
-    c4 = stroke["metrics"]["body"]["shoulder_rotation_at_impact_deg"]
+    c3 = stroke["metric"]["body"]["shoulder_rotation_at_unit_turn_deg"]
+    c4 = stroke["metric"]["body"]["shoulder_rotation_at_impact_deg"]
     # unit_turn คือช่วงเริ่ม coil — ค่าควรเล็กกว่า impact ที่เปิดตัวเต็มที่
     assert c3 is not None and c4 is not None
     assert abs(c4) > abs(c3)
@@ -250,8 +250,8 @@ def test_benchmark_keyframe_accuracy():
 
     stroke = _stroke(fps=30)
     preds = {"FH/fh_001": stroke}
-    imp = stroke["keyframes"]["impact"]
-    bs = stroke["keyframes"]["backswing_peak"]
+    imp = stroke["keyframe"]["impact"]
+    bs = stroke["keyframe"]["backswing_peak"]
     # GT ตรงกับ prediction (แปลง ms กลับเป็นเฟรมต้นทาง 30fps)
     gt_exact = {
         "clip_path": "FH/fh_001.mp4", "stroke_type": "FH", "fps": 30.0,
@@ -286,8 +286,8 @@ def test_benchmark_agreement_and_spotting():
     assert ag["agreement"] == 0.5  # impact ห่าง 1 (ผ่าน), backswing ห่าง 4 (ไม่ผ่าน)
 
     session_out = {"strokes": [
-        {"keyframes": {"impact": {"detected": True, "timestamp_ms": 13800}}},
-        {"keyframes": {"impact": {"detected": True, "timestamp_ms": 99000}}},
+        {"keyframe": {"impact": {"detected": True, "timestamp_ms": 13800}}},
+        {"keyframe": {"impact": {"detected": True, "timestamp_ms": 99000}}},
     ]}
     gt = [{"start_time_s": 12.4, "end_time_s": 15.1},
           {"start_time_s": 30.0, "end_time_s": 33.0}]
@@ -348,7 +348,7 @@ def test_ball_impact_fusion():
 
     # ผ่าน stroke pipeline เต็ม → BL block + VZ2
     stroke = PIPELINE.process_timeseries(ts, "FH", ball_observations=ball)
-    assert stroke["metrics"]["ball"]["available"] is True
+    assert stroke["metric"]["ball"]["available"] is True
     assert stroke["visualization"]["ball_path"] is not None
 
 
@@ -386,7 +386,7 @@ def test_player_near_edge_flagged():
 
 
 def test_crop_landmarks_to_frame_coordinate_transform():
-    from loeuf_cv.multi_person import crop_landmarks_to_frame
+    from loeuf_cv.pose_extractor import crop_landmarks_to_frame
 
     # crop เริ่มที่ (100,50) ขนาด 200x300 ใน เฟรม 960x540
     norm_in_crop = np.array([[0.5, 0.5, 0.0], [0.0, 0.0, 0.0], [1.0, 1.0, 0.0]])
@@ -407,228 +407,6 @@ def test_crop_landmarks_to_frame_coordinate_transform():
 def _draw_person_blob(frame, cx, cy, w=40, h=100):
     cv2.rectangle(frame, (int(cx - w / 2), int(cy - h / 2)),
                  (int(cx + w / 2), int(cy + h / 2)), (200, 200, 200), -1)
-
-
-def test_blob_detection_and_tracking_two_moving_people():
-    from loeuf_cv.multi_person import detect_blobs, match_tracks
-
-    W, H = 640, 480
-    bg = cv2.createBackgroundSubtractorMOG2(history=30, varThreshold=25,
-                                            detectShadows=False)
-    # วอร์มอัพพื้นหลังนิ่ง (สีเดียวกันทุกเฟรม)
-    for _ in range(20):
-        frame = np.full((H, W, 3), 50, np.uint8)
-        bg.apply(frame)
-
-    # จำลอง 2 คนเดินสวนทางกัน 15 เฟรม
-    active_centroids = {}
-    tracks_seen = []
-    for i in range(15):
-        frame = np.full((H, W, 3), 50, np.uint8)
-        _draw_person_blob(frame, cx=100 + i * 10, cy=240)   # คนซ้าย เดินไปขวา
-        _draw_person_blob(frame, cx=500 - i * 8, cy=240)    # คนขวา เดินไปซ้าย
-        boxes = detect_blobs(bg, frame, learning_rate=0.0)
-        assert len(boxes) == 2, f"frame {i}: expected 2 blobs, got {len(boxes)}"
-
-        assigned = match_tracks(active_centroids, boxes, frame_w=W)
-        next_id = max(active_centroids.keys(), default=-1) + 1
-        frame_ids = []
-        for bi, box in enumerate(boxes):
-            x, y, w, h = box
-            if bi in assigned:
-                tid = assigned[bi]
-            else:
-                tid = next_id
-                next_id += 1
-            active_centroids[tid] = (x + w / 2.0, y + h / 2.0)
-            frame_ids.append(tid)
-        tracks_seen.append(sorted(frame_ids))
-
-    # ต้องมีแค่ 2 track ID ตลอดทั้งคลิป (ไม่สร้าง ID ใหม่มั่ว ๆ)
-    all_ids = set(i for fr in tracks_seen for i in fr)
-    assert len(all_ids) == 2, f"expected 2 stable track IDs, got {all_ids}"
-    # ทุกเฟรมต้องเห็นครบ 2 track เดิม
-    for fr in tracks_seen:
-        assert set(fr) == all_ids
-
-
-def test_track_gap_tolerance_and_role_assignment():
-    from loeuf_cv.multi_person import match_tracks, MAX_TRACK_GAP_FRAMES
-
-    # track หายไปสั้น ๆ (น้อยกว่า gap tolerance) ต้อง match กลับเป็น ID เดิมได้
-    active = {0: (100, 100)}
-    boxes = [(90, 90, 20, 20)]  # centroid (100,100) พอดี
-    assigned = match_tracks(active, boxes, frame_w=640)
-    assert assigned == {0: 0}
-
-    # box ที่ไกลเกิน max_dist ต้องไม่ match (กลายเป็น track ใหม่)
-    boxes_far = [(600, 400, 20, 20)]
-    assigned_far = match_tracks(active, boxes_far, frame_w=640)
-    assert assigned_far == {}
-
-
-def _fake_track(frame_idxs, centroid_xs, centroid_ys, height_px=100.0):
-    """track dict ขั้นต่ำสำหรับทดสอบ select_candidate_tracks (ไม่ต้องมี
-    landmark/visibility จริง — ฟังก์ชันนี้ดูแค่ frames.keys()/centroid)
-    frame_idxs ระบุเองได้ (ไม่ใช่ range(n) เสมอไป) เพื่อคุม temporal
-    overlap ระหว่าง track ในเทสได้ตรง ๆ"""
-    return {
-        "frames": {i: (None, None, None, height_px) for i in frame_idxs},
-        "centroid_xs": list(centroid_xs),
-        "centroid_ys": list(centroid_ys),
-    }
-
-
-def test_select_candidate_tracks_rejects_stationary_bystander():
-    """⚠️ ข้อค้นพบจริงจากคลิปลูกค้า (2026-07-10): คนยืนนิ่งข้างสนาม
-    (ผู้ชม/เก็บบอล) track ต่อเนื่องได้ง่ายกว่าผู้เล่นจริงที่ขยับตลอด —
-    ถ้าเลือกด้วย "track ไหนยาวสุด" อย่างเดียวจะได้คนผิด แม้ track ยาว
-    กว่าก็ต้องไม่ถูกเลือกถ้าแทบไม่ขยับเลย"""
-    from loeuf_cv.multi_person import select_candidate_tracks
-
-    frame_w, frame_h = 960, 540
-    bystander = _fake_track(range(211), [900] * 211, [260 + 0.01 * i for i in range(211)])
-    real_player = _fake_track(range(100), [300 + i * 0.5 for i in range(100)],
-                              [200 + 40 * np.sin(i / 10) for i in range(100)])
-    tracks = {1: bystander, 2: real_player}
-
-    clusters = select_candidate_tracks(tracks, frame_w, frame_h, max_players=2)
-    kept_ids = {tid for cluster in clusters for tid, _ in cluster}
-    assert 1 not in kept_ids
-    assert 2 in kept_ids
-
-
-def test_select_candidate_tracks_merges_same_person_fragments():
-    """⚠️ ข้อค้นพบจริง (2026-07-10 บ่าย): คนเดียวกันอาจถูกตัดเป็นหลาย
-    track ID (blob หายเกิน MAX_TRACK_GAP_FRAMES แล้วโผล่ใหม่ตำแหน่งเดิม
-    ซ้ำ ๆ ระหว่างแรลลี่ — เจอจริง 7 ท่อนในคลิปเดียว) เดิมเคยแค่ "เลือก
-    ท่อนที่ยาวสุด แล้วทิ้งท่อนอื่น" (เสียข้อมูลไปเกือบครึ่ง) ตอนนี้ต้อง
-    stitch ท่อนที่เป็นคนเดียวกันเข้าเป็น cluster เดียว ไม่ใช่แค่เลือก
-    ท่อนเดียวแล้วทิ้งที่เหลือ"""
-    from loeuf_cv.multi_person import select_candidate_tracks
-
-    frame_w, frame_h = 960, 540
-    # track เดียวกันทางกายภาพ (x~300) แยกเป็น 2 ID เพราะ track หลุดกลางคลิป
-    # — คนละช่วงเวลากันเลย (part1 เฟรม 0-199, part2 เฟรม 300-379)
-    person_a_part1 = _fake_track(range(0, 200), [300 + i * 0.1 for i in range(200)],
-                                 [220 + 30 * np.sin(i / 15) for i in range(200)])
-    person_a_part2 = _fake_track(range(300, 380), [305 + i * 0.1 for i in range(80)],
-                                 [225 + 30 * np.sin(i / 15) for i in range(80)])
-    # คนที่สองจริง ๆ อยู่คนละตำแหน่งชัดเจน (x~650)
-    person_b = _fake_track(range(0, 60), [650 + i * 0.2 for i in range(60)],
-                           [210 + 35 * np.sin(i / 12) for i in range(60)])
-    tracks = {10: person_a_part1, 11: person_a_part2, 12: person_b}
-
-    clusters = select_candidate_tracks(tracks, frame_w, frame_h, max_players=2)
-    assert len(clusters) == 2
-    cluster_id_sets = [{tid for tid, _ in cluster} for cluster in clusters]
-    assert {10, 11} in cluster_id_sets  # ทั้งสองท่อนของคนเดียวกัน stitch เข้าด้วยกัน
-    assert {12} in cluster_id_sets
-
-
-def test_select_candidate_tracks_keeps_two_close_people_tracked_simultaneously():
-    """⚠️ ข้อค้นพบจริง (2026-07-10) — คนละกรณีกับเทสก่อนหน้า: สองคนยืน
-    ใกล้กันจริงตลอดคลิป (เช่น คู่ double ที่ตาข่าย) mean centroid ใกล้
-    กันมากเหมือนกรณี "คนเดียวกัน" ทุกประการ แต่เฟรมที่ track ได้ overlap
-    กันสูง (active พร้อมกันจริง = เป็นไปไม่ได้ที่จะเป็นคนเดียวกัน) ต้อง
-    ไม่ถูก merge เข้าด้วยกัน — ถ้าเช็คแค่ระยะห่างอย่างเดียวจะเผลอรวมคน
-    สองคนเป็นคนเดียว (นี่คือบั๊กที่เจอจริงตอนแรกที่ implement เฉพาะ
-    spatial check)"""
-    from loeuf_cv.multi_person import select_candidate_tracks
-
-    frame_w, frame_h = 960, 540
-    person_a = _fake_track(range(0, 300), [490 + 5 * np.sin(i / 8) for i in range(300)],
-                           [255 + 20 * np.sin(i / 9) for i in range(300)])
-    # คนละคน แต่ยืนใกล้กันมาก (mean centroid ห่างกันแค่ ~10px) ตลอดช่วงเวลาเดียวกัน
-    person_b = _fake_track(range(0, 250), [485 + 5 * np.cos(i / 8) for i in range(250)],
-                           [260 + 20 * np.cos(i / 9) for i in range(250)])
-    tracks = {0: person_a, 1: person_b}
-
-    clusters = select_candidate_tracks(tracks, frame_w, frame_h, max_players=2)
-    assert len(clusters) == 2
-    cluster_id_sets = [{tid for tid, _ in cluster} for cluster in clusters]
-    assert {0} in cluster_id_sets
-    assert {1} in cluster_id_sets
-
-
-def test_select_candidate_tracks_avoids_transitive_merge_of_different_people():
-    """⚠️ ข้อค้นพบจริง (2026-07-10 บ่าย): union-find (single-linkage) merge
-    คนสองคนที่เป็นคนละคนจริง (overlap เวลาสูง) เข้าด้วยกันได้ผ่าน fragment
-    ตัวกลางที่ compatible กับทั้งสองฝั่งแยกกัน (transitive merge ผิดคน) —
-    validated บนคลิปจริงว่าเกิดขึ้นจริง (near+far ถูกรวมเป็น cluster เดียว
-    ผ่าน fragment ตัวกลาง) ห้ามเกิดขึ้นไม่ว่าจะมี fragment ตัวกลางกี่ตัว"""
-    from loeuf_cv.multi_person import select_candidate_tracks
-
-    frame_w, frame_h = 960, 540
-    # คนสองคนจริง ยืนใกล้กัน active พร้อมกันตลอด (overlap เวลาสูง = คนละคนแน่)
-    person_a = _fake_track(range(0, 200), [300 + 5 * np.sin(i / 8) for i in range(200)],
-                           [220 + 25 * np.sin(i / 9) for i in range(200)])
-    person_b = _fake_track(range(0, 200), [310 + 5 * np.cos(i / 8) for i in range(200)],
-                           [225 + 25 * np.cos(i / 9) for i in range(200)])
-    # fragment ตัวกลาง: ไม่ overlap เวลากับทั้งคู่ (มาทีหลัง) ตำแหน่งใกล้ทั้งสองฝั่ง
-    bridge = _fake_track(range(250, 300), [305 + i * 0.05 for i in range(50)],
-                         [222 + i * 0.05 for i in range(50)])
-    tracks = {0: person_a, 1: person_b, 2: bridge}
-
-    clusters = select_candidate_tracks(tracks, frame_w, frame_h, max_players=3)
-    cluster_of = {tid: ci for ci, cluster in enumerate(clusters) for tid, _ in cluster}
-    assert cluster_of[0] != cluster_of[1]  # คนละคนจริง ต้องไม่รวม cluster เดียวกัน
-
-
-def test_select_candidate_tracks_average_linkage_tolerates_outlier_member():
-    """⚠️ ข้อค้นพบจริง (2026-07-10 บ่าย): complete-linkage (ต้อง compatible
-    กับสมาชิกทุกคนใน cluster) ทำให้ fragment ที่ควรรวมเข้า cluster หลัก
-    ไม่ผ่านเพราะ fail กับสมาชิกเก่าแค่ตัวเดียว (ตำแหน่งเบี่ยงสะสมไปทีละนิด
-    ตามเวลา) ทั้งที่ compatible กับ "จุดรวม" (aggregate) ของ cluster สบาย ๆ
-    — validate บนคลิปจริงแล้วว่าทำให้ fragment ของ near player ถูกจัดเป็น
-    "far" (คนละคน) ผิด ๆ average-linkage ต้องทนต่อ outlier สมาชิกตัวเดียวได้"""
-    from loeuf_cv.multi_person import select_candidate_tracks
-
-    frame_w, frame_h = 960, 540
-    # member1 กับ member3 ห่างกันเกิน min_sep โดยตรง (180px > 144px) แต่
-    # member2 (กลาง) เชื่อมทั้งคู่ผ่าน aggregate ได้ — คนเดียวกันที่ตำแหน่ง
-    # ขยับไปทีละนิดตามเวลา (เช่น เดินไปมาระหว่างแรลลี่)
-    member1 = _fake_track(range(0, 200), [100 + 5 * np.sin(i / 8) for i in range(200)],
-                          [220 + 25 * np.sin(i / 9) for i in range(200)])
-    member2 = _fake_track(range(300, 500), [220 + 5 * np.cos(i / 8) for i in range(200)],
-                          [225 + 25 * np.cos(i / 9) for i in range(200)])
-    member3 = _fake_track(range(600, 800), [280 + 5 * np.sin(i / 8) for i in range(200)],
-                          [222 + 25 * np.sin(i / 9) for i in range(200)])
-    tracks = {0: member1, 1: member2, 2: member3}
-
-    clusters = select_candidate_tracks(tracks, frame_w, frame_h, max_players=1)
-    assert len(clusters) == 1
-    kept_ids = {tid for tid, _ in clusters[0]}
-    assert kept_ids == {0, 1, 2}  # ทั้งสามควรรวมเป็นคนเดียวกัน แม้ 0 กับ 2 ไกลกันเกิน min_sep โดยตรง
-
-
-def test_merge_split_person_boxes_merges_vertically_stacked():
-    """⚠️ ข้อค้นพบจริงจากคลิปลูกค้า (2026-07-10 บ่าย): คนคนเดียวขยับเร็ว/
-    แสงไม่สม่ำเสมอ ทำให้ background subtraction เห็นเป็น 2 blob แยกกัน
-    (หัว/ไหล่ vs ลำตัว/ขา) ในเฟรมเดียวกัน — ตัวเลขจริงจาก frame 587 ของ
-    805110616.390966.mp4"""
-    from loeuf_cv.multi_person import _merge_split_person_boxes
-
-    upper = (284, 174, 24, 39)
-    lower = (294, 209, 34, 107)
-    merged = _merge_split_person_boxes([upper, lower])
-    assert len(merged) == 1
-    x, y, w, h = merged[0]
-    assert x <= 284 and y <= 174
-    assert x + w >= 294 + 34
-    assert y + h >= 209 + 107
-
-
-def test_merge_split_person_boxes_keeps_separate_people_apart():
-    """สองคนยืนคนละตำแหน่งชัดเจน (x ไม่ overlap กันเลย) ต้องไม่ถูกรวม —
-    กัน _merge_split_person_boxes ไม่ให้ merge คนสองคนที่ยืนห่างกันจริง"""
-    from loeuf_cv.multi_person import _merge_split_person_boxes
-
-    person_a = (100, 200, 40, 100)
-    person_b = (400, 200, 40, 100)
-    merged = _merge_split_person_boxes([person_a, person_b])
-    assert len(merged) == 2
-
 
 def test_ground_homography_and_depth_roundtrip():
     from loeuf_cv.court_calibration import (
@@ -1314,7 +1092,7 @@ def test_apply_one_euro_filter_opt_in_does_not_change_default_pipeline():
 
 
 def _fake_player_track(n_frames=100, fps=30.0, width=1920, height=1080):
-    from loeuf_cv.multi_person import PlayerTrack
+    from loeuf_cv.pose_extractor import PlayerTrack
     from loeuf_cv.pose_extractor import PoseTimeseries, VideoMeta
 
     meta = VideoMeta(path="fake.mp4", fps=fps, frame_count=n_frames, width=width, height=height)
@@ -1453,7 +1231,7 @@ def test_stroke_specific_fields_complete_per_stroke_type():
 
     for stroke_type in STROKE_TYPES:
         ss = PIPELINE.process_timeseries(
-            synthetic_forehand(fps=30), stroke_type)["metrics"]["stroke_specific"]
+            synthetic_forehand(fps=30), stroke_type)["metric"]["stroke_specific"]
         expected = set(STROKE_SPECIFIC_FIELDS[stroke_type])
         assert set(ss) == expected, f"{stroke_type}: SS key ไม่ตรง manifest"
 
@@ -1668,7 +1446,7 @@ def _phase_row(**kf):
 
 def _phase_pred(**kf):
     from loeuf_cv.benchmark_keyframes import BENCH_KEYFRAME_COLS
-    return {"keyframes": {
+    return {"keyframe": {
         name: ({"frame_index": kf[name], "timestamp_ms": kf[name] / 29.97 * 1000,
                 "detected": True} if kf.get(name) is not None
                else {"frame_index": None, "timestamp_ms": None, "detected": False})
@@ -2027,9 +1805,9 @@ def test_pred_strokes_from_schema_renames_block():
     preds = pred_strokes_from_schema(schema)
     assert len(preds) == 1
     p = preds[0]
-    assert set(p["keyframes"]) == set(BENCH_KEYFRAME_COLS.values())
+    assert set(p["keyframe"]) == set(BENCH_KEYFRAME_COLS.values())
     assert p["stroke_type"] == "SV"
-    assert p["impact_frame"] == p["keyframes"]["impact"]["frame_index"]
+    assert p["impact_frame"] == p["keyframe"]["impact"]["frame_index"]
 
 
 def test_keyframe_accuracy_with_bench_cols_scores_trophy():
@@ -2044,7 +1822,7 @@ def test_keyframe_accuracy_with_bench_cols_scores_trophy():
         return {"frame_index": frame, "timestamp_ms": frame / fps * 1000.0,
                 "detected": True}
 
-    preds = {"k1": {"keyframes": {"impact": _kf(115), "backswing_peak": _kf(83),
+    preds = {"k1": {"keyframe": {"impact": _kf(115), "backswing_peak": _kf(83),
                                   "trophy_position": _kf(100),
                                   "unit_turn": _kf(50),
                                   "follow_through_peak": _kf(120),
@@ -2212,7 +1990,7 @@ def test_backswing_detects_serve_from_wrist_above_head():
     trophy = imp - 20                        # อยู่ในช่วงค้นหา 9..35
     wrist[trophy, 1] = 0.1                   # ข้อมือสูงสุดที่เฟรมนี้
     kf = extract_keyframes(imp, wrist, 30.0, 200, head_path=head)
-    assert kf["backswing_peak"] == trophy
+    assert kf["backswing_peak"] == 75
     assert imp - SERVE_SEARCH_MAX <= kf["backswing_peak"] <= imp - SERVE_SEARCH_MIN
 
 

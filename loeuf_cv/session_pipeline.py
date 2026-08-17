@@ -13,14 +13,15 @@ from .aggregation import (
 from .config import PipelineConfig
 from .gas_client import post_to_gas
 from .pose_extractor import extract_pose
+from .multi_person import extract_multi_person
 from .resample import resample_to_target_fps
 from .schema import build_output, build_session_metadata, default_session_id
 from .stroke_pipeline import StrokePipeline
 
 
 def _apply_c5_normalization(strokes: list[dict]):
-    """C5: Phase 2 = C4 ÷ max(C4 ทุก stroke ใน session) × 100"""
-    c4s = [s["metrics"]["body"].get("shoulder_rotation_at_impact_deg")
+    """C5: Phase 2 = C4 / max(C4 ของทุก stroke ใน session) * 100"""
+    c4s = [s["metric"]["body"].get("shoulder_rotation_at_impact_deg")
            for s in strokes]
     valid = [abs(v) for v in c4s if v is not None]
     if not valid:
@@ -28,7 +29,7 @@ def _apply_c5_normalization(strokes: list[dict]):
     peak = max(valid) or 1e-9
     for s, c4 in zip(strokes, c4s):
         if c4 is not None:
-            s["metrics"]["body"]["shoulder_rotation_normalized_pct"] = round(
+            s["metric"]["body"]["shoulder_rotation_normalized_pct"] = round(
                 abs(c4) / peak * 100.0, 2)
 
 
@@ -46,7 +47,14 @@ class SessionPipeline:
         classifier (ไม่คืน RS — ดู classifier.py)"""
         from .classifier import classify_stroke
 
-        raw = extract_pose(video_path, self.config, progress_callback)
+        # Use multi-person tracking to lock onto the main player ('near')
+        tracks = extract_multi_person(video_path, self.config, max_players=2, progress_callback=progress_callback)
+        target = next((t for t in tracks if t.role == "near"), None)
+        if target is not None:
+            raw = target.pose
+        else:
+            # Fallback to standard extraction if blob tracking fails
+            raw = extract_pose(video_path, self.config, progress_callback)
 
         if self.config.auto_height_from_court and not self.config.height_calibrated:
             from .court_calibration import auto_detect_height_cm

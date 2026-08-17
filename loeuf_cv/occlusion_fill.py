@@ -39,7 +39,7 @@ KINEMATIC_PARENT = {
 }
 
 LOW_VISIBILITY_THRESHOLD = 0.5   # ต่ำกว่านี้ถือว่า "หาย" ต้อง gap-fill
-MAX_KINEMATIC_GAP_FRAMES = 20    # ยาวกว่านี้ error สูงเกินจะเชื่อ (validated)
+MAX_KINEMATIC_GAP_FRAMES = 45    # ขยายเป็น 45 เฟรม (~1.5 วิ) เพื่อครอบคลุมวงสวิงที่โดนตัวบังมิด
 BLEND_WEIGHT_KINEMATIC = 0.5     # 50/50 กับ linear — validated ว่าให้ผลสม่ำเสมอสุด
 MIN_CALIBRATION_FRAMES = 10      # ต้องมีเฟรมดีพอจะ calibrate ความยาวท่อน
 
@@ -118,7 +118,7 @@ def kinematic_fill_joint(coords: np.ndarray, visibility: np.ndarray,
             continue  # ไม่มีข้อมูลก่อนหน้าเลย — ข้าม
         if end == T:
             # Extrapolate: ทำนายจากโมเมนตัมล่าสุด (polynomial degree 2)
-            if gap_len <= 30:
+            if gap_len <= max_gap_frames:
                 t_gap = np.arange(start, end)
                 pred = extrapolate_trajectory(coords[:, child_idx, :], good, t_gap)
                 out[start:end, child_idx, :] = pred

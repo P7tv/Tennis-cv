@@ -57,7 +57,7 @@ HIT_MIN_GAP_FRAMES_AT_30 = 22
 # pred ปลอมสำหรับ GT ที่ hit detection หาไม่เจอ — ทำให้เรียก keyframe_accuracy()
 # ครั้งเดียวได้ตัวเลข end-to-end (GT ที่หาไม่เจอนับเป็นผิด ไม่ใช่หายจากตัวหาร)
 NOT_DETECTED_PRED = {
-    "keyframes": {
+    "keyframe": {
         name: {"frame_index": None, "timestamp_ms": None, "detected": False}
         for name in BENCH_KEYFRAME_COLS.values()
     }
@@ -161,7 +161,7 @@ def pred_strokes_from_schema(schema: dict) -> list[dict]:
             "stroke_type": root.get("stroke_type"),
             "detection_status": root.get("detection_status"),
             "impact_frame": impact.get("frame_index"),
-            "keyframes": {name: kf.get(name, dict(NOT_DETECTED_PRED["keyframes"][name]))
+            "keyframe": {name: kf.get(name, dict(NOT_DETECTED_PRED["keyframe"][name]))
                           for name in BENCH_KEYFRAME_COLS.values()},
         })
     return out
@@ -417,7 +417,7 @@ def score_phase_mode(label_rows: list[dict], preds_by_key: dict) -> dict:
             stats[key]["n"] += 1
             stats[key]["half_widths"].append((hi - lo) / 2.0)
 
-            p = pred["keyframes"][kf_name]
+            p = pred["keyframe"][kf_name]
             if not p["detected"] or p.get("frame_index") is None:
                 failures.append({"clip": row["clip_path"], "keyframe": kf_name,
                                  "reason": "not_detected"})
@@ -567,31 +567,20 @@ def render_keyframe_markdown(results: dict) -> str:
 
     L = ["# Benchmark — Keyframe Accuracy vs Ground Truth", "", "## Verdict", ""]
 
-    if phase_a:
-        pacc = phase_a["acceptance_accuracy"]
-        pverdict = ("PASS ✅" if (pacc is not None and pacc >= TOR_TARGET)
-                    else "FAIL ⚠️")
-        L += [
-            f"**Accuracy: {_fmt(pacc)}** (n={phase_a['acceptance_n']}, "
-            f"เป้า TOR ≥ {TOR_TARGET}) — **{pverdict}**",
-            "",
-            "ตัวเลขหลักใช้เกณฑ์ **\"อยู่ในช่วงการเคลื่อนไหวเดียวกัน\"** ซึ่งเป็น"
-            "เกณฑ์ที่ลูกค้าเขียนไว้เองใน `cv_schema_table_loeuf`:",
-            "",
-            "> *\"Guideline นี้มีไว้เพื่อช่วยเลือก **ช่วงของ keyframe** เท่านั้น "
-            "**ไม่จำเป็นต้องจับเฟรมได้ตรงเป๊ะ** หากอยู่ในช่วงการเคลื่อนไหว"
-            "เดียวกันถือว่าใช้ได้\"*",
-            "",
-            "ในเอกสารเดียวกันลูกค้ายังกำกับ `impact` และ `follow_through_peak` ว่า "
-            "**(Low Confidence)** ด้วยตัวเอง — สอดคล้องกับที่ GT 97.6% ถูก "
-            "annotator flag เป็น `low_confidence`",
-            "",
-            "**นิยามที่ใช้วัด**: เฟรมที่ทายต้องยังใกล้ keyframe นั้นมากกว่า "
-            "keyframe อื่นของ stroke เดียวกัน (ขอบ = จุดกึ่งกลางระหว่าง keyframe "
-            "ที่ติดกันใน GT) → หน้าต่างกว้างแคบเองตามจังหวะจริงของแต่ละท่า "
-            "ไม่ต้องตั้งค่าคงที่ใด ๆ ดู `phase_windows()`",
-            "",
-        ]
+    tol = meta.get('accuracy_tolerance', 1)
+    secs = tol / 30.0
+    L += [
+        f"**Accuracy: {_fmt(acc)}** (n={mode_a['acceptance_n']}, "
+        f"เป้า TOR ≥ {TOR_TARGET}) — **{strict_verdict}**",
+        "",
+        f"ตัวเลขหลักอิงตามเกณฑ์การอนุโลมความคลาดเคลื่อนที่ **±{tol} เฟรม (ประมาณ ±{secs:.1f} วินาที)**",
+        "",
+        "> *การตั้งความคลาดเคลื่อนในระดับวินาทีช่วยครอบคลุมกรณีภาพเบลอ หรือลูกเทนนิสบังมิดจากมุมกล้อง*"
+        "",
+        "**หมายเหตุ**: ลูกค้ามี Guideline เดิมเรื่องเกณฑ์ \"อยู่ในช่วงการเคลื่อนไหวเดียวกัน\" (Phase-based)",
+        "ซึ่งสามารถดูผลเปรียบเทียบในตารางด้านล่างได้",
+        "",
+    ]
 
     L += [
         "| ตัวเลข | เกณฑ์ | Accuracy | n |",

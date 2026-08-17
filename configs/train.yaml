@@ -1,0 +1,27 @@
+# Loeuf CV - Unified Training Configuration
+
+dataset:
+  train_dir: "dataset/train"
+  val_dir: "dataset/val"
+  labels_dir: "dataset/labels"
+  metadata_csv: "dataset/metadata.csv"
+
+checkpoints:
+  # YOLO Models
+  player_detector: "checkpoints/yolo11m.pt"
+  ball_detector: "checkpoints/yolo11n.pt"
+  
+  # ML Classifiers
+  hit_classifier: "checkpoints/hit_classifier.pkl"
+  stroke_classifier: "checkpoints/stroke_classifier.pkl"
+  impact_refiner: "checkpoints/impact_refiner.pkl"
+
+training:
+  yolo:
+    epochs: 100
+    batch_size: 16
+    img_size: 640
+  
+  autogluon:
+    presets: "best_quality"
+    time_limit_sec: 3600

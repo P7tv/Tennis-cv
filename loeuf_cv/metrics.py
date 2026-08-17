@@ -136,7 +136,11 @@ class MetricsEngine:
 
     def _put(self, block: dict, name: str, value, visibility: str):
         value = _r2(value)
+        if visibility == "not_detectable":
+            value = None
         if value is None and visibility != "derived":
+            visibility = "not_detectable"
+        if value is None and visibility == "derived":
             visibility = "not_detectable"
         block[name] = value
         self.vf[name] = visibility
@@ -227,20 +231,6 @@ class MetricsEngine:
                   self._vis_at(self.f.get("impact"),
                                (L_SHOULDER, R_SHOULDER, L_HIP, R_HIP)))
 
-        # C28 head_still_at_contact: nose movement ±5 เฟรมรอบ B3 < 3% ของ C1
-        b3 = self.f.get("impact")
-        if b3 is not None:
-            lo, hi = max(0, b3 - 5), min(self.ts.n_frames, b3 + 6)
-            nose = self.ts.landmarks[lo:hi, NOSE, :2]
-            disp = _safe_nanmax(np.linalg.norm(nose - nose[b3 - lo], axis=1))
-            if np.isnan(disp):
-                self._put(b, "head_still_at_contact", None, "not_detectable")
-            else:
-                still = bool(self.cm(disp, b3) < 0.03 * self.config.body_height_cm)
-                self._put(b, "head_still_at_contact", still,
-                          self._vis_at(b3, (NOSE,)))
-        else:
-            self._put(b, "head_still_at_contact", None, "not_detectable")
         return b
 
     def arm(self) -> dict:
@@ -345,6 +335,20 @@ class MetricsEngine:
         b3, b4, b5 = (self.f.get(k) for k in
                       ("impact", "follow_through_peak", "ready_position_restored"))
 
+        # C28 head_still_at_contact: nose movement ±5 เฟรมรอบ B3 < 3% ของ C1
+        if b3 is not None:
+            lo, hi = max(0, b3 - 5), min(self.ts.n_frames, b3 + 6)
+            nose = self.ts.landmarks[lo:hi, NOSE, :2]
+            disp = _safe_nanmax(np.linalg.norm(nose - nose[b3 - lo], axis=1))
+            if np.isnan(disp):
+                self._put(m, "head_still_at_contact", None, "not_detectable")
+            else:
+                still = bool(self.cm(disp, b3) < 0.03 * self.config.body_height_cm)
+                self._put(m, "head_still_at_contact", still,
+                          self._vis_at(b3, (NOSE,)))
+        else:
+            self._put(m, "head_still_at_contact", None, "not_detectable")
+
         # C22/C23 split step (no SV)
         if self.stroke == "SV":
             self._put(m, "split_step_detected", None, "not_detectable")
@@ -383,30 +387,7 @@ class MetricsEngine:
             self._put(m, "stance_width_at_impact_cm", None, "not_detectable")
             self._put(m, "stance_angle_deg", None, "not_detectable")
 
-        # C36–C38 weight transfer (⚠️ TBC feasibility ตาม doc)
-        b2 = self.f.get("backswing_peak")
-        cap = True  # approximation จาก CoM → cap เป็น low_confidence
-        if self.stroke == "VL" or b2 is None:
-            c37 = c38 = None
-        else:
-            c37 = self._leg_load_rear_pct(b2)
-            c38 = (100.0 - self._leg_load_rear_pct(b3)) if b3 is not None else None
-        offset_ms = None
-        if b2 is not None and b3 is not None and b3 > b2:
-            loads = np.array([self._leg_load_rear_pct(i) for i in range(b2, b3 + 1)])
-            below = np.where(loads < 50.0)[0]
-            if len(below):
-                t_cross = self.ts.timestamps_ms[b2 + int(below[0])]
-                offset_ms = float(t_cross - self.t["impact"])
-        self._put(m, "weight_transfer_timing_offset_ms", offset_ms,
-                  self._vis_at(b3, (L_HIP, R_HIP), cap_low=cap)
-                  if offset_ms is not None else "not_detectable")
-        self._put(m, "rear_leg_load_pct", c37,
-                  self._vis_at(b2, (L_ANKLE, R_ANKLE), cap_low=cap)
-                  if c37 is not None else "not_detectable")
-        self._put(m, "front_leg_transfer_pct", c38,
-                  self._vis_at(b3, (L_ANKLE, R_ANKLE), cap_low=cap)
-                  if c38 is not None else "not_detectable")
+
 
         # C19/C20 recovery — intent: ready(B5) − follow_through(B4)
         # (สูตรใน doc สลับ label B4/B5)
@@ -437,6 +418,30 @@ class MetricsEngine:
         b2, b3, b4 = (self.f.get(k) for k in
                       ("backswing_peak", "impact", "follow_through_peak"))
         arm_ids = (s["shoulder"], s["elbow"], s["wrist"])
+
+        # C36–C38 weight transfer (⚠️ TBC feasibility ตาม doc)
+        cap = True  # approximation จาก CoM → cap เป็น low_confidence
+        if self.stroke == "VL" or b2 is None:
+            c37 = c38 = None
+        else:
+            c37 = self._leg_load_rear_pct(b2)
+            c38 = (100.0 - self._leg_load_rear_pct(b3)) if b3 is not None else None
+        offset_ms = None
+        if b2 is not None and b3 is not None and b3 > b2:
+            loads = np.array([self._leg_load_rear_pct(i) for i in range(b2, b3 + 1)])
+            below = np.where(loads < 50.0)[0]
+            if len(below):
+                t_cross = self.ts.timestamps_ms[b2 + int(below[0])]
+                offset_ms = float(t_cross - self.t["impact"])
+        self._put(d, "weight_transfer_timing_offset_ms", offset_ms,
+                  self._vis_at(b3, (L_HIP, R_HIP), cap_low=cap)
+                  if offset_ms is not None else "not_detectable")
+        self._put(d, "rear_leg_load_pct", c37,
+                  self._vis_at(b2, (L_ANKLE, R_ANKLE), cap_low=cap)
+                  if c37 is not None else "not_detectable")
+        self._put(d, "front_leg_transfer_pct", c38,
+                  self._vis_at(b3, (L_ANKLE, R_ANKLE), cap_low=cap)
+                  if c38 is not None else "not_detectable")
 
         self._put(d, "elbow_angle_at_impact_deg",
                   self._elbow_angle(b3) if b3 is not None else None,
@@ -572,6 +577,13 @@ class MetricsEngine:
         b2, b3, b4 = (self.f.get(k) for k in
                       ("backswing_peak", "impact", "follow_through_peak"))
 
+        # Pre-fill all fields with None to avoid omitting fields
+        for k in ["toss_deviation_cm", "trophy_position_achieved", "leg_drive_detected", 
+                  "peak_contact_height_cm", "stance_type", "backswing_past_ear", 
+                  "hands_height_at_contact", "punch_forward_detected", 
+                  "swing_direction_verified"]:
+            self._put(ss, k, None, "not_detectable")
+
         if self.stroke == "SV":
             # SV1 ต้องการ ball detection
             self._put(ss, "toss_deviation_cm", None, "not_detectable")
@@ -662,7 +674,10 @@ class MetricsEngine:
             else:
                 self._put(ss, "swing_direction_verified", None, "not_detectable")
 
-        # FH / BH / RS → {} ตาม doc
+        # Filter only expected fields for this stroke type
+        from .schema_fields import STROKE_SPECIFIC_FIELDS
+        expected = set(STROKE_SPECIFIC_FIELDS.get(self.stroke, ()))
+        ss = {k: v for k, v in ss.items() if k in expected}
         return ss
 
     def ball(self) -> dict:
@@ -701,8 +716,9 @@ class MetricsEngine:
                 ("stable" if v < 5 else "slight_loss" if v <= 15 else "clear_loss"))
 
         c27 = blocks["movement"].get("stance_angle_deg")
-        put("stance_type", None if c27 is None else
-            ("closed" if c27 < 30 else "semi_open" if c27 < 60 else "open"))
+        if self.stroke != "SV":
+            put("stance_type", 
+                None if c27 is None else ("closed" if c27 < 30 else "semi_open" if c27 < 60 else "open"))
 
         c36 = blocks["movement"].get("weight_transfer_timing_offset_ms")
         put("weight_transfer_timing",

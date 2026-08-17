@@ -1,4 +1,5 @@
 mediapipe==0.10.14  # 0.10.15+ dropped legacy mp.solutions.pose API we depend on
+protobuf==3.20.3    # Prevent 'SymbolDatabase' object has no attribute 'GetPrototype' crash
 opencv-python>=4.8
 numpy>=1.24
 scipy>=1.10

@@ -87,16 +87,26 @@ def swing_window_features(landmarks: np.ndarray, visibility: np.ndarray, wrist_i
 
 
 def _load_stroke_model():
-    """lazy-load stroke_classifier.pkl จาก CWD ถ้ามี (เทรนจาก
+    """lazy-load stroke_classifier_ag หรือ stroke_classifier.pkl จาก CWD ถ้ามี (เทรนจาก
     train_model/train_stroke_classifier.py) — เลียนแบบ pattern เดียวกับที่
     loeuf_cv/hit_detection.py ใช้กับ hit_classifier.pkl: ถ้าไม่มีไฟล์ →
     fallback ไป rule-based ทั้งหมด ไม่ error"""
     global _stroke_model_cache, _stroke_model_loaded
     if not _stroke_model_loaded:
         _stroke_model_loaded = True
-        if os.path.exists("stroke_classifier.pkl"):
+        if os.path.exists("stroke_classifier_ag"):
             try:
-                with open("stroke_classifier.pkl", "rb") as f:
+                import json
+                from autogluon.tabular import TabularPredictor
+                model = TabularPredictor.load("stroke_classifier_ag")
+                with open(os.path.join("stroke_classifier_ag", "meta.json"), "r") as f:
+                    meta = json.load(f)
+                _stroke_model_cache = (model, meta["cols"], set(meta["supported"]))
+            except Exception as e:
+                print(f"Failed to load stroke classifier (AutoGluon): {e}")
+        elif os.path.exists("checkpoints/stroke_classifier.pkl"):
+            try:
+                with open("checkpoints/stroke_classifier.pkl", "rb") as f:
                     _stroke_model_cache = pickle.load(f)  # (clf, feature_cols, ml_supported_classes)
             except Exception as e:
                 print(f"Failed to load stroke classifier: {e}")
@@ -262,12 +272,21 @@ def classify_stroke_with_confidence(pose_series, impact_frame, dominant_side="ri
     try:
         import pandas as pd
         X = pd.DataFrame([{col: feats.get(col, 0) or 0 for col in feature_cols}])
-        proba = clf.predict_proba(X)[0]
-        best_idx = int(np.argmax(proba))
-        best_prob = float(proba[best_idx])
+        probs = clf.predict_proba(X)
+        
+        if isinstance(probs, pd.DataFrame):
+            s = probs.iloc[0]
+            best_class = str(s.idxmax())
+            best_prob = float(s.max())
+        else:
+            proba = probs[0]
+            best_idx = int(np.argmax(proba))
+            best_prob = float(proba[best_idx])
+            best_class = str(clf.classes_[best_idx])
+            
         if best_prob < ML_CONFIDENCE_THRESHOLD:
             return rule_result, best_prob
-        return str(clf.classes_[best_idx]), best_prob
+        return best_class, best_prob
     except Exception as e:
         print(f"Stroke ML predict failed, falling back to rule-based: {e}")
         return rule_result, RULE_ONLY_CONFIDENCE

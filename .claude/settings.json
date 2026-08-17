@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git check-ignore *)",
+      "Bash(D:/Work/Tennis-cv/.venv/Scripts/python.exe test_backswing_defs.py)",
+      "Bash(python -)",
+      "Bash(echo \"=== หาไฟล์ sandbox_backswing.py ที่อ้างว่าเขียนไว้ ===\" *)",
+      "Read(//c/Users/pan21/AppData/Local/Temp/**)",
+      "Bash(D:/Work/Tennis-cv/.venv/Scripts/python.exe sandbox_backswing.py)",
+      "Bash(D:/Work/Tennis-cv/.venv/Scripts/python.exe validate_smart_constant.py)",
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/ -q)",
+      "Bash(.venv/Scripts/python.exe scripts/run_keyframe_benchmark.py predict --mode both --force)",
+      "Bash(mkdir -p \"D:/Work/Tennis-cv/dataset/_incoming\")",
+      "Bash(D:/Work/Tennis-cv/.venv/Scripts/python.exe -m gdown --folder \"https://drive.google.com/drive/folders/1jzcn_s2x4X080-86fOEae3k19Sj1Hp8S\" -O .)",
+      "Bash(D:/Work/Tennis-cv/.venv/Scripts/python.exe test_3d_vs_2d.py)",
+      "Bash(D:/Work/Tennis-cv/.venv/Scripts/python.exe -m gdown --folder \"https://drive.google.com/drive/folders/1QobhGxxpI2FS2lTGuTaJlIy7-9T5eKGS\" -O .)",
+      "Bash(echo \"--- exit: $? ---\")"
+    ]
+  }
+}

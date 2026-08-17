@@ -117,7 +117,7 @@ def keyframe_accuracy(labels: list[dict], preds: dict,
             if gt_frame is None:
                 continue
             gt_ms = gt_frame / row["fps"] * 1000.0
-            p = pred["keyframes"][kf_name]
+            p = pred["keyframe"][kf_name]
             key = (row["stroke_type"], kf_name)
             stats[key]["n"] += 1
 
@@ -216,7 +216,7 @@ def accuracy_by_camera_deviation(labels: list[dict], preds: dict,
             continue
         gt_ms = row["impact_frame"] / row["fps"] * 1000.0
         tol_ms = tolerance_frames * 1000.0 / row["fps"] + 1.0
-        p = pred["keyframes"]["impact"]
+        p = pred["keyframe"]["impact"]
         ok = p["detected"] and abs(p["timestamp_ms"] - gt_ms) <= tol_ms
         for (lo, hi), b in zip(DEVIATION_BINS, bins):
             if lo <= dev < hi:
@@ -236,7 +236,7 @@ def spotting_metrics(session_labels: list[dict], session_output: dict) -> dict:
     preds = session_output.get("strokes", [])
     pred_times = []
     for s in preds:
-        imp = s["keyframes"]["impact"]
+        imp = s["keyframe"]["impact"]
         if imp["detected"]:
             pred_times.append(imp["timestamp_ms"] / 1000.0)
 

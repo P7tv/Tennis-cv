@@ -431,12 +431,12 @@ HIT_WINDOW = 8  # เฟรม — เท่ากับ window ที่ _find_
 # ปรับผ่าน param ml_prob_threshold ของ detect_hit_events() ได้
 # ⚠️ การแก้ตัวแปรนี้ตอน runtime ไม่มีผล — มันถูกผูกเป็น default argument
 # ตั้งแต่ตอนนิยามฟังก์ชัน ต้องส่งเป็น argument เท่านั้น
-ML_PROB_THRESHOLD = 0.6
+ML_PROB_THRESHOLD = 0.7
 
 # prob เกินนี้ → ยก confidence เป็น HIGH (มีผลต่อ tie-break ตอน de-dup)
 ML_CONFIDENT_PROB = 0.8
 
-HIT_CLASSIFIER_FILENAME = "hit_classifier.pkl"
+HIT_CLASSIFIER_FILENAME = "checkpoints/hit_classifier.pkl"
 _hit_clf_cache: tuple | None = None
 
 
@@ -471,12 +471,22 @@ def _load_hit_classifier(path: str | None = None) -> tuple:
     env = os.environ.get("LOEUF_HIT_CLASSIFIER")
     if env:
         candidates.append(Path(env))
-    candidates.append(Path(__file__).resolve().parent.parent / HIT_CLASSIFIER_FILENAME)
-    candidates.append(Path.cwd() / HIT_CLASSIFIER_FILENAME)
+    root = Path(__file__).resolve().parent.parent
+    candidates.extend([root / "hit_classifier_ag", root / HIT_CLASSIFIER_FILENAME])
+    candidates.extend([Path.cwd() / "hit_classifier_ag", Path.cwd() / HIT_CLASSIFIER_FILENAME])
 
     for p in candidates:
         try:
-            if p.is_file():
+            if p.is_dir():
+                import json
+                from autogluon.tabular import TabularPredictor
+                model = TabularPredictor.load(str(p))
+                with open(p / "feature_cols.json", "r") as f:
+                    cols = json.load(f)
+                if path is None:
+                    _hit_clf_cache = (model, cols)
+                return model, cols
+            elif p.is_file():
                 with open(p, "rb") as f:
                     model, cols = pickle.load(f)
                 if path is None:
@@ -492,7 +502,7 @@ def _load_hit_classifier(path: str | None = None) -> tuple:
     return None, []
 
 
-IMPACT_REFINER_FILENAME = "impact_refiner.pkl"
+IMPACT_REFINER_FILENAME = "checkpoints/impact_refiner.pkl"
 _impact_refiner_cache = None
 
 
@@ -793,6 +803,25 @@ def _scaled_features(f: int, features: dict, scale_ctx, fps: float | None = None
         out[k] = float(v[f]) if f < len(v) and not np.isnan(v[f]) else 0.0
     return out
 
+def _final_dedup(events: list[dict], min_gap: int) -> list[dict]:
+    if not events:
+        return []
+    events.sort(key=lambda x: x["frame"])
+    final = []
+    for e in events:
+        if not final:
+            final.append(e)
+            continue
+        if e["frame"] - final[-1]["frame"] < min_gap:
+            # Overlapping, keep the one with higher ML probability if available
+            p1 = e.get("ml_prob") or 0.0
+            p2 = final[-1].get("ml_prob") or 0.0
+            if p1 > p2:
+                final[-1] = e
+        else:
+            final.append(e)
+    return final
+
 # ─────────────────────────────────────────────────────────
 # FUSION: Primary Wrist + Secondary Ball + Fallback Racket
 # ─────────────────────────────────────────────────────────
@@ -805,7 +834,7 @@ def detect_hit_events(
     height: int,
     proximity_thresh: float = 0.30,
     racket_bboxes: dict | None = None,
-    min_wrist_speed_px: float = 8.0,
+    min_wrist_speed_px: float = 5.0,
     ml_prob_threshold: float = ML_PROB_THRESHOLD,
     nms_by_prob: bool = True,
     return_candidates: bool = False,
@@ -1006,7 +1035,7 @@ def detect_hit_events(
 
     # ─── De-duplicate: ถ้า candidates ใกล้กันเกินไป ให้รวมกัน ───
     all_candidates.sort(key=lambda x: x["frame"])
-    MIN_GAP = int(fps * 0.75)  # เช่น 30fps * 0.75 = 22 เฟรม (คนเราตีลูกติดกันเร็วกว่า 0.75 วิได้ยากมาก)
+    MIN_GAP = int(fps * 1.0)  # เช่น 30fps * 1.0 = 30 เฟรม (คนเราตีลูกติดกันเร็วกว่า 1 วิได้ยากมาก)
 
     # ─── Integration with ML Classifier ───
     ml_model, feature_cols = _load_hit_classifier()
@@ -1021,7 +1050,12 @@ def detect_hit_events(
         import pandas as pd
         X_dict = {col: c.get("features", {}).get(col, 0) for col in feature_cols}
         try:
-            prob = float(ml_model.predict_proba(pd.DataFrame([X_dict]))[0][1])
+            df_in = pd.DataFrame([X_dict])
+            probs = ml_model.predict_proba(df_in)
+            if isinstance(probs, pd.DataFrame):
+                prob = float(probs.iloc[0, 1])
+            else:
+                prob = float(probs[0][1])
             c["ml_prob"] = round(prob, 4)
             if prob > ML_CONFIDENT_PROB:
                 c["confidence"] = "HIGH"
@@ -1049,7 +1083,8 @@ def detect_hit_events(
         # ปรับเฟรมหลัง NMS เท่านั้น — ตัวปรับเทรนบนประชากรนี้ ไม่ใช่ candidate ดิบ
         out = _refine_impact_frames(sorted(chosen, key=lambda x: x["frame"]),
                                     total_frames, fps)
-        return _refine_with_audio(out, video_path, fps, total_frames)
+        out = _refine_with_audio(out, video_path, fps, total_frames)
+        return _final_dedup(out, MIN_GAP)
 
     final: list[dict] = []
     for c in kept:
@@ -1102,6 +1137,7 @@ def detect_hit_events(
     except Exception as e:
         print(f"Warning: could not write to {csv_file}: {e}")
 
-    return _refine_with_audio(
+    out = _refine_with_audio(
         _refine_impact_frames(final, total_frames, fps), video_path, fps,
         total_frames)
+    return _final_dedup(out, MIN_GAP)
