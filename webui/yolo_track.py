@@ -13,6 +13,7 @@ webui/yolo_track.py
 from __future__ import annotations
 
 import os
+os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
 import cv2
 import numpy as np
 import torch
@@ -35,6 +36,7 @@ def track_players_with_yolo(
     progress_callback=None,
     model_path: str = "yolo11n.pt",
     base_model: str = "yolo11n.pt",
+    use_tracknet: bool = False,
 ) -> tuple[list[PlayerTrack], dict, dict, dict]:
     """ใช้ YOLO11n + BoT-SORT ตามรอยคนและสกัดโครงกระดูกด้วย MediaPipe Pose
 
@@ -505,5 +507,19 @@ def track_players_with_yolo(
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+
+    if use_tracknet:
+        from loeuf_cv.tracknet.tracker import track_ball_with_tracknet
+        try:
+            ball_obs = track_ball_with_tracknet(video_path, conf_threshold=0.3, batch_size=16)
+            if ball_obs is not None:
+                for f_idx in range(actual_frames):
+                    x, y = ball_obs.positions[f_idx]
+                    if not np.isnan(x) and not np.isnan(y):
+                        ball_bboxes_per_frame[f_idx] = [(int(x - 5), int(y - 5), 10, 10)]
+                    else:
+                        ball_bboxes_per_frame[f_idx] = []
+        except Exception as e:
+            print(f"TrackNet failed, falling back to YOLO: {e}")
 
     return result_tracks, ball_bboxes_per_frame, racket_bboxes_per_frame, racket_keypoints_per_frame

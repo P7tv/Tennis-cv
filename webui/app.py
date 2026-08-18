@@ -8,6 +8,7 @@ skeleton + กำหนดว่า track ไหนคือผู้เล่�
 """
 
 import os
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 import sys
 import tempfile
 from pathlib import Path
@@ -69,6 +70,7 @@ with st.sidebar:
     base_model_path = st.selectbox("Player Model (YOLO11)", base_models, index=2, help="โมเดลหาคน (n = เร็วสุด, m = แม่นสุด)")
     
     yolo_model_path = st.selectbox("Ball Detection Model", available_models, help="โมเดลลูกเทนนิส")
+    use_tracknet = st.checkbox("🎾 Use TrackNetV2 (High Accuracy)", value=False, help="ใช้ TrackNetV2 สำหรับการตรวจจับลูกเทนนิสที่แม่นยำขึ้น")
     
     max_players = st.slider("Max Players", 1, 6, 1, help="จำนวนคนสูงสุดที่จะ track")
     model_complexity = st.selectbox("MediaPipe Complexity", [0, 1, 2], index=1)
@@ -136,7 +138,8 @@ if uploaded is not None:
                     config=config,
                     progress_callback=_yolo_cb,
                     model_path=yolo_model_path,
-                    base_model=base_model_path
+                    base_model=base_model_path,
+                    use_tracknet=use_tracknet
                 )
                 st.session_state.tracks = tracks
                 st.session_state.ball_bboxes = ball_bboxes
