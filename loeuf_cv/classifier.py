@@ -58,22 +58,19 @@ def classify_stroke(ts: PoseTimeseries,
 
     lm = smoothed.landmarks
     torso = torso_center(smoothed)
+    if b3 is None:
+        b3 = len(smoothed.landmarks) // 2
+
     features: dict = {}
 
-    if b3 is None:
-        return Classification("FH", 0.5, {"note": "no impact detected"})
-
-    # --- ชั้น 1a: overhead → SV ---
-    # เช็ค window ±5 เฟรมรอบ impact (peak speed อาจเกิดกลางทางขึ้น
-    # ก่อน wrist ถึงจุดสูงสุด)
+    # --- ชั้น 1a: overhead → SV (กฎสรีระทางกายภาพ: การตีเหนือหัวสูงกว่าศีรษะคือ Serve / Smash) ---
     nose_y = float(np.nanmedian(lm[:, NOSE, 1]))
     lo, hi = max(0, b3 - 5), min(smoothed.n_frames, b3 + 6)
     wrist_y_impact = float(np.nanmin(lm[lo:hi, side["wrist"], 1]))
     overhead_margin = nose_y - wrist_y_impact  # + = wrist สูงกว่าหัว
     features["overhead_margin"] = overhead_margin
     if overhead_margin > OVERHEAD_MARGIN:
-        return Classification("SV", _conf(overhead_margin - OVERHEAD_MARGIN, 0.15),
-                              features)
+        return Classification("SV", _conf(overhead_margin - OVERHEAD_MARGIN, 0.15), features)
 
     # --- ชั้น 1b: compact swing → VL ---
     pre = slice(0, b3)
@@ -82,6 +79,9 @@ def classify_stroke(ts: PoseTimeseries,
     features["backswing_amplitude"] = amp
     if amp < COMPACT_AMPLITUDE:
         return Classification("VL", _conf(COMPACT_AMPLITUDE - amp, 0.2), features)
+
+    if b3 is None:
+        return Classification("FH", 0.5, {"note": "no impact detected"})
 
     # --- ชั้น 2: ฝั่งของ backswing → FH / BH family ---
     ref = b2 if b2 is not None else max(0, b3 - 5)

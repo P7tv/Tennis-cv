@@ -2,9 +2,9 @@
 
 ## Verdict
 
-**Accuracy: 0.933** (n=344, เป้า TOR ≥ 0.8) — **PASS ✅**
+**Accuracy: 0.843** (n=344, เป้า TOR ≥ 0.8) — **PASS ✅**
 
-ตัวเลขหลักอิงตามเกณฑ์การอนุโลมความคลาดเคลื่อนที่ **±30 เฟรม (ประมาณ ±1.0 วินาที)**
+ตัวเลขหลักอิงตามเกณฑ์การอนุโลมความคลาดเคลื่อนที่ **±10 เฟรม (ประมาณ ±0.3 วินาที)**
 
 > *การตั้งความคลาดเคลื่อนในระดับวินาทีช่วยครอบคลุมกรณีภาพเบลอ หรือลูกเทนนิสบังมิดจากมุมกล้อง*
 **หมายเหตุ**: ลูกค้ามี Guideline เดิมเรื่องเกณฑ์ "อยู่ในช่วงการเคลื่อนไหวเดียวกัน" (Phase-based)
@@ -14,21 +14,21 @@
 |---|---|---|---|
 | **Mode A end-to-end** | ช่วงเดียวกัน (ตามลูกค้า) | **0.683** | 344 |
 | Mode B oracle-impact | ช่วงเดียวกัน (ตามลูกค้า) | 0.860 | 344 |
-| Mode A end-to-end | ±30 เฟรม (เข้มกว่าที่ลูกค้าขอ) | 0.933 | 344 |
-| Mode A matched-only | ±30 เฟรม เฉพาะ stroke ที่ detect เจอ (สูงหลอก) | 0.991 | 324 |
-| Mode B oracle-impact | ±30 เฟรม = เพดานของ keyframe logic | 0.997 | 344 |
+| Mode A end-to-end | ±10 เฟรม (เข้มกว่าที่ลูกค้าขอ) | 0.843 | 344 |
+| Mode A matched-only | ±10 เฟรม เฉพาะ stroke ที่ detect เจอ (สูงหลอก) | 0.895 | 324 |
+| Mode B oracle-impact | ±10 เฟรม = เพดานของ keyframe logic | 0.916 | 344 |
 
 Mode A end-to-end = จริงตามที่ลูกค้าได้ (stroke ที่ hit detection หาไม่เจอ นับเป็นผิด ไม่ตัดออกจากตัวหาร) · เกณฑ์รวม = impact + backswing_peak ตาม spec
 
-เทียบเป้า **TOR ≥ 0.8**: เกณฑ์ ±30 เฟรมให้ 0.933 = **PASS ✅**
+เทียบเป้า **TOR ≥ 0.8**: เกณฑ์ ±10 เฟรมให้ 0.843 = **PASS ✅**
 
 ## Provenance
 
 - Ground truth: 16 ไฟล์ / 172 stroke / annotator: atikan
 - fps ต้นทาง: 29.97 · ความยาวรวม ~31.3 นาที
 - Checkpoint: `runs/pose/tennis_ball_racket_pose_finetune_best.pt`
-- git: `da049de` · วันที่รัน: 2026-08-15 17:36
-- Accuracy tolerance: ±30 เฟรม · Match tolerance: ±10 เฟรม
+- git: `8249aba` · วันที่รัน: 2026-08-17 21:18
+- Accuracy tolerance: ±10 เฟรม · Match tolerance: ±10 เฟรม
 - **การประเมิน hit classifier: in-sample (โมเดลเทรนจากคลิปเดียวกับที่วัด)**
 - ปรับเฟรมปะทะด้วยเสียง: เปิด (ปรับเฟรมปะทะด้วยเสียง)
 
@@ -134,42 +134,42 @@ Mode A end-to-end = จริงตามที่ลูกค้าได้ (s
 | VL | follow_through_peak | 40 | 0.875 | 11.6 | 16.85 |
 | VL | recovery_position | 4 | 0.250 | 13.0 | 15.25 |
 
-## Keyframe accuracy — เกณฑ์ ±30 เฟรม (อ้างอิงแบบเข้ม)
+## Keyframe accuracy — เกณฑ์ ±10 เฟรม (อ้างอิงแบบเข้ม)
 
 ### Mode A (end-to-end)
 
 | Stroke | Keyframe | n GT | Accuracy | MAE (เฟรม) | median (เฟรม) |
 |---|---|---|---|---|---|
-| BH | unit_turn | 26 | 0.962 | 4.08 | 3.0 |
-| BH | backswing_peak | 26 | 0.923 | 3.08 | 1.0 |
+| BH | unit_turn | 26 | 0.885 | 4.08 | 3.0 |
+| BH | backswing_peak | 26 | 0.885 | 3.08 | 1.0 |
 | BH | trophy_position | 0 | — (no GT) | — | — |
 | BH | impact | 26 | 0.962 | 0.76 | 0.0 |
 | BH | follow_through_peak | 25 | 0.960 | 2.21 | 2.0 |
-| BH | recovery_position | 19 | 0.895 | 13.83 | 11.0 |
-| FH | unit_turn | 21 | 1.000 | 7.10 | 6.0 |
-| FH | backswing_peak | 21 | 1.000 | 1.76 | 1.0 |
+| BH | recovery_position | 19 | 0.474 | 13.83 | 11.0 |
+| FH | unit_turn | 21 | 0.762 | 7.10 | 6.0 |
+| FH | backswing_peak | 21 | 0.952 | 1.76 | 1.0 |
 | FH | trophy_position | 0 | — (no GT) | — | — |
 | FH | impact | 21 | 1.000 | 1.57 | 1.0 |
-| FH | follow_through_peak | 21 | 1.000 | 3.33 | 2.0 |
-| FH | recovery_position | 16 | 0.938 | 10.69 | 5.0 |
-| SL | unit_turn | 21 | 0.857 | 7.42 | 6.0 |
-| SL | backswing_peak | 21 | 0.905 | 3.53 | 1.0 |
+| FH | follow_through_peak | 21 | 0.952 | 3.33 | 2.0 |
+| FH | recovery_position | 16 | 0.625 | 10.69 | 5.0 |
+| SL | unit_turn | 21 | 0.810 | 7.42 | 6.0 |
+| SL | backswing_peak | 21 | 0.857 | 3.53 | 1.0 |
 | SL | trophy_position | 0 | — (no GT) | — | — |
 | SL | impact | 21 | 0.905 | 1.26 | 1.0 |
 | SL | follow_through_peak | 21 | 0.905 | 3.53 | 4.0 |
 | SL | recovery_position | 4 | 1.000 | 3.75 | 4.0 |
 | SV | unit_turn | 0 | — (no GT) | — | — |
-| SV | backswing_peak | 64 | 0.938 | 10.90 | 5.5 |
-| SV | trophy_position | 64 | 0.734 | 3.32 | 2.0 |
+| SV | backswing_peak | 64 | 0.531 | 10.90 | 5.5 |
+| SV | trophy_position | 64 | 0.719 | 3.32 | 2.0 |
 | SV | impact | 64 | 0.969 | 2.00 | 1.5 |
-| SV | follow_through_peak | 64 | 0.969 | 5.89 | 5.0 |
+| SV | follow_through_peak | 64 | 0.781 | 5.89 | 5.0 |
 | SV | recovery_position | 0 | — (no GT) | — | — |
-| VL | unit_turn | 1 | 1.000 | 16.00 | 16.0 |
-| VL | backswing_peak | 40 | 0.875 | 3.74 | 2.0 |
+| VL | unit_turn | 1 | 0.000 | 16.00 | 16.0 |
+| VL | backswing_peak | 40 | 0.825 | 3.74 | 2.0 |
 | VL | trophy_position | 0 | — (no GT) | — | — |
 | VL | impact | 40 | 0.875 | 2.23 | 2.0 |
 | VL | follow_through_peak | 40 | 0.850 | 19.57 | 2.0 |
-| VL | recovery_position | 4 | 1.000 | 12.25 | 12.5 |
+| VL | recovery_position | 4 | 0.250 | 12.25 | 12.5 |
 
 ### Mode B (oracle impact)
 
@@ -180,31 +180,31 @@ Mode A end-to-end = จริงตามที่ลูกค้าได้ (s
 | BH | trophy_position | 0 | — (no GT) | — | — |
 | BH | impact | 26 | 1.000 | 0.00 | 0.0 |
 | BH | follow_through_peak | 25 | 1.000 | 1.96 | 2.0 |
-| BH | recovery_position | 19 | 0.947 | 13.58 | 11.0 |
-| FH | unit_turn | 21 | 1.000 | 7.10 | 7.0 |
+| BH | recovery_position | 19 | 0.474 | 13.58 | 11.0 |
+| FH | unit_turn | 21 | 0.762 | 7.10 | 7.0 |
 | FH | backswing_peak | 21 | 1.000 | 1.19 | 1.0 |
 | FH | trophy_position | 0 | — (no GT) | — | — |
 | FH | impact | 21 | 1.000 | 0.00 | 0.0 |
 | FH | follow_through_peak | 21 | 1.000 | 2.52 | 2.0 |
-| FH | recovery_position | 16 | 0.938 | 9.94 | 3.5 |
-| SL | unit_turn | 21 | 1.000 | 5.33 | 6.0 |
+| FH | recovery_position | 16 | 0.688 | 9.94 | 3.5 |
+| SL | unit_turn | 21 | 0.952 | 5.33 | 6.0 |
 | SL | backswing_peak | 21 | 1.000 | 1.33 | 1.0 |
 | SL | trophy_position | 0 | — (no GT) | — | — |
 | SL | impact | 21 | 1.000 | 0.00 | 0.0 |
 | SL | follow_through_peak | 21 | 1.000 | 2.71 | 3.0 |
 | SL | recovery_position | 4 | 1.000 | 4.00 | 3.5 |
 | SV | unit_turn | 0 | — (no GT) | — | — |
-| SV | backswing_peak | 64 | 1.000 | 9.72 | 4.0 |
-| SV | trophy_position | 64 | 0.797 | 2.59 | 2.0 |
+| SV | backswing_peak | 64 | 0.609 | 9.72 | 4.0 |
+| SV | trophy_position | 64 | 0.781 | 2.59 | 2.0 |
 | SV | impact | 64 | 1.000 | 0.00 | 0.0 |
-| SV | follow_through_peak | 64 | 1.000 | 4.80 | 4.0 |
+| SV | follow_through_peak | 64 | 0.859 | 4.80 | 4.0 |
 | SV | recovery_position | 0 | — (no GT) | — | — |
-| VL | unit_turn | 1 | 1.000 | 18.00 | 18.0 |
-| VL | backswing_peak | 40 | 1.000 | 3.05 | 2.0 |
+| VL | unit_turn | 1 | 0.000 | 18.00 | 18.0 |
+| VL | backswing_peak | 40 | 0.925 | 3.05 | 2.0 |
 | VL | trophy_position | 0 | — (no GT) | — | — |
 | VL | impact | 40 | 1.000 | 0.00 | 0.0 |
-| VL | follow_through_peak | 40 | 0.975 | 16.85 | 1.0 |
-| VL | recovery_position | 4 | 1.000 | 15.25 | 15.0 |
+| VL | follow_through_peak | 40 | 0.950 | 16.85 | 1.0 |
+| VL | recovery_position | 4 | 0.250 | 15.25 | 15.0 |
 
 ## GT coverage — keyframe ไหนมีเฉลยบ้าง
 
@@ -225,11 +225,11 @@ GT ไม่ได้ label ครบทุก keyframe ทุก stroke **โ�
 
 ## Sensitivity — ความผิดปกติใน GT เอง
 
-พบ label ที่ลำดับเวลาผิด 5 จุด (backswing อยู่หลัง/เท่ากับ impact, follow-through อยู่ก่อน impact, ไม่มี follow-through) — ตัวเลขเมื่อ null เฉพาะค่าที่ผิด (ไม่ตัด stroke ทั้งตัว): **0.935** (n=341)
+พบ label ที่ลำดับเวลาผิด 5 จุด (backswing อยู่หลัง/เท่ากับ impact, follow-through อยู่ก่อน impact, ไม่มี follow-through) — ตัวเลขเมื่อ null เฉพาะค่าที่ผิด (ไม่ตัด stroke ทั้งตัว): **0.848** (n=341)
 
 ## Failure analysis
 
-failures ทั้งหมด 58 · GT ที่ไม่มี prediction 0
+failures ทั้งหมด 128 · GT ที่ไม่มี prediction 0
 
 รายละเอียดเต็ม (per-stroke delta, error ต่อ keyframe, anomaly flags) ใน `docs/benchmark_keyframe_results.json`
 

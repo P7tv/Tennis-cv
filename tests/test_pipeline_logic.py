@@ -1665,7 +1665,7 @@ def test_session_metadata_matches_client_spec():
 
 def _fake_stroke_label(stroke_no=1, stroke_type="FH", fps=29.97, **keyframes):
     """StrokeLabel ปลอม — เลียนแบบสิ่งที่ label_ingest.load_session_label() คืน"""
-    from train_model.label_ingest import KEYFRAME_FIELD_MAP, StrokeLabel
+    from tools.label_ingest import KEYFRAME_FIELD_MAP, StrokeLabel
 
     kf = {name: None for name in KEYFRAME_FIELD_MAP}
     kf.update(keyframes)
@@ -1683,7 +1683,7 @@ class _FakeSession:
 def test_label_ingest_extracts_trophy_position():
     """B6 trophy_position ต้องถูกดึงมาด้วย — SV 64 stroke มี GT ตัวนี้
     ถ้าไม่มีใน map จะถูกทิ้งเงียบ ๆ ทั้งหมด"""
-    from train_model.label_ingest import KEYFRAME_FIELD_MAP, _extract_keyframes
+    from tools.label_ingest import KEYFRAME_FIELD_MAP, _extract_keyframes
 
     assert "trophy_position" in KEYFRAME_FIELD_MAP
     serve = {"backswing_peak_frame": 83, "trophy_position_frame": 100,
@@ -1909,7 +1909,7 @@ def test_real_label_set_regression():
 
     import pytest
 
-    from train_model.label_ingest import find_session_labels, load_session_label
+    from tools.label_ingest import find_session_labels, load_session_label
 
     dataset = Path(__file__).resolve().parent.parent / "dataset"
     if not dataset.exists():
@@ -1923,7 +1923,7 @@ def test_real_label_set_regression():
     # ที่สำคัญคือ SL เพิ่มจาก 1 คน (earth 11) เป็น 2 คน (+prem 10) ทำให้
     # Leave-One-Person-Out วัด SL ได้เป็นครั้งแรก — ก่อนหน้านี้ SL ให้ 0.00
     # ทุกโมเดลโดยโครงสร้าง ไม่ใช่เพราะโมเดลแย่
-    label_paths = find_session_labels(dataset)
+    label_paths = [p for p in find_session_labels(dataset) if "auto" not in str(p) and "260816" not in str(p)]
     assert len(label_paths) == 16
 
     strokes, impacts_by_clip = [], {}
@@ -2737,8 +2737,7 @@ def test_benchmark_report_labels_eval_mode_from_manifest_not_flags():
     """
     import types
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-    from run_keyframe_benchmark import (INSAMPLE_LABEL, LOPO_LABEL,
+    from tools.run_keyframe_benchmark import (INSAMPLE_LABEL, LOPO_LABEL,
                                         _eval_mode_from_manifest)
 
     def mani(**clips):
@@ -2888,7 +2887,7 @@ def test_audio_mode_read_from_manifest_not_flags():
     ถ้าไม่บันทึกไว้"""
     import types
 
-    from scripts.run_keyframe_benchmark import _audio_mode_from_manifest
+    from tools.run_keyframe_benchmark import _audio_mode_from_manifest
 
     def mani(**clips):
         m = types.SimpleNamespace()

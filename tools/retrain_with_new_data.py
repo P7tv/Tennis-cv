@@ -204,7 +204,7 @@ def main():
 
     # ── 2. tracking (ข้ามคลิปที่เคยทำแล้วอัตโนมัติ) ──
     if not args.skip_tracking:
-        run([PY, "scripts/run_keyframe_benchmark.py", "track",
+        run([PY, "tools/run_keyframe_benchmark.py", "track",
              "--dataset-root", str(root)],
             "รัน tracking คลิปใหม่ (ขั้นนี้ช้าที่สุด ~7 นาที/นาทีวิดีโอ)")
     else:
@@ -213,10 +213,10 @@ def main():
     # ── 3. เทรน + วัดผล ──
     results = {}
     for name, cmd, parser in (
-        ("hit", [PY, "scripts/train_hit_classifier_from_cache.py",
+        ("hit", [PY, "tools/train_hit_classifier_from_cache.py",
                  "--dataset-root", str(root), "--n-aug", str(args.n_aug)],
          parse_hit_score),
-        ("stroke", [PY, "scripts/train_stroke_classifier_from_cache.py",
+        ("stroke", [PY, "tools/train_stroke_classifier_from_cache.py",
                     "--dataset-root", str(root)], parse_stroke_score),
     ):
         out = run(cmd, f"เทรน {name} classifier (ยังไม่เขียนทับ)")
@@ -263,10 +263,10 @@ def main():
             print(f"  {name:8s} ❌ ไม่เขียนทับ — โมเดลเดิมยังใช้อยู่")
             print(f"           (ถ้ายืนยันจะเขียนทับ ให้รันซ้ำด้วย --force)")
             continue
-        cmd = ([PY, "scripts/train_hit_classifier_from_cache.py",
+        cmd = ([PY, "tools/train_hit_classifier_from_cache.py",
                 "--dataset-root", str(root), "--n-aug", str(args.n_aug), "--save"]
                if name == "hit" else
-               [PY, "scripts/train_stroke_classifier_from_cache.py",
+               [PY, "tools/train_stroke_classifier_from_cache.py",
                 "--dataset-root", str(root), "--save"])
         run(cmd, f"บันทึกโมเดล {name}")
         history[name] = results[name]
@@ -283,7 +283,7 @@ def main():
     # ถ้า classifier เปลี่ยนแต่ตัวปรับไม่เปลี่ยน ตัวปรับจะเลื่อนตามรูปแบบความ
     # คลาดของโมเดลตัวเก่าที่ไม่มีอยู่แล้ว = ทำให้แย่ลง
     if decisions.get("hit"):
-        run([PY, "scripts/train_impact_refiner.py", "--dataset-root", str(root),
+        run([PY, "tools/train_impact_refiner.py", "--dataset-root", str(root),
              "--n-aug", str(args.n_aug), "--save"],
             "เทรนตัวปรับเฟรมปะทะใหม่ (เพราะ hit classifier เปลี่ยน)")
         print("  refiner ✅ เขียนทับแล้ว")

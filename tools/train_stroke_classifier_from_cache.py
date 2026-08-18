@@ -17,6 +17,7 @@
 ตัวนี้เดินผ่าน MetricsEngine เหมือน builder เป๊ะ แล้วเรียก
 classifier.build_stroke_features() ซึ่งเป็นแหล่งเดียวกับตอน inference
 """
+import json
 import argparse
 import pickle
 import sys
@@ -89,7 +90,8 @@ def build_rows(cache_dir: Path, dataset_root: Path) -> pd.DataFrame:
                 sp = _slice_pose_for_stroke(pose, s0, s1, cfg)
                 ekf = _build_engine_keyframes(kf, fps, s0)
                 blocks, _, _ = MetricsEngine(sp, ekf, cfg, "FH").compute()
-                feats = build_stroke_features(pose, imp, dom, blocks, kf)
+                feats = build_stroke_features(pose, imp, dom, blocks, kf,
+                                              fps=fps, shoulder_width=sw)
             except Exception as e:
                 print(f"  ข้าม {key}#{st.stroke_no}: {e}")
                 continue
@@ -130,13 +132,33 @@ def main():
     print(f"class ที่ให้ ML ตัดสิน (>= {MIN_CLASS_SAMPLES} ตัวอย่าง): "
           f"{sorted(supported)}")
 
-    # ── LOPO ──
+    # ── LOPO — ใช้ clip เป็น group สำหรับ auto labels (แต่ละคลิปเป็น fold แยก)
+    # สำหรับ manual labels ใช้ player_id ตามเดิม
+    groups = df.apply(
+        lambda r: r["clip"] if r["player"] == "auto" else r["player"], axis=1)
+    n_groups = groups.nunique()
+    print(f"LOPO groups: {n_groups} ({sorted(groups.unique())})")
+
+    ag_hyperparams = {
+        'GBM': [{'extra_trees': True, 'ag_args': {'name_suffix': 'XT'}}, {}],
+        'CAT': [{}],
+        'XGB': [{}],
+        'RF': [{'criterion': 'gini', 'ag_args': {'name_suffix': 'Gini'}},
+               {'criterion': 'entropy', 'ag_args': {'name_suffix': 'Entr'}}],
+        'XT': [{'criterion': 'gini', 'ag_args': {'name_suffix': 'Gini'}},
+               {'criterion': 'entropy', 'ag_args': {'name_suffix': 'Entr'}}],
+        'NN_TORCH': [{}],
+    }
+
     oof = pd.Series(index=df.index, dtype=object)
-    for tr, te in LeaveOneGroupOut().split(X, y, df["player"]):
+    for tr, te in LeaveOneGroupOut().split(X, y, groups):
         train_data = pd.DataFrame(X.iloc[tr])
         train_data["y"] = y.iloc[tr].values
         m = TabularPredictor(label="y", verbosity=0).fit(
-            train_data, presets='medium_quality', time_limit=30)
+            train_data, presets='medium_quality', time_limit=15,
+            hyperparameters=ag_hyperparams,
+            ag_args_ensemble={'enable_ray': False},
+            ag_args_fit={'enable_ray': False})
         
         test_data = pd.DataFrame(X.iloc[te])
         oof.iloc[te] = m.predict(test_data).values
@@ -161,12 +183,29 @@ def main():
     
     ag_out_dir = args.out.replace(".pkl", "_ag") if args.out.endswith(".pkl") else args.out + "_ag"
     clf = TabularPredictor(label="y", path=ag_out_dir, verbosity=2).fit(
-        train_data_full, presets='best_quality', time_limit=3600)
+        train_data_full, presets='medium_quality', time_limit=120,
+        hyperparameters=ag_hyperparams,
+        ag_args_ensemble={'enable_ray': False},
+        ag_args_fit={'enable_ray': False})
     
-    print("\nฟีเจอร์สำคัญ 8 อันดับ:")
+    print("\n=== ผลการประเมินโมเดลสุดท้าย (AutoGluon Model Evaluation) ===")
+    y_full_pred = clf.predict(train_data_full)
+    acc_full = float((y_full_pred == y).mean())
+    print(f"Full Dataset Accuracy: {acc_full:.3f}")
+    corner = "จริง|ทาย"
+    print(f"{corner:10s}" + "".join(f"{t:>6s}" for t in T) + "  recall")
+    for g in T:
+        sub = y_full_pred[y == g]
+        n = len(sub)
+        if not n:
+            continue
+        print(f"{g:10s}" + "".join(f"{int((sub == t).sum()):6d}" for t in T)
+              + f"  {float((sub == g).mean()):.3f} (n={n})")
+
+    print("\nฟีเจอร์สำคัญ 10 อันดับ (Top 10 Feature Importance):")
     try:
         imp = clf.feature_importance(train_data_full)
-        print(imp.head(8))
+        print(imp.head(10))
     except Exception as e:
         pass
 

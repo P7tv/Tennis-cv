@@ -1,11 +1,11 @@
 {
   "mode_a": {
-    "tolerance_frames": 30,
+    "tolerance_frames": 10,
     "per_stroke": {
       "BH": {
         "backswing_peak": {
           "n": 26,
-          "accuracy": 0.923,
+          "accuracy": 0.885,
           "mae_ms": 107.9,
           "mae_frames": 3.08,
           "median_frames": 1.0
@@ -26,14 +26,14 @@
         },
         "recovery_position": {
           "n": 19,
-          "accuracy": 0.895,
+          "accuracy": 0.474,
           "mae_ms": 458.6,
           "mae_frames": 13.83,
           "median_frames": 11.0
         },
         "unit_turn": {
           "n": 26,
-          "accuracy": 0.962,
+          "accuracy": 0.885,
           "mae_ms": 140.0,
           "mae_frames": 4.08,
           "median_frames": 3.0
@@ -42,14 +42,14 @@
       "FH": {
         "backswing_peak": {
           "n": 21,
-          "accuracy": 1.0,
+          "accuracy": 0.952,
           "mae_ms": 109.3,
           "mae_frames": 1.76,
           "median_frames": 1.0
         },
         "follow_through_peak": {
           "n": 21,
-          "accuracy": 1.0,
+          "accuracy": 0.952,
           "mae_ms": 118.0,
           "mae_frames": 3.33,
           "median_frames": 2.0
@@ -63,14 +63,14 @@
         },
         "recovery_position": {
           "n": 16,
-          "accuracy": 0.938,
+          "accuracy": 0.625,
           "mae_ms": 348.4,
           "mae_frames": 10.69,
           "median_frames": 5.0
         },
         "unit_turn": {
           "n": 21,
-          "accuracy": 1.0,
+          "accuracy": 0.762,
           "mae_ms": 193.7,
           "mae_frames": 7.1,
           "median_frames": 6.0
@@ -79,7 +79,7 @@
       "SL": {
         "backswing_peak": {
           "n": 21,
-          "accuracy": 0.905,
+          "accuracy": 0.857,
           "mae_ms": 116.4,
           "mae_frames": 3.53,
           "median_frames": 1.0
@@ -107,7 +107,7 @@
         },
         "unit_turn": {
           "n": 21,
-          "accuracy": 0.857,
+          "accuracy": 0.81,
           "mae_ms": 248.9,
           "mae_frames": 7.42,
           "median_frames": 6.0
@@ -116,14 +116,14 @@
       "SV": {
         "backswing_peak": {
           "n": 64,
-          "accuracy": 0.938,
+          "accuracy": 0.531,
           "mae_ms": 377.8,
           "mae_frames": 10.9,
           "median_frames": 5.5
         },
         "follow_through_peak": {
           "n": 64,
-          "accuracy": 0.969,
+          "accuracy": 0.781,
           "mae_ms": 236.3,
           "mae_frames": 5.89,
           "median_frames": 5.0
@@ -137,7 +137,7 @@
         },
         "trophy_position": {
           "n": 64,
-          "accuracy": 0.734,
+          "accuracy": 0.719,
           "mae_ms": 122.2,
           "mae_frames": 3.32,
           "median_frames": 2.0
@@ -146,7 +146,7 @@
       "VL": {
         "backswing_peak": {
           "n": 40,
-          "accuracy": 0.875,
+          "accuracy": 0.825,
           "mae_ms": 155.1,
           "mae_frames": 3.74,
           "median_frames": 2.0
@@ -167,29 +167,47 @@
         },
         "recovery_position": {
           "n": 4,
-          "accuracy": 1.0,
+          "accuracy": 0.25,
           "mae_ms": 480.5,
           "mae_frames": 12.25,
           "median_frames": 12.5
         },
         "unit_turn": {
           "n": 1,
-          "accuracy": 1.0,
+          "accuracy": 0.0,
           "mae_ms": 588.4,
           "mae_frames": 16.0,
           "median_frames": 16.0
         }
       }
     },
-    "acceptance_accuracy": 0.933,
+    "acceptance_accuracy": 0.843,
     "acceptance_n": 344,
     "missing_predictions": 0,
     "failures": [
       {
         "clip": "set2__IMG_0284__s01",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 1000.4
+      },
+      {
+        "clip": "set2__IMG_0284__s01",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 3336.7
+      },
+      {
+        "clip": "set2__IMG_0284__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 366.3
+      },
+      {
+        "clip": "set2__IMG_0284__s02",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 999.4
       },
       {
         "clip": "set2__IMG_0284__s02",
@@ -198,10 +216,76 @@
         "gt_ms": 9342.7
       },
       {
+        "clip": "set2__IMG_0284__s02",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 498.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s01",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 563.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s01",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 405.5
+      },
+      {
+        "clip": "set2__IMG_0300B1__s02",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 875.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 643.0
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 443.3
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 811.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s04",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 648.2
+      },
+      {
+        "clip": "set2__IMG_0300B1__s05",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 451.5
+      },
+      {
         "clip": "set2__IMG_0300B1__s06",
         "keyframe": "recovery_position",
         "reason": "off_by_ms",
         "error_ms": 1722.2
+      },
+      {
+        "clip": "set2__IMG_0300B1__s07",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 473.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s07",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 729.0
       },
       {
         "clip": "set2__IMG_0300B1__s08",
@@ -234,6 +318,42 @@
         "gt_ms": 36503.2
       },
       {
+        "clip": "set2__IMG_0300B1__s09",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 332.2
+      },
+      {
+        "clip": "set2__IMG_0300B1__s10",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 333.9
+      },
+      {
+        "clip": "set2__IMG_0300B1__s14",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 387.3
+      },
+      {
+        "clip": "set2__IMG_0300B1__s14",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 582.0
+      },
+      {
+        "clip": "set2__IMG_0300B1__s20",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 501.2
+      },
+      {
+        "clip": "set2__IMG_0300B1__s20",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 568.5
+      },
+      {
         "clip": "set2__IMG_0283B-VLbh__s01",
         "keyframe": "backswing_peak",
         "reason": "not_detected",
@@ -252,16 +372,118 @@
         "gt_ms": 1501.5
       },
       {
+        "clip": "set2__IMG_0283B-VLbh__s09",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 359.2
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s02",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 373.7
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s07",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 869.9
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s08",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 298.4
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s03",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 389.9
+      },
+      {
         "clip": "set4__IMG_0300B52(BH)__s04",
         "keyframe": "backswing_peak",
         "reason": "off_by_ms",
         "error_ms": 1213.6
       },
       {
+        "clip": "set4__IMG_0300B52(BH)__s05",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 382.4
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s01",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 489.2
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s02",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 478.2
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 428.4
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 446.8
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s05",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 467.3
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s06",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 443.6
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s07",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 461.7
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s08",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 446.1
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s09",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 489.8
+      },
+      {
         "clip": "set1__IMG_0266-SL__s04",
         "keyframe": "unit_turn",
         "reason": "off_by_ms",
         "error_ms": 1304.0
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 903.7
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s05",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 370.2
       },
       {
         "clip": "set3__IMG_0282(SL)__s06",
@@ -313,9 +535,27 @@
       },
       {
         "clip": "set2__IMG_0285A__s01",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 933.6
+      },
+      {
+        "clip": "set2__IMG_0285A__s01",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 5905.9
+      },
+      {
+        "clip": "set2__IMG_0285A__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 466.4
+      },
+      {
+        "clip": "set2__IMG_0285A__s02",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 966.3
       },
       {
         "clip": "set2__IMG_0285A__s02",
@@ -325,9 +565,27 @@
       },
       {
         "clip": "set2__IMG_0285A__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 931.8
+      },
+      {
+        "clip": "set2__IMG_0285A__s03",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 21421.4
+      },
+      {
+        "clip": "set2__IMG_0285A__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 431.3
+      },
+      {
+        "clip": "set2__IMG_0285A__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 964.5
       },
       {
         "clip": "set2__IMG_0285A__s04",
@@ -336,10 +594,28 @@
         "gt_ms": 27360.7
       },
       {
+        "clip": "set2__IMG_0285A__s04",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 464.0
+      },
+      {
+        "clip": "set2__IMG_0285A__s05",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 963.4
+      },
+      {
         "clip": "set2__IMG_0285A__s05",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 37370.7
+      },
+      {
+        "clip": "set2__IMG_0285A__s05",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 429.5
       },
       {
         "clip": "set2__IMG_0285A__s06",
@@ -352,6 +628,12 @@
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 43977.3
+      },
+      {
+        "clip": "set2__IMG_0285A__s06",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 428.8
       },
       {
         "clip": "set2__IMG_0285A__s07",
@@ -379,15 +661,39 @@
       },
       {
         "clip": "set2__IMG_0285A__s08",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 993.4
+      },
+      {
+        "clip": "set2__IMG_0285A__s08",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 68234.9
+      },
+      {
+        "clip": "set2__IMG_0285A__s08",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 426.1
+      },
+      {
+        "clip": "set2__IMG_0285A__s09",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 959.4
       },
       {
         "clip": "set2__IMG_0285A__s09",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 73673.7
+      },
+      {
+        "clip": "set2__IMG_0285A__s09",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 458.8
       },
       {
         "clip": "set2__IMG_0285A__s10",
@@ -402,10 +708,82 @@
         "gt_ms": 80981.0
       },
       {
+        "clip": "set2__IMG_0285A__s10",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 691.6
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 305.1
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s05",
+        "keyframe": "trophy_position",
+        "reason": "off_by_ms",
+        "error_ms": 335.3
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s11",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 1208.3
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s11",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 842.5
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s03",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 769.4
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s04",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 770.1
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s05",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 937.5
+      },
+      {
         "clip": "set3__IMG_0281(BH)__s06",
         "keyframe": "recovery_position",
         "reason": "off_by_ms",
         "error_ms": 1605.5
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s08",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 395.1
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s16",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 456.8
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s01",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 353.7
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s05",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 588.4
       },
       {
         "clip": "set3__IMG_0300B53-VL__s06",
@@ -487,9 +865,21 @@
       },
       {
         "clip": "set4__IMG_0300B6-SV1__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 310.8
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s03",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 41408.1
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s06",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 334.9
       },
       {
         "clip": "set4__IMG_0300B6-SV1__s09",
@@ -499,9 +889,39 @@
       },
       {
         "clip": "set4__IMG_0300B6-SV1__s10",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 441.5
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s10",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 117284.0
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s11",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 428.4
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 417.2
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 450.4
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 847.4
       },
       {
         "clip": "sessions_deferred__set4__IMG_0294(SV1)__s04",
@@ -577,33 +997,33 @@
       },
       "bad": {
         "n": 68,
-        "accuracy": 0.971
+        "accuracy": 0.853
       },
       "best": {
         "n": 22,
-        "accuracy": 0.909
+        "accuracy": 0.864
       },
       "good": {
         "n": 42,
-        "accuracy": 0.905
+        "accuracy": 0.833
       },
       "ok": {
         "n": 168,
-        "accuracy": 0.923
+        "accuracy": 0.821
       },
       "worst": {
         "n": 42,
-        "accuracy": 0.952
+        "accuracy": 0.905
       }
     }
   },
   "mode_a_matched": {
-    "tolerance_frames": 30,
+    "tolerance_frames": 10,
     "per_stroke": {
       "BH": {
         "backswing_peak": {
           "n": 25,
-          "accuracy": 0.96,
+          "accuracy": 0.92,
           "mae_ms": 107.9,
           "mae_frames": 3.08,
           "median_frames": 1.0
@@ -624,14 +1044,14 @@
         },
         "recovery_position": {
           "n": 18,
-          "accuracy": 0.944,
+          "accuracy": 0.5,
           "mae_ms": 458.6,
           "mae_frames": 13.83,
           "median_frames": 11.0
         },
         "unit_turn": {
           "n": 25,
-          "accuracy": 1.0,
+          "accuracy": 0.92,
           "mae_ms": 140.0,
           "mae_frames": 4.08,
           "median_frames": 3.0
@@ -640,14 +1060,14 @@
       "FH": {
         "backswing_peak": {
           "n": 21,
-          "accuracy": 1.0,
+          "accuracy": 0.952,
           "mae_ms": 109.3,
           "mae_frames": 1.76,
           "median_frames": 1.0
         },
         "follow_through_peak": {
           "n": 21,
-          "accuracy": 1.0,
+          "accuracy": 0.952,
           "mae_ms": 118.0,
           "mae_frames": 3.33,
           "median_frames": 2.0
@@ -661,14 +1081,14 @@
         },
         "recovery_position": {
           "n": 16,
-          "accuracy": 0.938,
+          "accuracy": 0.625,
           "mae_ms": 348.4,
           "mae_frames": 10.69,
           "median_frames": 5.0
         },
         "unit_turn": {
           "n": 21,
-          "accuracy": 1.0,
+          "accuracy": 0.762,
           "mae_ms": 193.7,
           "mae_frames": 7.1,
           "median_frames": 6.0
@@ -677,7 +1097,7 @@
       "SL": {
         "backswing_peak": {
           "n": 19,
-          "accuracy": 1.0,
+          "accuracy": 0.947,
           "mae_ms": 116.4,
           "mae_frames": 3.53,
           "median_frames": 1.0
@@ -705,7 +1125,7 @@
         },
         "unit_turn": {
           "n": 19,
-          "accuracy": 0.947,
+          "accuracy": 0.895,
           "mae_ms": 248.9,
           "mae_frames": 7.42,
           "median_frames": 6.0
@@ -714,14 +1134,14 @@
       "SV": {
         "backswing_peak": {
           "n": 62,
-          "accuracy": 0.968,
+          "accuracy": 0.548,
           "mae_ms": 377.8,
           "mae_frames": 10.9,
           "median_frames": 5.5
         },
         "follow_through_peak": {
           "n": 62,
-          "accuracy": 1.0,
+          "accuracy": 0.806,
           "mae_ms": 236.3,
           "mae_frames": 5.89,
           "median_frames": 5.0
@@ -735,7 +1155,7 @@
         },
         "trophy_position": {
           "n": 62,
-          "accuracy": 0.758,
+          "accuracy": 0.742,
           "mae_ms": 122.2,
           "mae_frames": 3.32,
           "median_frames": 2.0
@@ -744,7 +1164,7 @@
       "VL": {
         "backswing_peak": {
           "n": 35,
-          "accuracy": 1.0,
+          "accuracy": 0.943,
           "mae_ms": 155.1,
           "mae_frames": 3.74,
           "median_frames": 2.0
@@ -765,29 +1185,47 @@
         },
         "recovery_position": {
           "n": 4,
-          "accuracy": 1.0,
+          "accuracy": 0.25,
           "mae_ms": 480.5,
           "mae_frames": 12.25,
           "median_frames": 12.5
         },
         "unit_turn": {
           "n": 1,
-          "accuracy": 1.0,
+          "accuracy": 0.0,
           "mae_ms": 588.4,
           "mae_frames": 16.0,
           "median_frames": 16.0
         }
       }
     },
-    "acceptance_accuracy": 0.991,
+    "acceptance_accuracy": 0.895,
     "acceptance_n": 324,
     "missing_predictions": 0,
     "failures": [
       {
         "clip": "set2__IMG_0284__s01",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 1000.4
+      },
+      {
+        "clip": "set2__IMG_0284__s01",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 3336.7
+      },
+      {
+        "clip": "set2__IMG_0284__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 366.3
+      },
+      {
+        "clip": "set2__IMG_0284__s02",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 999.4
       },
       {
         "clip": "set2__IMG_0284__s02",
@@ -796,10 +1234,142 @@
         "gt_ms": 9342.7
       },
       {
+        "clip": "set2__IMG_0284__s02",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 498.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s01",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 563.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s01",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 405.5
+      },
+      {
+        "clip": "set2__IMG_0300B1__s02",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 875.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 643.0
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 443.3
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 811.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s04",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 648.2
+      },
+      {
+        "clip": "set2__IMG_0300B1__s05",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 451.5
+      },
+      {
         "clip": "set2__IMG_0300B1__s06",
         "keyframe": "recovery_position",
         "reason": "off_by_ms",
         "error_ms": 1722.2
+      },
+      {
+        "clip": "set2__IMG_0300B1__s07",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 473.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s07",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 729.0
+      },
+      {
+        "clip": "set2__IMG_0300B1__s09",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 332.2
+      },
+      {
+        "clip": "set2__IMG_0300B1__s10",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 333.9
+      },
+      {
+        "clip": "set2__IMG_0300B1__s14",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 387.3
+      },
+      {
+        "clip": "set2__IMG_0300B1__s14",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 582.0
+      },
+      {
+        "clip": "set2__IMG_0300B1__s20",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 501.2
+      },
+      {
+        "clip": "set2__IMG_0300B1__s20",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 568.5
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s09",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 359.2
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s02",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 373.7
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s07",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 869.9
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s08",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 298.4
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s03",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 389.9
       },
       {
         "clip": "set4__IMG_0300B52(BH)__s04",
@@ -808,16 +1378,106 @@
         "error_ms": 1213.6
       },
       {
+        "clip": "set4__IMG_0300B52(BH)__s05",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 382.4
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s01",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 489.2
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s02",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 478.2
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 428.4
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 446.8
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s05",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 467.3
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s06",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 443.6
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s07",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 461.7
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s08",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 446.1
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s09",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 489.8
+      },
+      {
         "clip": "set1__IMG_0266-SL__s04",
         "keyframe": "unit_turn",
         "reason": "off_by_ms",
         "error_ms": 1304.0
       },
       {
+        "clip": "set1__IMG_0266-SL__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 903.7
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s05",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 370.2
+      },
+      {
+        "clip": "set2__IMG_0285A__s01",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 933.6
+      },
+      {
         "clip": "set2__IMG_0285A__s01",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 5905.9
+      },
+      {
+        "clip": "set2__IMG_0285A__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 466.4
+      },
+      {
+        "clip": "set2__IMG_0285A__s02",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 966.3
       },
       {
         "clip": "set2__IMG_0285A__s02",
@@ -827,9 +1487,27 @@
       },
       {
         "clip": "set2__IMG_0285A__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 931.8
+      },
+      {
+        "clip": "set2__IMG_0285A__s03",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 21421.4
+      },
+      {
+        "clip": "set2__IMG_0285A__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 431.3
+      },
+      {
+        "clip": "set2__IMG_0285A__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 964.5
       },
       {
         "clip": "set2__IMG_0285A__s04",
@@ -838,10 +1516,28 @@
         "gt_ms": 27360.7
       },
       {
+        "clip": "set2__IMG_0285A__s04",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 464.0
+      },
+      {
+        "clip": "set2__IMG_0285A__s05",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 963.4
+      },
+      {
         "clip": "set2__IMG_0285A__s05",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 37370.7
+      },
+      {
+        "clip": "set2__IMG_0285A__s05",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 429.5
       },
       {
         "clip": "set2__IMG_0285A__s06",
@@ -856,16 +1552,46 @@
         "gt_ms": 43977.3
       },
       {
+        "clip": "set2__IMG_0285A__s06",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 428.8
+      },
+      {
+        "clip": "set2__IMG_0285A__s08",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 993.4
+      },
+      {
         "clip": "set2__IMG_0285A__s08",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 68234.9
       },
       {
+        "clip": "set2__IMG_0285A__s08",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 426.1
+      },
+      {
+        "clip": "set2__IMG_0285A__s09",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 959.4
+      },
+      {
         "clip": "set2__IMG_0285A__s09",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 73673.7
+      },
+      {
+        "clip": "set2__IMG_0285A__s09",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 458.8
       },
       {
         "clip": "set2__IMG_0285A__s10",
@@ -880,10 +1606,82 @@
         "gt_ms": 80981.0
       },
       {
+        "clip": "set2__IMG_0285A__s10",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 691.6
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 305.1
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s05",
+        "keyframe": "trophy_position",
+        "reason": "off_by_ms",
+        "error_ms": 335.3
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s11",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 1208.3
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s11",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 842.5
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s03",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 769.4
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s04",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 770.1
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s05",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 937.5
+      },
+      {
         "clip": "set3__IMG_0281(BH)__s06",
         "keyframe": "recovery_position",
         "reason": "off_by_ms",
         "error_ms": 1605.5
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s08",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 395.1
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s16",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 456.8
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s01",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 353.7
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s05",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 588.4
       },
       {
         "clip": "set3__IMG_0300B53-VL__s07",
@@ -893,9 +1691,21 @@
       },
       {
         "clip": "set4__IMG_0300B6-SV1__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 310.8
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s03",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 41408.1
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s06",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 334.9
       },
       {
         "clip": "set4__IMG_0300B6-SV1__s09",
@@ -905,9 +1715,39 @@
       },
       {
         "clip": "set4__IMG_0300B6-SV1__s10",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 441.5
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s10",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 117284.0
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s11",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 428.4
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 417.2
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 450.4
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 847.4
       },
       {
         "clip": "sessions_deferred__set4__IMG_0294(SV1)__s04",
@@ -959,28 +1799,28 @@
       },
       "bad": {
         "n": 66,
-        "accuracy": 1.0
+        "accuracy": 0.879
       },
       "best": {
         "n": 20,
-        "accuracy": 1.0
+        "accuracy": 0.95
       },
       "good": {
         "n": 38,
-        "accuracy": 1.0
+        "accuracy": 0.921
       },
       "ok": {
         "n": 158,
-        "accuracy": 0.981
+        "accuracy": 0.873
       },
       "worst": {
         "n": 40,
-        "accuracy": 1.0
+        "accuracy": 0.95
       }
     }
   },
   "mode_b": {
-    "tolerance_frames": 30,
+    "tolerance_frames": 10,
     "per_stroke": {
       "BH": {
         "backswing_peak": {
@@ -1006,7 +1846,7 @@
         },
         "recovery_position": {
           "n": 19,
-          "accuracy": 0.947,
+          "accuracy": 0.474,
           "mae_ms": 452.1,
           "mae_frames": 13.58,
           "median_frames": 11.0
@@ -1043,14 +1883,14 @@
         },
         "recovery_position": {
           "n": 16,
-          "accuracy": 0.938,
+          "accuracy": 0.688,
           "mae_ms": 334.3,
           "mae_frames": 9.94,
           "median_frames": 3.5
         },
         "unit_turn": {
           "n": 21,
-          "accuracy": 1.0,
+          "accuracy": 0.762,
           "mae_ms": 195.4,
           "mae_frames": 7.1,
           "median_frames": 7.0
@@ -1087,7 +1927,7 @@
         },
         "unit_turn": {
           "n": 21,
-          "accuracy": 1.0,
+          "accuracy": 0.952,
           "mae_ms": 181.1,
           "mae_frames": 5.33,
           "median_frames": 6.0
@@ -1096,14 +1936,14 @@
       "SV": {
         "backswing_peak": {
           "n": 64,
-          "accuracy": 1.0,
+          "accuracy": 0.609,
           "mae_ms": 339.8,
           "mae_frames": 9.72,
           "median_frames": 4.0
         },
         "follow_through_peak": {
           "n": 64,
-          "accuracy": 1.0,
+          "accuracy": 0.859,
           "mae_ms": 204.7,
           "mae_frames": 4.8,
           "median_frames": 4.0
@@ -1117,7 +1957,7 @@
         },
         "trophy_position": {
           "n": 64,
-          "accuracy": 0.797,
+          "accuracy": 0.781,
           "mae_ms": 109.0,
           "mae_frames": 2.59,
           "median_frames": 2.0
@@ -1126,14 +1966,14 @@
       "VL": {
         "backswing_peak": {
           "n": 40,
-          "accuracy": 1.0,
+          "accuracy": 0.925,
           "mae_ms": 134.6,
           "mae_frames": 3.05,
           "median_frames": 2.0
         },
         "follow_through_peak": {
           "n": 40,
-          "accuracy": 0.975,
+          "accuracy": 0.95,
           "mae_ms": 589.0,
           "mae_frames": 16.85,
           "median_frames": 1.0
@@ -1147,24 +1987,30 @@
         },
         "recovery_position": {
           "n": 4,
-          "accuracy": 1.0,
+          "accuracy": 0.25,
           "mae_ms": 580.5,
           "mae_frames": 15.25,
           "median_frames": 15.0
         },
         "unit_turn": {
           "n": 1,
-          "accuracy": 1.0,
+          "accuracy": 0.0,
           "mae_ms": 655.0,
           "mae_frames": 18.0,
           "median_frames": 18.0
         }
       }
     },
-    "acceptance_accuracy": 0.997,
+    "acceptance_accuracy": 0.916,
     "acceptance_n": 344,
     "missing_predictions": 0,
     "failures": [
+      {
+        "clip": "set2__IMG_0284__s01",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 933.7
+      },
       {
         "clip": "set2__IMG_0284__s01",
         "keyframe": "trophy_position",
@@ -1173,9 +2019,45 @@
       },
       {
         "clip": "set2__IMG_0284__s02",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 966.1
+      },
+      {
+        "clip": "set2__IMG_0284__s02",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 9342.7
+      },
+      {
+        "clip": "set2__IMG_0284__s02",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 465.5
+      },
+      {
+        "clip": "set2__IMG_0300B1__s01",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 630.4
+      },
+      {
+        "clip": "set2__IMG_0300B1__s02",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 842.5
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 478.4
+      },
+      {
+        "clip": "set2__IMG_0300B1__s05",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 418.2
       },
       {
         "clip": "set2__IMG_0300B1__s06",
@@ -1184,16 +2066,172 @@
         "error_ms": 1688.9
       },
       {
+        "clip": "set2__IMG_0300B1__s07",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 507.2
+      },
+      {
+        "clip": "set2__IMG_0300B1__s07",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 695.7
+      },
+      {
+        "clip": "set2__IMG_0300B1__s08",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 833.6
+      },
+      {
+        "clip": "set2__IMG_0300B1__s09",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 365.5
+      },
+      {
+        "clip": "set2__IMG_0300B1__s10",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 300.5
+      },
+      {
+        "clip": "set2__IMG_0300B1__s14",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 353.9
+      },
+      {
+        "clip": "set2__IMG_0300B1__s14",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 615.3
+      },
+      {
+        "clip": "set2__IMG_0283B-VLbh__s09",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 224.6
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s02",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 609.0
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s07",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 668.2
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s08",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 365.7
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s03",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 423.2
+      },
+      {
         "clip": "set4__IMG_0300B52(BH)__s04",
         "keyframe": "backswing_peak",
         "reason": "off_by_ms",
         "error_ms": 1180.3
       },
       {
+        "clip": "set4__IMG_0300B52(BH)__s04",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 352.8
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s01",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 522.6
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s02",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 511.6
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 428.4
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 446.8
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s05",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 433.8
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s06",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 410.2
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s07",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 394.9
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s08",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 345.8
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s09",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 389.5
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s05",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 370.2
+      },
+      {
+        "clip": "set2__IMG_0285A__s01",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 866.8
+      },
+      {
         "clip": "set2__IMG_0285A__s01",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 5905.9
+      },
+      {
+        "clip": "set2__IMG_0285A__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 466.4
+      },
+      {
+        "clip": "set2__IMG_0285A__s02",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 899.6
       },
       {
         "clip": "set2__IMG_0285A__s02",
@@ -1203,9 +2241,33 @@
       },
       {
         "clip": "set2__IMG_0285A__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 898.5
+      },
+      {
+        "clip": "set2__IMG_0285A__s03",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 21421.4
+      },
+      {
+        "clip": "set2__IMG_0285A__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 364.6
+      },
+      {
+        "clip": "set2__IMG_0285A__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 897.8
+      },
+      {
+        "clip": "set2__IMG_0285A__s05",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 896.7
       },
       {
         "clip": "set2__IMG_0285A__s05",
@@ -1214,10 +2276,34 @@
         "gt_ms": 37370.7
       },
       {
+        "clip": "set2__IMG_0285A__s05",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 362.8
+      },
+      {
+        "clip": "set2__IMG_0285A__s06",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 996.1
+      },
+      {
         "clip": "set2__IMG_0285A__s06",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 43977.3
+      },
+      {
+        "clip": "set2__IMG_0285A__s06",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 362.0
+      },
+      {
+        "clip": "set2__IMG_0285A__s07",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 895.3
       },
       {
         "clip": "set2__IMG_0285A__s07",
@@ -1226,10 +2312,34 @@
         "gt_ms": 50183.5
       },
       {
+        "clip": "set2__IMG_0285A__s07",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 394.7
+      },
+      {
+        "clip": "set2__IMG_0285A__s08",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 926.6
+      },
+      {
         "clip": "set2__IMG_0285A__s08",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 68234.9
+      },
+      {
+        "clip": "set2__IMG_0285A__s08",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 359.3
+      },
+      {
+        "clip": "set2__IMG_0285A__s09",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 892.7
       },
       {
         "clip": "set2__IMG_0285A__s09",
@@ -1238,10 +2348,58 @@
         "gt_ms": 73673.7
       },
       {
+        "clip": "set2__IMG_0285A__s09",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 392.1
+      },
+      {
+        "clip": "set2__IMG_0285A__s10",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 925.2
+      },
+      {
         "clip": "set2__IMG_0285A__s10",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 80981.0
+      },
+      {
+        "clip": "set2__IMG_0285A__s10",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 458.0
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 305.1
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s05",
+        "keyframe": "trophy_position",
+        "reason": "off_by_ms",
+        "error_ms": 301.9
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s03",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 769.4
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s04",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 770.1
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s05",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 904.2
       },
       {
         "clip": "set3__IMG_0281(BH)__s06",
@@ -1250,10 +2408,52 @@
         "error_ms": 1605.5
       },
       {
+        "clip": "set3__IMG_0281(BH)__s08",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 428.4
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s16",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 456.8
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s01",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 678.6
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s01",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 620.3
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s05",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 655.0
+      },
+      {
         "clip": "set3__IMG_0300B53-VL__s07",
         "keyframe": "follow_through_peak",
         "reason": "off_by_ms",
         "error_ms": 19570.6
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s11",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 267.7
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s08",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 395.6
       },
       {
         "clip": "set4__IMG_0300B6-SV1__s08",
@@ -1263,9 +2463,21 @@
       },
       {
         "clip": "set4__IMG_0300B6-SV1__s10",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 441.5
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s10",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 117284.0
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s11",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 428.4
       }
     ],
     "coverage": {
@@ -1311,19 +2523,19 @@
       },
       "bad": {
         "n": 68,
-        "accuracy": 1.0
+        "accuracy": 0.926
       },
       "best": {
         "n": 22,
-        "accuracy": 1.0
+        "accuracy": 0.955
       },
       "good": {
         "n": 42,
-        "accuracy": 1.0
+        "accuracy": 0.929
       },
       "ok": {
         "n": 168,
-        "accuracy": 0.994
+        "accuracy": 0.881
       },
       "worst": {
         "n": 42,
@@ -5604,12 +6816,12 @@
     ]
   },
   "sensitivity": {
-    "tolerance_frames": 30,
+    "tolerance_frames": 10,
     "per_stroke": {
       "BH": {
         "backswing_peak": {
           "n": 25,
-          "accuracy": 0.96,
+          "accuracy": 0.92,
           "mae_ms": 61.8,
           "mae_frames": 1.71,
           "median_frames": 1.0
@@ -5630,14 +6842,14 @@
         },
         "recovery_position": {
           "n": 19,
-          "accuracy": 0.895,
+          "accuracy": 0.474,
           "mae_ms": 458.6,
           "mae_frames": 13.83,
           "median_frames": 11.0
         },
         "unit_turn": {
           "n": 26,
-          "accuracy": 0.962,
+          "accuracy": 0.885,
           "mae_ms": 140.0,
           "mae_frames": 4.08,
           "median_frames": 3.0
@@ -5646,14 +6858,14 @@
       "FH": {
         "backswing_peak": {
           "n": 21,
-          "accuracy": 1.0,
+          "accuracy": 0.952,
           "mae_ms": 109.3,
           "mae_frames": 1.76,
           "median_frames": 1.0
         },
         "follow_through_peak": {
           "n": 21,
-          "accuracy": 1.0,
+          "accuracy": 0.952,
           "mae_ms": 118.0,
           "mae_frames": 3.33,
           "median_frames": 2.0
@@ -5667,14 +6879,14 @@
         },
         "recovery_position": {
           "n": 16,
-          "accuracy": 0.938,
+          "accuracy": 0.625,
           "mae_ms": 348.4,
           "mae_frames": 10.69,
           "median_frames": 5.0
         },
         "unit_turn": {
           "n": 21,
-          "accuracy": 1.0,
+          "accuracy": 0.762,
           "mae_ms": 193.7,
           "mae_frames": 7.1,
           "median_frames": 6.0
@@ -5683,7 +6895,7 @@
       "SL": {
         "backswing_peak": {
           "n": 21,
-          "accuracy": 0.905,
+          "accuracy": 0.857,
           "mae_ms": 116.4,
           "mae_frames": 3.53,
           "median_frames": 1.0
@@ -5711,7 +6923,7 @@
         },
         "unit_turn": {
           "n": 21,
-          "accuracy": 0.857,
+          "accuracy": 0.81,
           "mae_ms": 248.9,
           "mae_frames": 7.42,
           "median_frames": 6.0
@@ -5720,14 +6932,14 @@
       "SV": {
         "backswing_peak": {
           "n": 64,
-          "accuracy": 0.938,
+          "accuracy": 0.531,
           "mae_ms": 377.8,
           "mae_frames": 10.9,
           "median_frames": 5.5
         },
         "follow_through_peak": {
           "n": 64,
-          "accuracy": 0.969,
+          "accuracy": 0.781,
           "mae_ms": 236.3,
           "mae_frames": 5.89,
           "median_frames": 5.0
@@ -5741,7 +6953,7 @@
         },
         "trophy_position": {
           "n": 64,
-          "accuracy": 0.734,
+          "accuracy": 0.719,
           "mae_ms": 122.2,
           "mae_frames": 3.32,
           "median_frames": 2.0
@@ -5750,7 +6962,7 @@
       "VL": {
         "backswing_peak": {
           "n": 38,
-          "accuracy": 0.868,
+          "accuracy": 0.842,
           "mae_ms": 150.0,
           "mae_frames": 3.39,
           "median_frames": 2.0
@@ -5771,29 +6983,47 @@
         },
         "recovery_position": {
           "n": 4,
-          "accuracy": 1.0,
+          "accuracy": 0.25,
           "mae_ms": 480.5,
           "mae_frames": 12.25,
           "median_frames": 12.5
         },
         "unit_turn": {
           "n": 1,
-          "accuracy": 1.0,
+          "accuracy": 0.0,
           "mae_ms": 588.4,
           "mae_frames": 16.0,
           "median_frames": 16.0
         }
       }
     },
-    "acceptance_accuracy": 0.935,
+    "acceptance_accuracy": 0.848,
     "acceptance_n": 341,
     "missing_predictions": 0,
     "failures": [
       {
         "clip": "set2__IMG_0284__s01",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 1000.4
+      },
+      {
+        "clip": "set2__IMG_0284__s01",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 3336.7
+      },
+      {
+        "clip": "set2__IMG_0284__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 366.3
+      },
+      {
+        "clip": "set2__IMG_0284__s02",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 999.4
       },
       {
         "clip": "set2__IMG_0284__s02",
@@ -5802,10 +7032,76 @@
         "gt_ms": 9342.7
       },
       {
+        "clip": "set2__IMG_0284__s02",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 498.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s01",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 563.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s01",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 405.5
+      },
+      {
+        "clip": "set2__IMG_0300B1__s02",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 875.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 643.0
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 443.3
+      },
+      {
+        "clip": "set2__IMG_0300B1__s03",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 811.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s04",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 648.2
+      },
+      {
+        "clip": "set2__IMG_0300B1__s05",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 451.5
+      },
+      {
         "clip": "set2__IMG_0300B1__s06",
         "keyframe": "recovery_position",
         "reason": "off_by_ms",
         "error_ms": 1722.2
+      },
+      {
+        "clip": "set2__IMG_0300B1__s07",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 473.8
+      },
+      {
+        "clip": "set2__IMG_0300B1__s07",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 729.0
       },
       {
         "clip": "set2__IMG_0300B1__s08",
@@ -5838,6 +7134,42 @@
         "gt_ms": 36503.2
       },
       {
+        "clip": "set2__IMG_0300B1__s09",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 332.2
+      },
+      {
+        "clip": "set2__IMG_0300B1__s10",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 333.9
+      },
+      {
+        "clip": "set2__IMG_0300B1__s14",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 387.3
+      },
+      {
+        "clip": "set2__IMG_0300B1__s14",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 582.0
+      },
+      {
+        "clip": "set2__IMG_0300B1__s20",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 501.2
+      },
+      {
+        "clip": "set2__IMG_0300B1__s20",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 568.5
+      },
+      {
         "clip": "set2__IMG_0283B-VLbh__s01",
         "keyframe": "backswing_peak",
         "reason": "not_detected",
@@ -5856,10 +7188,106 @@
         "gt_ms": 1501.5
       },
       {
+        "clip": "set4__IMG_0300A4(VL)__s02",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 373.7
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s07",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 869.9
+      },
+      {
+        "clip": "set4__IMG_0300A4(VL)__s08",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 298.4
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s03",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 389.9
+      },
+      {
+        "clip": "set4__IMG_0300B52(BH)__s05",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 382.4
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s01",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 489.2
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s02",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 478.2
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 428.4
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 446.8
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s05",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 467.3
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s06",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 443.6
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s07",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 461.7
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s08",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 446.1
+      },
+      {
+        "clip": "set4__IMG_0301A2(SV1)__s09",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 489.8
+      },
+      {
         "clip": "set1__IMG_0266-SL__s04",
         "keyframe": "unit_turn",
         "reason": "off_by_ms",
         "error_ms": 1304.0
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 903.7
+      },
+      {
+        "clip": "set1__IMG_0266-SL__s05",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 370.2
       },
       {
         "clip": "set3__IMG_0282(SL)__s06",
@@ -5911,9 +7339,27 @@
       },
       {
         "clip": "set2__IMG_0285A__s01",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 933.6
+      },
+      {
+        "clip": "set2__IMG_0285A__s01",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 5905.9
+      },
+      {
+        "clip": "set2__IMG_0285A__s01",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 466.4
+      },
+      {
+        "clip": "set2__IMG_0285A__s02",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 966.3
       },
       {
         "clip": "set2__IMG_0285A__s02",
@@ -5923,9 +7369,27 @@
       },
       {
         "clip": "set2__IMG_0285A__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 931.8
+      },
+      {
+        "clip": "set2__IMG_0285A__s03",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 21421.4
+      },
+      {
+        "clip": "set2__IMG_0285A__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 431.3
+      },
+      {
+        "clip": "set2__IMG_0285A__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 964.5
       },
       {
         "clip": "set2__IMG_0285A__s04",
@@ -5934,10 +7398,28 @@
         "gt_ms": 27360.7
       },
       {
+        "clip": "set2__IMG_0285A__s04",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 464.0
+      },
+      {
+        "clip": "set2__IMG_0285A__s05",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 963.4
+      },
+      {
         "clip": "set2__IMG_0285A__s05",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 37370.7
+      },
+      {
+        "clip": "set2__IMG_0285A__s05",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 429.5
       },
       {
         "clip": "set2__IMG_0285A__s06",
@@ -5950,6 +7432,12 @@
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 43977.3
+      },
+      {
+        "clip": "set2__IMG_0285A__s06",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 428.8
       },
       {
         "clip": "set2__IMG_0285A__s07",
@@ -5977,15 +7465,39 @@
       },
       {
         "clip": "set2__IMG_0285A__s08",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 993.4
+      },
+      {
+        "clip": "set2__IMG_0285A__s08",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 68234.9
+      },
+      {
+        "clip": "set2__IMG_0285A__s08",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 426.1
+      },
+      {
+        "clip": "set2__IMG_0285A__s09",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 959.4
       },
       {
         "clip": "set2__IMG_0285A__s09",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 73673.7
+      },
+      {
+        "clip": "set2__IMG_0285A__s09",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 458.8
       },
       {
         "clip": "set2__IMG_0285A__s10",
@@ -6000,10 +7512,82 @@
         "gt_ms": 80981.0
       },
       {
+        "clip": "set2__IMG_0285A__s10",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 691.6
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 305.1
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s05",
+        "keyframe": "trophy_position",
+        "reason": "off_by_ms",
+        "error_ms": 335.3
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s11",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 1208.3
+      },
+      {
+        "clip": "set3__IMG_0301A4(SV1)__s11",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 842.5
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s03",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 769.4
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s04",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 770.1
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s05",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 937.5
+      },
+      {
         "clip": "set3__IMG_0281(BH)__s06",
         "keyframe": "recovery_position",
         "reason": "off_by_ms",
         "error_ms": 1605.5
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s08",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 395.1
+      },
+      {
+        "clip": "set3__IMG_0281(BH)__s16",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 456.8
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s01",
+        "keyframe": "recovery_position",
+        "reason": "off_by_ms",
+        "error_ms": 353.7
+      },
+      {
+        "clip": "set3__IMG_0300B53-VL__s05",
+        "keyframe": "unit_turn",
+        "reason": "off_by_ms",
+        "error_ms": 588.4
       },
       {
         "clip": "set3__IMG_0300B53-VL__s06",
@@ -6079,9 +7663,21 @@
       },
       {
         "clip": "set4__IMG_0300B6-SV1__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 310.8
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s03",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 41408.1
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s06",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 334.9
       },
       {
         "clip": "set4__IMG_0300B6-SV1__s09",
@@ -6091,9 +7687,39 @@
       },
       {
         "clip": "set4__IMG_0300B6-SV1__s10",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 441.5
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s10",
         "keyframe": "trophy_position",
         "reason": "not_detected",
         "gt_ms": 117284.0
+      },
+      {
+        "clip": "set4__IMG_0300B6-SV1__s11",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 428.4
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s03",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 417.2
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s03",
+        "keyframe": "follow_through_peak",
+        "reason": "off_by_ms",
+        "error_ms": 450.4
+      },
+      {
+        "clip": "sessions_deferred__set4__IMG_0294(SV1)__s04",
+        "keyframe": "backswing_peak",
+        "reason": "off_by_ms",
+        "error_ms": 847.4
       },
       {
         "clip": "sessions_deferred__set4__IMG_0294(SV1)__s04",
@@ -6144,9 +7770,9 @@
     "fps": "29.97",
     "total_minutes": 31.3,
     "checkpoint": "runs/pose/tennis_ball_racket_pose_finetune_best.pt",
-    "git_sha": "da049de",
-    "run_date": "2026-08-15 17:36",
-    "accuracy_tolerance": 30,
+    "git_sha": "8249aba",
+    "run_date": "2026-08-17 21:18",
+    "accuracy_tolerance": 10,
     "match_tolerance": 10,
     "hit_model_eval": "in-sample (โมเดลเทรนจากคลิปเดียวกับที่วัด)",
     "impact_audio_refine": "เปิด (ปรับเฟรมปะทะด้วยเสียง)"

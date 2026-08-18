@@ -368,7 +368,31 @@ if tracks:
     if st.session_state.hit_events is not None:
         if len(st.session_state.hit_events) > 0:
             import pandas as pd
-            df_hits = pd.DataFrame(st.session_state.hit_events)
+            
+            # --- Add Stroke Type Classification for UI ---
+            display_events = []
+            if "tracks" in st.session_state and st.session_state.tracks:
+                from loeuf_cv.schema_builder.classifier import classify_stroke_with_confidence
+                from loeuf_cv.config import PipelineConfig
+                cfg = PipelineConfig()
+                for hit in st.session_state.hit_events:
+                    hit_copy = hit.copy()
+                    track = next((t for t in st.session_state.tracks if t.track_id == hit["player_id"]), None)
+                    if track:
+                        try:
+                            stype, conf = classify_stroke_with_confidence(
+                                track.pose, int(hit["frame"]), cfg.dominant_side)
+                            hit_copy["Stroke Type"] = f"{stype} ({int(conf*100)}%)"
+                        except Exception:
+                            hit_copy["Stroke Type"] = "Unknown"
+                    else:
+                        hit_copy["Stroke Type"] = "Unknown"
+                    display_events.append(hit_copy)
+            else:
+                display_events = st.session_state.hit_events
+            # ---------------------------------------------
+            
+            df_hits = pd.DataFrame(display_events)
             st.dataframe(df_hits, use_container_width=True)
             
             # Mini Court Map

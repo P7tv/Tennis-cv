@@ -16,7 +16,13 @@ tennis-ball-racket-pose/
 hit_candidates.csv
 dataset/
 *.pkl
+!stroke_classifier_ag/**/*.pkl
+!stroke_classifier_ag/*.pkl
 dist/
 _incoming/
 .audio_cache/
 venv/
+AutogluonModels/
+retrain_out.txt
+my_train_swingspeed.txt
+hit_classifier_ag/

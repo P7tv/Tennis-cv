@@ -61,6 +61,13 @@ def _extract_keyframes(stroke: dict) -> dict[str, int | None]:
     }
 
 
+def _remap_player_id(pid: str | None) -> str | None:
+    """Hook สำหรับ remap player_id — ปัจจุบันไม่ remap อะไร
+    แต่ training script จะใช้ clip name เป็น group key สำหรับ auto labels
+    เพื่อให้ LOPO มี fold ย่อยๆ แทนก้อนใหญ่ 245 stroke"""
+    return pid
+
+
 def load_session_label(label_path: Path) -> SessionLabel:
     """อ่าน label json 1 ไฟล์ + resolve path วิดีโอ (คาดว่าอยู่โฟลเดอร์เดียวกัน)"""
     data = json.loads(label_path.read_text(encoding="utf-8"))
@@ -84,7 +91,7 @@ def load_session_label(label_path: Path) -> SessionLabel:
         strokes.append(StrokeLabel(
             clip_id=s.get("clip_id", label_path.stem),
             stroke_no=s.get("stroke_no", 0),
-            player_id=s.get("player_id"),
+            player_id=_remap_player_id(s.get("player_id")),
             stroke_type=s.get("stroke_type"),
             fps=s.get("fps", 30.0),
             usable=True,

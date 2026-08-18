@@ -374,7 +374,7 @@ def main():
     
     ag_out_dir = args.out.replace(".pkl", "_ag") if args.out.endswith(".pkl") else args.out + "_ag"
     predictor = TabularPredictor(label="is_hit", path=ag_out_dir, verbosity=2)
-    predictor.fit(train_data_full, presets='best_quality', time_limit=3600, 
+    predictor.fit(train_data_full, presets='best_quality', time_limit=60, 
                   ag_args_ensemble={'fold_fitting_strategy': 'sequential_local'})
     
     print("\nความสำคัญของฟีเจอร์:")
